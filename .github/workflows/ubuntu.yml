@@ -1,0 +1,118 @@
+name: build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build_gdal:
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        gdal: [ 'release/3.2', 'master' ]
+    name: GDAL ${{ matrix.gdal }} build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: optgdal
+        run: sudo mkdir /optgdal && sudo chown -R $USER /optgdal
+      - name: cache gdal lib
+        id: cache-gdal
+        uses: actions/cache@v2
+        with:
+          path: /optgdal
+          key: ${{ runner.os }}-gdal-${{ matrix.gdal }}-${{ hashFiles('.github/workflows/build-gdal.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-gdal-${{ matrix.gdal }}-${{ hashFiles('.github/workflows/build-gdal.sh') }}
+      - name: Build GDAL
+        if: steps.cache-gdal.outputs.cache-hit != 'true'
+        run: sudo .github/workflows/build-gdal.sh ${{ matrix.gdal }}
+
+  init:
+    runs-on: ubuntu-20.04
+    outputs:
+      lint_reporter: ${{ steps.setvars.outputs.lint_reporter }}
+    steps:
+      - name: Set variables
+        id: setvars
+        run: |
+          if [[ "${{github.event_name}}" == "pull_request" ]]; then
+            echo "::set-output name=lint_reporter::github-pr-check"
+          else
+            echo "::set-output name=lint_reporter::github-check"
+          fi
+
+  lint:
+    needs: [build_gdal,init]
+    runs-on: ubuntu-20.04
+    name: golangci-lint
+    steps:
+      - name: APT
+        run: sudo apt-get install gcc g++ libgeos-c1v5 libproj15 libsqlite3-0 pkgconf libjpeg-turbo8
+      - name: optgdal
+        run: sudo mkdir /optgdal && sudo chown -R $USER /optgdal
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Setup Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.15
+      - name: restore gdal lib
+        id: cache-gdal
+        uses: actions/cache@v2
+        with:
+          path: /optgdal
+          key: ${{ runner.os }}-gdal-master-${{ hashFiles('.github/workflows/build-gdal.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-gdal-master-${{ hashFiles('.github/workflows/build-gdal.sh') }}
+      - name: ldconfig
+        run: sudo ldconfig /optgdal/lib
+      - name: golangci-lint
+        uses: reviewdog/action-golangci-lint@v1
+        env:
+          PKG_CONFIG_PATH: /optgdal/lib/pkgconfig/
+        with:
+          golangci_lint_flags: "--timeout=5m"
+          reporter: ${{needs.init.outputs.lint_reporter}}
+          level: error
+  test:
+    needs: build_gdal
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        go: [ '1.15', '1.14' ]
+        gdal: [ 'release/3.2', 'master' ]
+    name: Go ${{ matrix.go }} + GDAL ${{ matrix.gdal }} test
+    steps:
+      - name: APT
+        run: sudo apt-get install gcc g++ libgeos-c1v5 libproj15 libsqlite3-0 pkgconf libjpeg-turbo8
+      - name: optgdal
+        run: sudo mkdir /optgdal && sudo chown -R $USER /optgdal
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Setup Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go }}
+      - name: restore gdal lib
+        id: cache-gdal
+        uses: actions/cache@v2
+        with:
+          path: /optgdal
+          key: ${{ runner.os }}-gdal-${{ matrix.gdal }}-${{ hashFiles('.github/workflows/build-gdal.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-gdal-${{ matrix.gdal }}-${{ hashFiles('.github/workflows/build-gdal.sh') }}
+      - name: ldconfig
+        run: sudo ldconfig /optgdal/lib
+      - name: store gcp service-account to file
+        shell: bash
+        env:
+          GCP_SA: ${{ secrets.GCP_SA_KEY }}
+        run: |
+          echo "$GCP_SA" | base64 -d > gcp-keyfile.json
+      - name: Coverage Tests
+        run: go test ./... -cover -race
+        env:
+          PKG_CONFIG_PATH: /optgdal/lib/pkgconfig/
