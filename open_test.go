@@ -123,7 +123,7 @@ func TestClosingErrors(t *testing.T) {
 	tmpdir, _ := ioutil.TempDir("", "")
 	fname := filepath.Join(tmpdir, "tt.json")
 	defer func() {
-		os.Chmod(fname, 0777)
+		_ = os.Chmod(fname, 0777)
 		_ = os.Chmod(tmpdir, 0777)
 		_ = os.RemoveAll(tmpdir)
 	}()
