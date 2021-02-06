@@ -62,7 +62,6 @@ jobs:
           PKG_CONFIG_PATH: /optgdal/lib/pkgconfig/
         with:
           golangci_lint_flags: "--timeout=5m --skip-files=doc_test.go"
-          reporter: ${{needs.init.outputs.lint_reporter}}
           level: error
           fail_on_error: true
   test:
