@@ -31,7 +31,7 @@ jobs:
         run: sudo .github/workflows/build-gdal.sh ${{ matrix.gdal }}
 
   lint:
-    needs: [build_gdal,init]
+    needs: build_gdal
     runs-on: ubuntu-20.04
     name: golangci-lint
     if: github.event == 'pull_request'
