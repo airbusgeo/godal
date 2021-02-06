@@ -273,18 +273,14 @@ func Example_tutorial1() {
 
 		GDALClose( (GDALDatasetH) poSrcDS );
 	*/
+
+	//Left out: dealing with error handling
 	poSrcDS, _ := godal.Open("testdata/test.tif")
 	pszDstFilename := "/vsimem/tempfile.tif"
-	defer godal.VSIUnlink(pszDstFilename)
+	defer func() { _ = godal.VSIUnlink(pszDstFilename) }()
 	//godal doesn't expose createCopy directly, but the same result can be obtained with Translate
-	poDstDS, err := poSrcDS.Translate(pszDstFilename, nil, godal.CreationOption("TILED=YES", "COMPRESS=PACKBITS"), godal.GTiff)
-	if err != nil {
-		panic(err)
-	}
-	err = poDstDS.Close()
-	if err != nil {
-		panic(err)
-	}
+	poDstDS, _ := poSrcDS.Translate(pszDstFilename, nil, godal.CreationOption("TILED=YES", "COMPRESS=PACKBITS"), godal.GTiff)
+	_ = poDstDS.Close()
 	_ = poSrcDS.Close()
 
 	/*
@@ -309,22 +305,21 @@ func Example_tutorial1() {
 		GDALClose( (GDALDatasetH) poDstDS );
 	*/
 
-	//TODO: deal with error handling
-	poDstDS, err = godal.Create(godal.GTiff, pszDstFilename, 1, godal.Byte, 512, 512)
+	poDstDS, _ = godal.Create(godal.GTiff, pszDstFilename, 1, godal.Byte, 512, 512)
 	defer poDstDS.Close() //Close can be defered / called more than once (second+ calls are no-ops)
 
-	err = poDstDS.SetGeoTransform([6]float64{444720, 30, 0, 3751320, 0, -30})
+	_ = poDstDS.SetGeoTransform([6]float64{444720, 30, 0, 3751320, 0, -30})
 
 	//SetUTM and SetWellKnownGeogCS not implemented. godal allows populating
 	// a SpatialRef from a WKT or PROJ4 string, or an epsg code
-	sr, err := godal.NewSpatialRefFromEPSG(4326)
+	sr, _ := godal.NewSpatialRefFromEPSG(4326)
 	defer sr.Close()
-	err = poDstDS.SetSpatialRef(sr)
+	_ = poDstDS.SetSpatialRef(sr)
 
 	abyRaster := make([]byte, 512*512)
 	// ... now populate with data
-	err = poDstDS.Bands()[0].Write(0, 0, abyRaster, 512, 512)
-	err = poDstDS.Close()
+	poDstDS.Bands()[0].Write(0, 0, abyRaster, 512, 512)
+	_ = poDstDS.Close()
 
 	// Output:
 	// Size is 10x10x3

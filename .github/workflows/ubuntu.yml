@@ -77,6 +77,7 @@ jobs:
           golangci_lint_flags: "--timeout=5m"
           reporter: ${{needs.init.outputs.lint_reporter}}
           level: error
+          fail_on_error: true
   test:
     needs: build_gdal
     runs-on: ubuntu-20.04
