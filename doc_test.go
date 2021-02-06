@@ -76,7 +76,7 @@ func ExampleBand_IO() {
 	bands := ds.Bands()
 
 	//write the random data to the first band
-	_ = bands[0].Write(0, 0, buf, 200, 200)
+	bands[0].Write(0, 0, buf, 200, 200)
 
 	//add a mask band to the dataset.
 	maskBnd, _ := ds.CreateMaskBand(0x02, godal.ConfigOption("GDAL_TIFF_INTERNAL_MASK=YES"))
@@ -90,7 +90,7 @@ func ExampleBand_IO() {
 	//iterate over all blocks
 	for block, ok := structure.FirstBlock(), true; ok; block, ok = block.Next() {
 		//read the (previously created random data) into our memory buffer
-		_ = bands[0].Read(block.X0, block.Y0, blockBuf, block.W, block.H)
+		bands[0].Read(block.X0, block.Y0, blockBuf, block.W, block.H)
 
 		//populate the mask band, by setting to nodata if the pixel value is under 100
 		for pix := 0; pix < block.W*block.H; pix++ {
@@ -102,12 +102,12 @@ func ExampleBand_IO() {
 		}
 
 		//write the dynamically created mask data into the mask band
-		_ = maskBnd.Write(block.X0, block.Y0, blockBuf, block.W, block.H)
+		maskBnd.Write(block.X0, block.Y0, blockBuf, block.W, block.H)
 
 	}
 
 	//write dataset to disk
-	_ = ds.Close()
+	ds.Close()
 }
 
 // This is the godal port of the official gdal raster tutorial
@@ -277,11 +277,11 @@ func Example_tutorial1() {
 	//Left out: dealing with error handling
 	poSrcDS, _ := godal.Open("testdata/test.tif")
 	pszDstFilename := "/vsimem/tempfile.tif"
-	defer func() { _ = godal.VSIUnlink(pszDstFilename) }()
+	defer godal.VSIUnlink(pszDstFilename)
 	//godal doesn't expose createCopy directly, but the same result can be obtained with Translate
 	poDstDS, _ := poSrcDS.Translate(pszDstFilename, nil, godal.CreationOption("TILED=YES", "COMPRESS=PACKBITS"), godal.GTiff)
-	_ = poDstDS.Close()
-	_ = poSrcDS.Close()
+	poDstDS.Close()
+	poSrcDS.Close()
 
 	/*
 		GDALDataset *poDstDS;
@@ -308,18 +308,18 @@ func Example_tutorial1() {
 	poDstDS, _ = godal.Create(godal.GTiff, pszDstFilename, 1, godal.Byte, 512, 512)
 	defer poDstDS.Close() //Close can be defered / called more than once (second+ calls are no-ops)
 
-	_ = poDstDS.SetGeoTransform([6]float64{444720, 30, 0, 3751320, 0, -30})
+	poDstDS.SetGeoTransform([6]float64{444720, 30, 0, 3751320, 0, -30})
 
 	//SetUTM and SetWellKnownGeogCS not implemented. godal allows populating
 	// a SpatialRef from a WKT or PROJ4 string, or an epsg code
 	sr, _ := godal.NewSpatialRefFromEPSG(4326)
 	defer sr.Close()
-	_ = poDstDS.SetSpatialRef(sr)
+	poDstDS.SetSpatialRef(sr)
 
 	abyRaster := make([]byte, 512*512)
 	// ... now populate with data
 	poDstDS.Bands()[0].Write(0, 0, abyRaster, 512, 512)
-	_ = poDstDS.Close()
+	poDstDS.Close()
 
 	// Output:
 	// Size is 10x10x3
