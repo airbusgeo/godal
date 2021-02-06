@@ -34,7 +34,7 @@ jobs:
     needs: build_gdal
     runs-on: ubuntu-20.04
     name: golangci-lint
-    if: github.event == 'pull_request'
+    if: github.event_name == 'pull_request'
     steps:
       - name: APT
         run: sudo apt-get install gcc g++ libgeos-c1v5 libproj15 libsqlite3-0 pkgconf libjpeg-turbo8
