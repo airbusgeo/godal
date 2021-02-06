@@ -117,7 +117,7 @@ jobs:
         env:
           PKG_CONFIG_PATH: /optgdal/lib/pkgconfig/
       - name: Send coverage
-        if: matrix.go == '1.15' && matrix.gdal == 'master'
+        if: ${{ matrix.go == '1.15' && matrix.gdal == 'master' }}
         uses: shogo82148/actions-goveralls@v1
         with:
           path-to-profile: profile.cov
