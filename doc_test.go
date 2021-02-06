@@ -109,3 +109,133 @@ func ExampleBand_IO() {
 	//write dataset to disk
 	_ = ds.Close()
 }
+
+// Example_tutorial_raster_1 is godal port of the official gdal raster tutorial
+// located at https://gdal.org/tutorials/raster_api_tut.html .
+func Example_tutorial_raster_1() {
+	/*
+			GDALDatasetH  hDataset;
+		    GDALAllRegister();
+		    hDataset = GDALOpen( pszFilename, GA_ReadOnly );
+		    if( hDataset == NULL )
+		    {
+		        ...;
+		    }
+	*/
+	godal.RegisterAll()
+	hDataset, err := godal.Open("testdata/test.tif")
+	if err != nil {
+		panic(err)
+	}
+
+	/* not implemented
+	hDriver = GDALGetDatasetDriver( hDataset );
+	printf( "Driver: %s/%s\n",
+			GDALGetDriverShortName( hDriver ),
+			GDALGetDriverLongName( hDriver ) );
+	*/
+
+	/*
+			printf( "Size is %dx%dx%d\n",
+		        GDALGetRasterXSize( hDataset ),
+		        GDALGetRasterYSize( hDataset ),
+		        GDALGetRasterCount( hDataset ) );
+	*/
+	structure := hDataset.Structure()
+	fmt.Printf("Size is %dx%dx%d\n", structure.SizeX, structure.SizeY, structure.NBands)
+
+	/*
+		if( GDALGetProjectionRef( hDataset ) != NULL )
+		    printf( "Projection is `%s'\n", GDALGetProjectionRef( hDataset ) );
+	*/
+	if pj := hDataset.Projection(); pj != "" {
+		fmt.Printf("Projection is '%s'\n", pj)
+	}
+
+	/*
+		if( GDALGetGeoTransform( hDataset, adfGeoTransform ) == CE_None )
+		{
+			printf( "Origin = (%.6f,%.6f)\n",
+				adfGeoTransform[0], adfGeoTransform[3] );
+			printf( "Pixel Size = (%.6f,%.6f)\n",
+				adfGeoTransform[1], adfGeoTransform[5] );
+		}
+	*/
+	if gt, err := hDataset.GeoTransform(); err == nil {
+		fmt.Printf("Origin = (%.6f,%.6f)\n", gt[0], gt[3])
+		fmt.Printf("Pixel Size = (%.6f,%.6f)\n", gt[1], gt[5])
+	}
+
+	/*
+		GDALRasterBandH hBand;
+		int             nBlockXSize, nBlockYSize;
+		int             bGotMin, bGotMax;
+		double          adfMinMax[2];
+		hBand = GDALGetRasterBand( hDataset, 1 );
+		GDALGetBlockSize( hBand, &nBlockXSize, &nBlockYSize );
+		printf( "Block=%dx%d Type=%s, ColorInterp=%s\n",
+				nBlockXSize, nBlockYSize,
+				GDALGetDataTypeName(GDALGetRasterDataType(hBand)),
+				GDALGetColorInterpretationName(
+					GDALGetRasterColorInterpretation(hBand)) );
+	*/
+	band := hDataset.Bands()[0] //Note that in godal, bands are indexed starting from 0, not 1
+	bandStructure := band.Structure()
+	fmt.Printf("Block=%dx%d Type=%s, ColorInterp=%s\n",
+		bandStructure.BlockSizeX, bandStructure.BlockSizeY,
+		bandStructure.DataType,
+		band.ColorInterp().Name())
+	/* not implemented
+	adfMinMax[0] = GDALGetRasterMinimum( hBand, &bGotMin );
+	adfMinMax[1] = GDALGetRasterMaximum( hBand, &bGotMax );
+	if( ! (bGotMin && bGotMax) )
+		GDALComputeRasterMinMax( hBand, TRUE, adfMinMax );
+	printf( "Min=%.3fd, Max=%.3f\n", adfMinMax[0], adfMinMax[1] );
+	*/
+
+	/*
+		if( GDALGetOverviewCount(hBand) > 0 )
+			printf( "Band has %d overviews.\n", GDALGetOverviewCount(hBand));
+	*/
+	if overviews := band.Overviews(); len(overviews) > 0 {
+		fmt.Printf("Band has %d overviews.\n", len(overviews))
+	}
+
+	/*
+		if( GDALGetRasterColorTable( hBand ) != NULL )
+			printf( "Band has a color table with %d entries.\n",
+					GDALGetColorEntryCount(
+						GDALGetRasterColorTable( hBand ) ) );
+	*/
+	if ct := band.ColorTable(); len(ct.Entries) > 0 {
+		fmt.Printf("Band has a color table with %d entries.\n", len(ct.Entries))
+	}
+
+	/*
+		float *pafScanline;
+		int   nXSize = GDALGetRasterBandXSize( hBand );
+		pafScanline = (float *) CPLMalloc(sizeof(float)*nXSize);
+		GDALRasterIO( hBand, GF_Read, 0, 0, nXSize, 1,
+			pafScanline, nXSize, 1, GDT_Float32,
+			0, 0 );
+	*/
+
+	pafScanline := make([]float32, structure.SizeX)
+	err = band.Read(0, 0, pafScanline, bandStructure.SizeX, 1)
+	if err != nil {
+		panic(err)
+	}
+
+	err = hDataset.Close()
+	// we don't really need to check for errors here as we have a read-only dataset.
+	if err != nil {
+		panic(err)
+	}
+
+	// Output:
+	// Size is 10x10x3
+	// Projection is 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AXIS["Latitude",NORTH],AXIS["Longitude",EAST],AUTHORITY["EPSG","4326"]]'
+	// Origin = (45.000000,35.000000)
+	// Pixel Size = (1.000000,-1.000000)
+	// Block=256x256 Type=Byte, ColorInterp=Red
+}
