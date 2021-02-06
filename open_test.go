@@ -76,7 +76,7 @@ func TestOpenUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	uds.Bands()[0].SetNoData(5)
+	err = uds.Bands()[0].SetNoData(5)
 	if err == nil {
 		t.Error("nodata on single band tiff not raised")
 	}
@@ -123,7 +123,7 @@ func TestClosingErrors(t *testing.T) {
 	tmpdir, _ := ioutil.TempDir("", "")
 	fname := filepath.Join(tmpdir, "tt.json")
 	defer func() {
-		_ = os.Chmod(fname, 0777)
+		os.Chmod(fname, 0777)
 		_ = os.Chmod(tmpdir, 0777)
 		_ = os.RemoveAll(tmpdir)
 	}()
