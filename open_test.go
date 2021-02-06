@@ -76,7 +76,7 @@ func TestOpenUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = uds.Bands()[0].SetNoData(5)
+	uds.Bands()[0].SetNoData(5)
 	if err == nil {
 		t.Error("nodata on single band tiff not raised")
 	}
