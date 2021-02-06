@@ -3,7 +3,7 @@ name: build
 on:
   push:
     branches:
-      - main
+    - main
   pull_request:
 
 jobs:
@@ -113,6 +113,11 @@ jobs:
         run: |
           echo "$GCP_SA" | base64 -d > gcp-keyfile.json
       - name: Coverage Tests
-        run: go test ./... -cover -race
+        run: go test ./... -cover -race -coverprofile=profile.cov
         env:
           PKG_CONFIG_PATH: /optgdal/lib/pkgconfig/
+      - name: Send coverage
+        if: ${{ matrix.go == '1.15' && matrix.gdal == 'master' }}
+        uses: shogo82148/actions-goveralls@v1
+        with:
+          path-to-profile: profile.cov
