@@ -425,11 +425,11 @@ func Example_vectorTutorial() {
 			exit( 1 );
 		}
 	*/
-	hDS, err = godal.CreateVector(godal.Shapefile, "/vsimem/point_out.shp")
+	hDS, err = godal.CreateVector(godal.GeoJSON, "/vsimem/point_out.geojson")
 	if err != nil {
 		panic(err)
 	}
-	defer godal.VSIUnlink("/vsimem/point_out.shp")
+	defer godal.VSIUnlink("/vsimem/point_out.geojson")
 
 	/*
 	   hLayer = GDALDatasetCreateLayer( hDS, "point_out", NULL, wkbPoint, NULL );
