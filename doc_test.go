@@ -426,6 +426,9 @@ func Example_vectorTutorial() {
 		}
 	*/
 	hDS, err = godal.CreateVector(godal.Shapefile, "/vsimem/point_out.shp")
+	if err != nil {
+		panic(err)
+	}
 	defer godal.VSIUnlink("/vsimem/point_out.shp")
 
 	/*
