@@ -134,7 +134,13 @@ var _ DatasetTranslateOption = DriverName("")
 var _ DatasetWarpOption = DriverName("")
 var _ RasterizeOption = DriverName("")
 
-//RegisterAll calls GDALAllRegister
+// RegisterAll calls GDALAllRegister which registers all available raster and vector
+// drivers.
+//
+// Alternatively, you may also register a select number of drivers by calling one or more of
+//  godal.RegisterInternal() // MEM, VRT, GTiff and GeoJSON
+//  godal.RegisterRaster(godal.GTiff,godal.VRT)
+//  godal.RegisterVector(godal.Shapefile)
 func RegisterAll() {
 	C.GDALAllRegister()
 }
