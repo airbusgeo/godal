@@ -33,7 +33,8 @@ Godal aims at providing an idiomatic go wrapper around the GDAL library:
             printf("overview %d size: %dx%d\n",o,osx,osy);
         }
     }
-``` will be written as
+```
+will be written as
 ```go
     hDS,err := godal.Open(filename)
     structure := hDS.Structure()
@@ -71,7 +72,7 @@ until essential functionality is covered.
 
 ### Contributing
 
-Contributions are welcome. Please read the [contribution guidelines](https://github.com/airbusgeo/godal/blob/master/.github/CONTRIBUTING.md)
+Contributions are welcome. Please read the [contribution guidelines](https://github.com/airbusgeo/godal/blob/main/.github/CONTRIBUTING.md)
 before submitting fixes or enhancements.
 
 ### Installation
@@ -83,7 +84,7 @@ environment variable, e.g. `export PKG_CONFIG_PATH=/opt/include/pkgconfig`.
 
 ### Licensing
 Godal is licensed under the Apache License, Version 2.0. See
-[LICENSE](https://github.com/airbusgeo/godal/blob/master/LICENSE) for the full
+[LICENSE](https://github.com/airbusgeo/godal/blob/main/LICENSE) for the full
 license text.
 
 
