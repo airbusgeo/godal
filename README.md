@@ -15,7 +15,7 @@ Godal aims at providing an idiomatic go wrapper around the GDAL library:
 * Calls between go and native libraries incur some overhead. As such godal does
   not strictly expose GDAL's API, but groups often-used calls in a single cgo function
   to reduce this overhead. For example, c++ code like
-```c
+```c++
     hDS = GDALOpen(filename, GA_Readonly)
     if (hDS == NULL) exit(1);
     int sx = GDALGetRasterXSize(hDS);
@@ -23,9 +23,9 @@ Godal aims at providing an idiomatic go wrapper around the GDAL library:
     int nBands = GDALGetRasterCount(hDS);
     printf("dataset size: %dx%dx%d\n",sx,sy,nBands);
     for (int i=1; i<=nBands; i++) {
-        hBand = GDALGetRasterBand( hDS, i );
+        hBand = GDALGetRasterBand(hDS,i);
         int ovrCount = GDALGetOverviewCount(hBand)
-        for(int o=0; o<=ovrCount;o++) {
+        for(int o=0; o<=ovrCount; o++) {
             GDALRasterBandH oBand = GDALGetOverview(hBand,o);
             int osx = GDALGetRasterBandXSize(oBand);
             int osy = GDALGetRasterBandYSize(oBand);
@@ -36,12 +36,15 @@ Godal aims at providing an idiomatic go wrapper around the GDAL library:
 will be written as
 ```go
     hDS,err := godal.Open(filename)
+    if err!=nil {
+        panic(err)
+    }
     structure := hDS.Structure()
-    fmt.Printf("dataset size: shape.SizeX,shape.SizeY,shape.NBands)
-    for _,band:=range hDS.Bands() {
-        for o,ovr:=range band.Overviews() {
+    fmt.Printf("dataset size: %dx%dx%d\n", shape.SizeX,shape.SizeY,shape.NBands)
+    for _,band := range hDS.Bands() {
+        for o,ovr := range band.Overviews() {
             bstruct := ovr.Structure()
-            fmt.Printf("overview %d size: %dx%d",o,structure.SizeX,structure.SizeY)
+            fmt.Printf("overview %d size: %dx%d\n",o,structure.SizeX,structure.SizeY)
         }
     }
 ```
