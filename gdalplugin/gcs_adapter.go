@@ -116,7 +116,6 @@ func GDALRegister_gcs() {
 	go func() {
 		<-ctx.Done()
 	}()
-	return
 }
 
 func main() {}
