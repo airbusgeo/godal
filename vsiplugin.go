@@ -21,6 +21,8 @@ package godal
 */
 import "C"
 import (
+	"errors"
+	"fmt"
 	"io"
 	"strings"
 	"sync"
@@ -198,7 +200,7 @@ func VSIHandlerCacheSize(s int) VSIHandlerOption {
 //  RegisterVSIHandler("scheme://",handler)
 // calling Open("scheme://myfile.txt") will result in godal making calls to
 //  VSIKeyReader("myfile.txt").ReadAt(buf,offset)
-func RegisterVSIHandler(prefix string, keyReader VSIKeyReader, opts ...VSIHandlerOption) {
+func RegisterVSIHandler(prefix string, keyReader VSIKeyReader, opts ...VSIHandlerOption) error {
 	opt := vsiHandlerOptions{
 		bufferSize: 64 * 1024,
 		cacheSize:  2 * 64 * 1024,
@@ -210,8 +212,13 @@ func RegisterVSIHandler(prefix string, keyReader VSIKeyReader, opts ...VSIHandle
 		handlers = make(map[string]VSIKeyReader)
 	}
 	if handlers[prefix] != nil {
-		panic("handler already registered on prefix")
+		return fmt.Errorf("handler already registered on prefix")
+	}
+	errmsg := C.VSIInstallGoHandler(C.CString(prefix), opt.bufferSize, opt.cacheSize)
+	if errmsg != nil {
+		defer C.free(unsafe.Pointer(errmsg))
+		return errors.New(C.GoString(errmsg))
 	}
 	handlers[prefix] = keyReader
-	C.VSIInstallGoHandler(C.CString(prefix), opt.bufferSize, opt.cacheSize)
+	return nil
 }

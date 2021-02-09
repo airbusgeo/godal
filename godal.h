@@ -85,7 +85,7 @@ extern "C" {
 	char *godalLayerDeleteFeature(OGRLayerH layer, OGRFeatureH feat);
 	char *godalFeatureSetGeometry(OGRFeatureH feat, OGRGeometryH geom);
 	OGRLayerH godalCreateLayer(GDALDatasetH ds, char *name, OGRSpatialReferenceH sr, OGRwkbGeometryType gtype, char **error);
-	void VSIInstallGoHandler(const char *pszPrefix, size_t bufferSize, size_t cacheSize);
+	char *VSIInstallGoHandler(const char *pszPrefix, size_t bufferSize, size_t cacheSize);
 
 	void godalGetColorTable(GDALRasterBandH bnd, GDALPaletteInterp *interp, int *nEntries, short **entries);
 	char* godalSetColorTable(GDALRasterBandH bnd, GDALPaletteInterp interp, int nEntries, short *entries);
