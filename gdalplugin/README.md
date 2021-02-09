@@ -12,7 +12,7 @@ files directly.
 * This plugin does not work with musl, and therefore cannot be run on alpine like
   linux distrbutions ( waiting on https://github.com/golang/go/issues/13492 ).
 * The internal cache configuration can be tweaked before program startup with the
-  `GODAL_BLOCKSIZE` and `GODAL_NUMBLOCKS` envirronment variables. The default is to cache
+  `GODAL_BLOCKSIZE` and `GODAL_NUMBLOCKS` environment variables. The default is to cache
   1000 bocks of 1Mb. `GODAL_BLOCKSIZE` may be expressed either as a number of bytes, or a number
   suffixed with Kb or Mb.
 * Although any file format can be accessed through this handler, I/O performance will only
@@ -21,10 +21,10 @@ files directly.
   use `godal.RegisterGCSHandler()` directly rather than using this plugin in order to
   fine tune the handler's configuration. In that case, the call to `RegisterGCSHandler()`
   should be done before the call to `RegisterAll()` to prevent the plugin from registering
-  the "gs://" prefix.
+  the `gs://` prefix.
 * Authentication is handled entirely by the `cloud.google.com/go/storage` SDK, which should be 
-  transparent on any GCP compute instance. If working outside of the GCP, you should run 
-  `gcloud auth application-default login`.
+  transparent on any GCP compute instance. If running outside of GCP, you should launch
+  `gcloud auth application-default login` to setup your credentials.
 
 ### Building
 
