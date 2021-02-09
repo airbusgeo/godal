@@ -10,7 +10,7 @@
 
 ### Goals
 
-Godal aims at providing an idiomatic go wrapper around the <img src="https://gdal.org/_static/gdalicon.png" width="20" height="20">
+Godal aims at providing an idiomatic go wrapper around the <img src="https://gdal.org/_static/gdalicon.png" width="25" height="25">
 [GDAL](https://gdal.org) library:
 
 * Function calls return a result and an error. The result will be valid if
