@@ -152,7 +152,7 @@ func RegisterAll() {
 //
 // Calling RegisterRaster(DriverName("XXX")) with "XXX" any string will result in calling the function
 // GDALRegister_XXX() if it could be found inside the ligdal.so binary. This allows to register any raster driver
-// known to gdal but not explicitely defined inside this golang wrapper. Note that "XXX" must be provided
+// known to gdal but not explicitly defined inside this golang wrapper. Note that "XXX" must be provided
 // exactly (i.e. respecting uppercase/lowercase) the same as the names of the C functions GDALRegister_XXX()
 // that can be found in gdal.h
 func RegisterRaster(drivers ...DriverName) error {
@@ -190,7 +190,7 @@ func RegisterRaster(drivers ...DriverName) error {
 //
 // Calling RegisterVector(DriverName("XXX")) with "XXX" any string will result in calling the function
 // RegisterOGRXXX() if it could be found inside the ligdal.so binary. This allows to register any vector driver
-// known to gdal but not explicitely defined inside this golang wrapper. Note that "XXX" must be provided
+// known to gdal but not explicitly defined inside this golang wrapper. Note that "XXX" must be provided
 // exactly (i.e. respecting uppercase/lowercase) the same as the names of the C functions RegisterOGRXXX()
 // that can be found in ogrsf_frmts.h
 func RegisterVector(drivers ...DriverName) error {

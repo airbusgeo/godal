@@ -102,7 +102,7 @@ func TestVSIPluginEx(t *testing.T) {
 	vpa := vpAdapter{datas: make(map[string]VSIReader)}
 	tifdat, _ := ioutil.ReadFile("testdata/test.tif")
 	vpa.datas["test.tif"] = mbufAdapter{tifdat}
-	RegisterVSIHandler("testmem2://", vpa, VSIHandlerBufferSize(10), VSIHandlerCacheSize(30))
+	_ = RegisterVSIHandler("testmem2://", vpa, VSIHandlerBufferSize(10), VSIHandlerCacheSize(30))
 
 	ds, err := Open("testmem2://test.tif")
 	if err != nil {
@@ -128,7 +128,7 @@ func TestVSIPluginNoMulti(t *testing.T) {
 	vpa := vpAdapter{datas: make(map[string]VSIReader)}
 	tifdat, _ := ioutil.ReadFile("testdata/test.tif")
 	vpa.datas["test.tif"] = bufAdapter(tifdat)
-	RegisterVSIHandler("testmem3://", vpa, VSIHandlerBufferSize(10), VSIHandlerCacheSize(30))
+	_ = RegisterVSIHandler("testmem3://", vpa, VSIHandlerBufferSize(10), VSIHandlerCacheSize(30))
 
 	ds, err := Open("testmem3://test.tif")
 	if err != nil {
@@ -191,7 +191,7 @@ func TestVSIErrors(t *testing.T) {
 	vpa.datas["test2.tif"] = readErroringAdapter{bufAdapter(tifdat)}
 	vpa.datas["test3.tif"] = multireadErroringAdapter{bufAdapter(tifdat)}
 	vpa.datas["test4.tif"] = bodyreadErroringAdapter{bufAdapter(tifdat)}
-	RegisterVSIHandler("testmem4://", vpa, VSIHandlerBufferSize(0), VSIHandlerCacheSize(0))
+	_ = RegisterVSIHandler("testmem4://", vpa, VSIHandlerBufferSize(0), VSIHandlerCacheSize(0))
 
 	_, err := Open("testmem4://test.tif")
 	if err == nil {
