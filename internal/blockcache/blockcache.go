@@ -65,8 +65,9 @@ type Cacher interface {
 	Purge()
 }
 
+// NamedOnceMutex is a locker on arbitrary lock names.
 type NamedOnceMutex interface {
-	//Lock tries to aquire a lock on a keyed resource. If the keyed resource is not already locked,
+	//Lock tries to acquire a lock on a keyed resource. If the keyed resource is not already locked,
 	//Lock aquires a lock to the resource and returns true. If the keyed resource is already locked,
 	//Lock waits until the resource has been unlocked and returns false
 	Lock(key interface{}) bool
@@ -75,6 +76,9 @@ type NamedOnceMutex interface {
 	Unlock(key interface{})
 }
 
+// BlockCache caches fixed-sized chunks of a KeyReaderAt, and exposes a KeyReaderAt
+// that feeds primarily from its internal cache, ensuring that concurrent requests
+// only result in a single call to the source reader.
 type BlockCache struct {
 	blockSize   int64
 	blmu        NamedOnceMutex //*nsync.NamedOnceMutex
