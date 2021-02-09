@@ -100,7 +100,7 @@ jobs:
         run: |
           echo "$GCP_SA" | base64 -d > gcp-keyfile.json
       - name: Coverage Tests
-        run: go test ./... -cover -race -coverprofile=profile.cov
+        run: go test . ./gcs ./internal/blockcache -cover -race -coverprofile=profile.cov
         env:
           PKG_CONFIG_PATH: /optgdal/lib/pkgconfig/
       - name: Send coverage

@@ -71,10 +71,12 @@ func TestVSIPlugin(t *testing.T) {
 	vpa := vpAdapter{datas: make(map[string]VSIReader)}
 	tifdat, _ := ioutil.ReadFile("testdata/test.tif")
 	vpa.datas["test.tif"] = mbufAdapter{tifdat}
-	RegisterVSIHandler("testmem://", vpa)
-	assert.Panics(t, func() {
-		RegisterVSIHandler("testmem://", vpa)
-	}, "double register not panicking")
+	err := RegisterVSIHandler("testmem://", vpa)
+	assert.NoError(t, err)
+	err = RegisterVSIHandler("testmem://", vpa)
+	assert.Error(t, err)
+	err = RegisterVSIHandler("/vsimem/", vpa)
+	assert.Error(t, err)
 
 	ds, err := Open("testmem://test.tif")
 	if err != nil {

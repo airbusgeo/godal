@@ -157,10 +157,9 @@ func RegisterHandler(ctx context.Context, opts ...Option) error {
 	}
 	cache, _ := blockcache.NewCache(uint(handler.maxCachedBlocks))
 	handler.blockCache = blockcache.New(handler, cache, uint(handler.blockSize), handler.splitRanges)
-	godal.RegisterVSIHandler(handler.prefix, handler,
+	return godal.RegisterVSIHandler(handler.prefix, handler,
 		godal.VSIHandlerBufferSize(handler.handleBufferSize),
 		godal.VSIHandlerCacheSize(handler.handleCacheSize))
-	return nil
 }
 
 func gcsparse(gsUri string) (bucket, object string) {
