@@ -461,7 +461,7 @@ GDALDatasetH godalTranslate(char *dstName, GDALDatasetH ds, char **switches, cha
 	return ret;
 }
 
-GDALDatasetH godalDatasetWarp(char *dstName, GDALDatasetH ds, char **switches, char **error, char **config) {
+GDALDatasetH godalDatasetWarp(char *dstName, int nSrcCount, GDALDatasetH *srcDS, char **switches, char **error, char **config) {
 	godalWrap(error,config);
 	GDALWarpAppOptions *warpopts = GDALWarpAppOptionsNew(switches,nullptr);
 	if(*error!=nullptr) {
@@ -470,7 +470,28 @@ GDALDatasetH godalDatasetWarp(char *dstName, GDALDatasetH ds, char **switches, c
 		return nullptr;
 	}
 	int usageErr=0;
-	GDALDatasetH ret = GDALWarp(dstName, nullptr, 1, &ds, warpopts, &usageErr);
+	GDALDatasetH ret = GDALWarp(dstName, nullptr, nSrcCount, srcDS, warpopts, &usageErr);
+	GDALWarpAppOptionsFree(warpopts);
+	godalUnwrap(config);
+	if(*error!=nullptr) {
+		return nullptr;
+	}
+	if(ret==nullptr || usageErr!=0) {
+		*error=strdup("warp: unknown error");
+	}
+	return ret;
+}
+
+GDALDatasetH godalDatasetWarpInto(GDALDatasetH dstDs,  int nSrcCount, GDALDatasetH *srcDS, char **switches, char **error, char **config) {
+	godalWrap(error,config);
+	GDALWarpAppOptions *warpopts = GDALWarpAppOptionsNew(switches,nullptr);
+	if(*error!=nullptr) {
+		godalUnwrap(config);
+		GDALWarpAppOptionsFree(warpopts);
+		return nullptr;
+	}
+	int usageErr=0;
+	GDALDatasetH ret = GDALWarp(nullptr, dstDs, nSrcCount, srcDS, warpopts, &usageErr);
 	GDALWarpAppOptionsFree(warpopts);
 	godalUnwrap(config);
 	if(*error!=nullptr) {

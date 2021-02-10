@@ -286,6 +286,7 @@ func ConfigOption(cfgs ...string) interface {
 	BuildOverviewsOption
 	DatasetCreateOption
 	DatasetWarpOption
+	DatasetWarpIntoOption
 	DatasetTranslateOption
 	DatasetCreateMaskOption
 	DatasetVectorTranslateOption
@@ -305,6 +306,9 @@ func (co configOpts) setDatasetCreateOpt(dc *dsCreateOpts) {
 	dc.config = append(dc.config, co.config...)
 }
 func (co configOpts) setDatasetWarpOpt(dc *dsWarpOpts) {
+	dc.config = append(dc.config, co.config...)
+}
+func (co configOpts) setDatasetWarpIntoOpt(dc *dsWarpIntoOpts) {
 	dc.config = append(dc.config, co.config...)
 }
 func (co configOpts) setDatasetTranslateOpt(dc *dsTranslateOpts) {

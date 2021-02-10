@@ -62,7 +62,8 @@ extern "C" {
 	char *godalSetProjection(GDALDatasetH ds, char *wkt);
 
 	GDALDatasetH godalTranslate(char *dstName, GDALDatasetH ds, char **switches, char **error, char **config);
-	GDALDatasetH godalDatasetWarp(char *dstName, GDALDatasetH ds, char **switches, char **error, char **config);
+	GDALDatasetH godalDatasetWarp(char *dstName, int nSrcCount, GDALDatasetH *srcDS, char **switches, char **error, char **config);
+	GDALDatasetH godalDatasetWarpInto(GDALDatasetH dstDs, int nSrcCount, GDALDatasetH *srcDS, char **switches, char **error, char **config);
 	GDALDatasetH godalDatasetVectorTranslate(char *dstName, GDALDatasetH ds, char **switches, char **error, char **config);
 	GDALDatasetH godalRasterize(char *dstName, GDALDatasetH ds, char **switches, char **error, char **config);
 	char *godalRasterizeGeometry(GDALDatasetH ds, OGRGeometryH geom, int *bands, int nBands, double *vals, int allTouched);
