@@ -1,7 +1,6 @@
 # Golang bindings for GDAL
 [![Go Reference](https://pkg.go.dev/badge/github.com/airbusgeo/godal.svg)](https://pkg.go.dev/github.com/airbusgeo/godal)
 [![License](https://img.shields.io/github/license/airbusgeo/godal.svg)](https://github.com/airbusgeo/godal/blob/main/LICENSE)
-[![made-for-GDAL](https://img.shields.io/badge/Made%20for-GDAL-71c9f1.svg)](https://gdal.org)
 [![Build Status](https://github.com/airbusgeo/godal/workflows/build/badge.svg?branch=main&event=push)](https://github.com/airbusgeo/godal/actions?query=workflow%3Agodal+event%3Apush+branch%3Amain)
 [![Coverage Status](https://coveralls.io/repos/github/airbusgeo/godal/badge.svg?branch=main)](https://coveralls.io/github/airbusgeo/godal?branch=main)
 [![Go Report Card](https://goreportcard.com/badge/github.com/airbusgeo/godal)](https://goreportcard.com/report/github.com/airbusgeo/godal)
@@ -18,7 +17,7 @@ Godal aims at providing an idiomatic go wrapper around the <img src="https://gda
   the error happened.
 * Calls between go and native libraries incur some overhead. As such godal does
   not strictly expose GDAL's API, but groups often-used calls in a single cgo function
-  to reduce this overhead. For example, c++ code like
+  to reduce this overhead. For example, C code like
 ```c++
     hDS = GDALOpen(filename, GA_Readonly)
     if (hDS == NULL) exit(1);
@@ -44,11 +43,11 @@ will be written as
         panic(err)
     }
     structure := hDS.Structure()
-    fmt.Printf("dataset size: %dx%dx%d\n", shape.SizeX,shape.SizeY,shape.NBands)
+    fmt.Printf("dataset size: %dx%dx%d\n", structure.SizeX,structure.SizeY,structure.NBands)
     for _,band := range hDS.Bands() {
         for o,ovr := range band.Overviews() {
             bstruct := ovr.Structure()
-            fmt.Printf("overview %d size: %dx%d\n",o,structure.SizeX,structure.SizeY)
+            fmt.Printf("overview %d size: %dx%d\n",o,bstruct.SizeX,bstruct.SizeY)
         }
     }
 ```
@@ -57,7 +56,7 @@ will be written as
     ds,err := godal.Open(filename) //read-only
     ds,err := godal.Open(filename, Update()) //read-write
 ```
-* Godal exposes a VSI handler that can easily allow you to expose any
+* Godal exposes a VSI handler that can easily allow you to expose an
   [io.ReaderAt](https://golang.org/pkg/io/#ReaderAt) as a filename that can be
   opened by GDAL. A handler for opening `gs://` google cloud storage URIs is
   provided.

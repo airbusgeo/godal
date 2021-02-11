@@ -265,6 +265,10 @@ type bandIOOpt struct {
 // • Resampling
 //
 // • ConfigOption
+//
+// • PixelSpacing
+//
+// • LineSpacing
 type BandIOOption interface {
 	setBandIOOpt(ro *bandIOOpt)
 }

@@ -183,7 +183,7 @@ func BandSpacing(stride int) interface {
 	return bandSpacingOpt{stride}
 }
 
-// PixelSpacing sets the number of bytes from one pixel to the next pixel in the same row below. If not
+// PixelSpacing sets the number of bytes from one pixel to the next pixel in the same row. If not
 // provided, it will be calculated from the number of bands and pixel type
 func PixelSpacing(stride int) interface {
 	DatasetIOOption
@@ -228,8 +228,10 @@ type bandInterleaveOp struct{}
 // BandInterleaved makes Read return a band interleaved buffer instead of a pixel interleaved one.
 //
 // For example, pixels of a three band RGB image will be returned in order
-// r1r2r3...rn, g2g2g3...gn,b1b2b3...bn instead of the default
+// r1r2r3...rn, g1g2g3...gn, b1b2b3...bn instead of the default
 // r1g1b1, r2g2b2, r3g3b3, ... rnbngn
+//
+// BandInterleaved should not be used in conjunction with BandSpacing, LineSpacing, or PixelSpacing
 func BandInterleaved() interface {
 	DatasetIOOption
 } {
