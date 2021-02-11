@@ -129,6 +129,10 @@ func TestDatasetWarpMulti(t *testing.T) {
 	defer os.Remove(filePath)
 	defer outputDataset.Close()
 
+	if outputDataset.Structure().SizeX != 10 || outputDataset.Structure().SizeY != 5 {
+		t.Errorf("wrong size %d,%d", outputDataset.Structure().SizeX, outputDataset.Structure().SizeY)
+	}
+
 	data := make([]uint8, 50)
 	err = outputDataset.Read(0, 0, data, outputDataset.Structure().SizeX, outputDataset.Structure().SizeY, Bands(0, 1, 2), Window(10, 10))
 	assert.Error(t, err, "Access window out of range")
@@ -141,25 +145,6 @@ func TestDatasetWarpMulti(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, []uint8{200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 100, 100, 100, 100, 100}, data)
-
-	// read part warp result
-	err = outputDataset.Read(0, 0, data, ds1.Structure().SizeX, ds1.Structure().SizeY,Bands(0, 1, 2))
-	assert.NoError(t, err)
-
-	for _, px := range data {
-		if px != 200 {
-			t.Errorf("wrong pixel value : %d instead of 200", px)
-		}
-	}
-
-	err = outputDataset.Read(5, 0, data, ds2.Structure().SizeX, ds2.Structure().SizeY,Bands(0, 1, 2))
-	assert.NoError(t, err)
-
-	for _, px := range data {
-		if px != 100 {
-			t.Errorf("wrong pixel value : %d instead of 100", px)
-		}
-	}
 }
 func TestDatasetWarpInto(t *testing.T) {
 	outputDataset, _ := Create(Memory, "", 1, Byte, 5, 5)
@@ -184,26 +169,15 @@ func TestDatasetWarpInto(t *testing.T) {
 
 	// Warp existing dataset with multiple input dataset
 	err := outputDataset.WarpInto([]*Dataset{inputDataset}, []string{"-co", "TILED=YES"})
-	assert.Error(t, err, "All options related to creation ignored in update mode")
+	assert.Error(t, err, "error not raised")
 
 	if err = outputDataset.WarpInto([]*Dataset{inputDataset}, []string{}, ConfigOption("GDAL_CACHEMAX=64")); err != nil {
 		t.Fatal(err)
 	}
 
-	if outputDataset.Structure().NBands != 1 {
-		t.Errorf("wrong band number : %d", outputDataset.Structure().NBands)
-	}
-
-	data := make([]uint8, 25)
-	err = outputDataset.Read(0, 0, data, outputDataset.Structure().SizeX, outputDataset.Structure().SizeY, Bands(0))
-	assert.NoError(t, err)
-
-	for _, px := range data {
-		if px != 155 {
-			t.Errorf("wrong px value : %d instead of 155", px)
-		}
-	}
-
+	data := make([]uint8, 1)
+	_ = outputDataset.Read(0, 0, data, 1, 1)
+	assert.Equal(t, uint8(155), data[0])
 }
 func TestBuildOverviews(t *testing.T) {
 	tmpname := tempfile()
