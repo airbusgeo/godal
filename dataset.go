@@ -288,13 +288,31 @@ type DatasetWarpOption interface {
 //  ds.Warp(dst, switches, CreationOption("TILED=YES","BLOCKXSIZE=256"), GTiff)
 //
 func (ds *Dataset) Warp(dstDS string, switches []string, opts ...DatasetWarpOption) (*Dataset, error) {
+	return Warp(dstDS, []*Dataset{ds}, switches, opts...)
+}
+
+// Warp writes provided sourceDS Datasets into new dataset and runs the library version of gdalwarp
+// See the gdalwarp doc page to determine the valid flags/opts that can be set in switches.
+//
+// Example switches :
+//  []string{
+//	  "-t_srs","epsg:3857",
+//    "-dstalpha"}
+//
+// Creation options and driver may be set either in the switches slice with
+//  switches:=[]string{"-co","TILED=YES","-of","GTiff"}
+// or through Options with
+//  ds.Warp(dst, switches, CreationOption("TILED=YES","BLOCKXSIZE=256"), GTiff)
+func Warp(dstDS string, sourceDS []*Dataset, switches []string, opts ...DatasetWarpOption) (*Dataset, error) {
 	gopts := dsWarpOpts{}
 	for _, opt := range opts {
 		opt.setDatasetWarpOpt(&gopts)
 	}
+
 	for _, copt := range gopts.creation {
 		switches = append(switches, "-co", copt)
 	}
+
 	if gopts.driver != "" {
 		dname := string(gopts.driver)
 		if dm, ok := driverMappings[gopts.driver]; ok {
@@ -302,21 +320,78 @@ func (ds *Dataset) Warp(dstDS string, switches []string, opts ...DatasetWarpOpti
 		}
 		switches = append(switches, "-of", dname)
 	}
+
+	srcDS := make([]C.GDALDatasetH, len(sourceDS))
+	for i, dataset := range sourceDS {
+		srcDS[i] = dataset.Handle()
+	}
+
+	cswitches := sliceToCStringArray(switches)
+	defer cswitches.free()
+	cconfig := sliceToCStringArray(gopts.config)
+	defer cconfig.free()
+	cname := unsafe.Pointer(C.CString(dstDS))
+	defer C.free(cname)
+
+	var errmsg *C.char
+	hndl := C.godalDatasetWarp((*C.char)(cname), C.int(len(sourceDS)), (*C.GDALDatasetH)(unsafe.Pointer(&srcDS[0])), cswitches.cPointer(), &errmsg, cconfig.cPointer())
+	if errmsg != nil {
+		defer C.free(unsafe.Pointer(errmsg))
+		return nil, errors.New(C.GoString(errmsg))
+	}
+
+	return &Dataset{majorObject{C.GDALMajorObjectH(hndl)}}, nil
+}
+
+// DatasetWarpIntoOption is an option that can be passed to Dataset.WarpInto()
+//
+// Available DatasetWarpIntoOption is:
+//
+// • ConfigOption
+//
+type DatasetWarpIntoOption interface {
+	setDatasetWarpIntoOpt(dwo *dsWarpIntoOpts)
+}
+
+type dsWarpIntoOpts struct {
+	config []string
+}
+
+// WarpInto writes provided sourceDS Datasets into self existing dataset and runs the library version of gdalwarp
+// See the gdalwarp doc page to determine the valid flags/opts that can be set in switches.
+//
+// Example switches :
+//  []string{
+//	  "-t_srs","epsg:3857",
+//    "-dstalpha"}
+func (ds *Dataset) WarpInto(sourceDS []*Dataset, switches []string, opts ...DatasetWarpIntoOption) error {
+	gopts := dsWarpIntoOpts{}
+	for _, opt := range opts {
+		opt.setDatasetWarpIntoOpt(&gopts)
+	}
+
 	cswitches := sliceToCStringArray(switches)
 	defer cswitches.free()
 	cconfig := sliceToCStringArray(gopts.config)
 	defer cconfig.free()
 
-	cname := unsafe.Pointer(C.CString(dstDS))
-	defer C.free(cname)
-
-	var errmsg *C.char
-	hndl := C.godalDatasetWarp((*C.char)(cname), ds.Handle(), cswitches.cPointer(), &errmsg, cconfig.cPointer())
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return nil, errors.New(C.GoString(errmsg))
+	dstDS := ds.Handle()
+	srcDS := make([]C.GDALDatasetH, len(sourceDS))
+	for i, dataset := range sourceDS {
+		srcDS[i] = dataset.Handle()
 	}
-	return &Dataset{majorObject{C.GDALMajorObjectH(hndl)}}, nil
+
+	if errmsg := C.godalDatasetWarpInto(
+		dstDS,
+		C.int(len(sourceDS)),
+		(*C.GDALDatasetH)(unsafe.Pointer(&srcDS[0])),
+		cswitches.cPointer(),
+		cconfig.cPointer(),
+	); errmsg != nil {
+		defer C.free(unsafe.Pointer(errmsg))
+		return errors.New(C.GoString(errmsg))
+	}
+	return nil
 }
 
 type buildOvrOpts struct {

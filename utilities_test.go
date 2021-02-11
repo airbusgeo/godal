@@ -16,6 +16,7 @@ package godal
 
 import (
 	"os"
+	"path"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -96,7 +97,85 @@ func TestDatasetWarp(t *testing.T) {
 		t.Errorf("wrong block size %d,%d", st.BlockSizeX, st.BlockSizeY)
 	}
 }
+func TestDatasetWarpMulti(t *testing.T) {
+	ds1, _ := Create(Memory, "", 3, Byte, 5, 5)
+	ds2, _ := Create(Memory, "", 3, Byte, 5, 5)
 
+	sr, _ := NewSpatialRefFromEPSG(4326)
+	_ = ds1.SetSpatialRef(sr)
+	_ = ds2.SetSpatialRef(sr)
+
+	_ = ds1.SetGeoTransform([6]float64{45, 1, 0, 35, 0, -1})
+	_ = ds2.SetGeoTransform([6]float64{50, 1, 0, 35, 0, -1})
+
+	for _, b := range ds1.Bands() {
+		_ = b.Fill(200, 0)
+	}
+
+	for _, b := range ds2.Bands() {
+		_ = b.Fill(100, 0)
+	}
+
+	defer ds1.Close()
+	defer ds2.Close()
+
+	// Warp NewDataset with multiple input dataset
+	filePath := path.Join(os.TempDir(), "warp.tif")
+	outputDataset, err := Warp(filePath, []*Dataset{ds1, ds2}, []string{}, CreationOption("TILED=YES"), GTiff)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer os.Remove(filePath)
+	defer outputDataset.Close()
+
+	if outputDataset.Structure().SizeX != 10 || outputDataset.Structure().SizeY != 5 {
+		t.Errorf("wrong size %d,%d", outputDataset.Structure().SizeX, outputDataset.Structure().SizeY)
+	}
+
+	// read total warp result
+	data := make([]uint8, 50)
+	err = outputDataset.Read(0, 0, data, outputDataset.Structure().SizeX, outputDataset.Structure().SizeY,
+		Bands(0, 1, 2),
+		Window(outputDataset.Structure().SizeX, outputDataset.Structure().SizeY),
+	)
+	assert.NoError(t, err)
+
+	assert.Equal(t, []uint8{200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 100, 100, 100, 100, 100}, data)
+}
+func TestDatasetWarpInto(t *testing.T) {
+	outputDataset, _ := Create(Memory, "", 1, Byte, 5, 5)
+	inputDataset, _ := Create(Memory, "", 1, Byte, 5, 5)
+
+	for _, b := range outputDataset.Bands() {
+		_ = b.Fill(200, 0)
+	}
+
+	for _, b := range inputDataset.Bands() {
+		_ = b.Fill(155, 0)
+	}
+
+	sr, _ := NewSpatialRefFromEPSG(4326)
+	_ = outputDataset.SetSpatialRef(sr)
+	_ = outputDataset.SetGeoTransform([6]float64{45, 1, 0, 35, 0, -1})
+	_ = inputDataset.SetSpatialRef(sr)
+	_ = inputDataset.SetGeoTransform([6]float64{45, 1, 0, 35, 0, -1})
+
+	defer outputDataset.Close()
+	defer inputDataset.Close()
+
+	// Warp existing dataset with multiple input dataset
+	err := outputDataset.WarpInto([]*Dataset{inputDataset}, []string{"-co", "TILED=YES"})
+	assert.Error(t, err, "creation option option should have raised an error")
+
+	if err = outputDataset.WarpInto([]*Dataset{inputDataset}, []string{}); err != nil {
+		t.Fatal(err)
+	}
+
+	data := make([]uint8, 1)
+	_ = outputDataset.Read(0, 0, data, 1, 1)
+	assert.Equal(t, uint8(155), data[0])
+}
 func TestBuildOverviews(t *testing.T) {
 	tmpname := tempfile()
 	defer os.Remove(tmpname)
