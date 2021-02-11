@@ -538,6 +538,12 @@ type datasetIOOpt struct {
 // • Bands
 //
 // • BandInterleaved
+//
+// • PixelSpacing
+//
+// • LineSpacing
+//
+// • BandSpacing
 type DatasetIOOption interface {
 	setDatasetIOOpt(ro *datasetIOOpt)
 }
