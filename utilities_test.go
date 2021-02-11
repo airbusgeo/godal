@@ -169,7 +169,7 @@ func TestDatasetWarpInto(t *testing.T) {
 
 	// Warp existing dataset with multiple input dataset
 	err := outputDataset.WarpInto([]*Dataset{inputDataset}, []string{"-co", "TILED=YES"})
-	assert.Error(t, err, "error not raised")
+	assert.Error(t, err, "creation option option should have error not raised")
 
 	if err = outputDataset.WarpInto([]*Dataset{inputDataset}, []string{}, ConfigOption("GDAL_CACHEMAX=64")); err != nil {
 		t.Fatal(err)
