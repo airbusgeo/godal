@@ -381,16 +381,13 @@ func (ds *Dataset) WarpInto(sourceDS []*Dataset, switches []string, opts ...Data
 		srcDS[i] = dataset.Handle()
 	}
 
-	var errmsg *C.char
-	_ = C.godalDatasetWarpInto(
+	if errmsg := C.godalDatasetWarpInto(
 		dstDS,
 		C.int(len(sourceDS)),
 		(*C.GDALDatasetH)(unsafe.Pointer(&srcDS[0])),
 		cswitches.cPointer(),
-		&errmsg,
 		cconfig.cPointer(),
-	)
-	if errmsg != nil {
+	); errmsg != nil {
 		defer C.free(unsafe.Pointer(errmsg))
 		return errors.New(C.GoString(errmsg))
 	}

@@ -98,19 +98,30 @@ func TestDatasetWarp(t *testing.T) {
 	}
 }
 func TestDatasetWarpMulti(t *testing.T) {
-	ds1, _ := Open("testdata/test_1_1.tif", RasterOnly())
-	ds2, _ := Open("testdata/test_1_2.tif", RasterOnly())
-	ds3, _ := Open("testdata/test_2_1.tif", RasterOnly())
-	ds4, _ := Open("testdata/test_2_2.tif", RasterOnly())
+	ds1, _ := Create(Memory, "", 3, Byte, 5, 5)
+	ds2, _ := Create(Memory, "", 3, Byte, 5, 5)
+
+	sr, _ := NewSpatialRefFromEPSG(4326)
+	_ = ds1.SetSpatialRef(sr)
+	_ = ds2.SetSpatialRef(sr)
+
+	_ = ds1.SetGeoTransform([6]float64{45, 1, 0, 35, 0, -1})
+	_ = ds2.SetGeoTransform([6]float64{50, 1, 0, 35, 0, -1})
+
+	for _, b := range ds1.Bands() {
+		_ = b.Fill(200, 0)
+	}
+
+	for _, b := range ds2.Bands() {
+		_ = b.Fill(100, 0)
+	}
 
 	defer ds1.Close()
 	defer ds2.Close()
-	defer ds3.Close()
-	defer ds4.Close()
 
 	// Warp NewDataset with multiple input dataset
 	filePath := path.Join(os.TempDir(), "warp.tif")
-	outputDataset, err := Warp(filePath, []*Dataset{ds1, ds2, ds3, ds4}, []string{"-ts", "40", "40"}, CreationOption("TILED=YES", "BLOCKXSIZE=32", "BLOCKYSIZE=16"), GTiff)
+	outputDataset, err := Warp(filePath, []*Dataset{ds1, ds2}, []string{}, CreationOption("TILED=YES"), GTiff)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,64 +129,81 @@ func TestDatasetWarpMulti(t *testing.T) {
 	defer os.Remove(filePath)
 	defer outputDataset.Close()
 
-	st := outputDataset.Structure()
-	if st.SizeX != 40 || st.SizeY != 40 {
-		t.Errorf("wrong size %d,%d", st.SizeX, st.SizeY)
+	data := make([]uint8, 50)
+	err = outputDataset.Read(0, 0, data, outputDataset.Structure().SizeX, outputDataset.Structure().SizeY, Bands(0, 1, 2), Window(10, 10))
+	assert.Error(t, err, "Access window out of range")
+
+	// read total warp result
+	err = outputDataset.Read(0, 0, data, outputDataset.Structure().SizeX, outputDataset.Structure().SizeY,
+		Bands(0, 1, 2),
+		Window(outputDataset.Structure().SizeX, outputDataset.Structure().SizeY),
+	)
+	assert.NoError(t, err)
+
+	assert.Equal(t, []uint8{200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 100, 100, 100, 100, 100}, data)
+
+	// read part warp result
+	err = outputDataset.Read(0, 0, data, ds1.Structure().SizeX, ds1.Structure().SizeY,Bands(0, 1, 2))
+	assert.NoError(t, err)
+
+	for _, px := range data {
+		if px != 200 {
+			t.Errorf("wrong pixel value : %d instead of 200", px)
+		}
 	}
 
-	if st.BlockSizeX != 32 || st.BlockSizeY != 16 {
-		t.Errorf("wrong block size %d,%d", st.BlockSizeX, st.BlockSizeY)
-	}
+	err = outputDataset.Read(5, 0, data, ds2.Structure().SizeX, ds2.Structure().SizeY,Bands(0, 1, 2))
+	assert.NoError(t, err)
 
-	geoTransform, err := outputDataset.GeoTransform()
-	if err != nil {
-		t.Errorf("failed to get geotransform")
-	}
-
-	if geoTransform != [6]float64{45.000000, 0.250000, 0.000000, 35.000000, 0.000000, -0.250000} {
-		t.Errorf("wrong geotransform : [ %f, %f, %f, %f, %f, %f ]", geoTransform[0], geoTransform[1], geoTransform[2], geoTransform[3], geoTransform[4], geoTransform[5])
+	for _, px := range data {
+		if px != 100 {
+			t.Errorf("wrong pixel value : %d instead of 100", px)
+		}
 	}
 }
 func TestDatasetWarpInto(t *testing.T) {
-	filePath := path.Join(os.TempDir(), "warpinto.tif")
-	outputDataset, err := Create(GTiff, filePath, 4, Byte, 10, 10)
-	if err != nil {
-		t.Fatal(err)
+	outputDataset, _ := Create(Memory, "", 1, Byte, 5, 5)
+	inputDataset, _ := Create(Memory, "", 1, Byte, 5, 5)
+
+	for _, b := range outputDataset.Bands() {
+		_ = b.Fill(200, 0)
 	}
 
-	defer os.Remove(filePath)
+	for _, b := range inputDataset.Bands() {
+		_ = b.Fill(155, 0)
+	}
+
+	sr, _ := NewSpatialRefFromEPSG(4326)
+	_ = outputDataset.SetSpatialRef(sr)
+	_ = outputDataset.SetGeoTransform([6]float64{45, 1, 0, 35, 0, -1})
+	_ = inputDataset.SetSpatialRef(sr)
+	_ = inputDataset.SetGeoTransform([6]float64{45, 1, 0, 35, 0, -1})
+
 	defer outputDataset.Close()
-
-	sr, err := NewSpatialRefFromEPSG(4326)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = outputDataset.SetSpatialRef(sr); err != nil {
-		t.Fatal(err)
-	}
-	if err = outputDataset.SetGeoTransform([6]float64{45.000000, 1.0, 0.000000, 35.000000, 0.000000, -1.0}); err != nil {
-		t.Fatal(err)
-	}
-
-	inputDataset, _ := Open("testdata/test.tif", RasterOnly())
 	defer inputDataset.Close()
 
 	// Warp existing dataset with multiple input dataset
-	if err = outputDataset.WarpInto([]*Dataset{inputDataset}, []string{"-co", "TILED=YES"}); err == nil {
-		t.Error("All options related to creation ignored in update mode")
-	}
+	err := outputDataset.WarpInto([]*Dataset{inputDataset}, []string{"-co", "TILED=YES"})
+	assert.Error(t, err, "All options related to creation ignored in update mode")
 
-	if err = outputDataset.WarpInto([]*Dataset{inputDataset}, []string{"-of", "GTiff"}); err == nil {
-		t.Error("All options related to creation ignored in update mode")
-	}
-
-	if err = outputDataset.WarpInto([]*Dataset{inputDataset}, []string{"-dstalpha"}, ConfigOption("GDAL_CACHEMAX=64")); err != nil {
+	if err = outputDataset.WarpInto([]*Dataset{inputDataset}, []string{}, ConfigOption("GDAL_CACHEMAX=64")); err != nil {
 		t.Fatal(err)
 	}
 
-	if outputDataset.Structure().NBands != 4 {
+	if outputDataset.Structure().NBands != 1 {
 		t.Errorf("wrong band number : %d", outputDataset.Structure().NBands)
 	}
+
+	data := make([]uint8, 25)
+	err = outputDataset.Read(0, 0, data, outputDataset.Structure().SizeX, outputDataset.Structure().SizeY, Bands(0))
+	assert.NoError(t, err)
+
+	for _, px := range data {
+		if px != 155 {
+			t.Errorf("wrong px value : %d instead of 155", px)
+		}
+	}
+
 }
 func TestBuildOverviews(t *testing.T) {
 	tmpname := tempfile()

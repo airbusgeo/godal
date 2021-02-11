@@ -482,25 +482,26 @@ GDALDatasetH godalDatasetWarp(char *dstName, int nSrcCount, GDALDatasetH *srcDS,
 	return ret;
 }
 
-GDALDatasetH godalDatasetWarpInto(GDALDatasetH dstDs,  int nSrcCount, GDALDatasetH *srcDS, char **switches, char **error, char **config) {
-	godalWrap(error,config);
+char *godalDatasetWarpInto(GDALDatasetH dstDs,  int nSrcCount, GDALDatasetH *srcDS, char **switches, char **config) {
+	char *error = nullptr;
+	godalWrap(&error, nullptr);
 	GDALWarpAppOptions *warpopts = GDALWarpAppOptionsNew(switches,nullptr);
-	if(*error!=nullptr) {
+	if(error!=nullptr) {
 		godalUnwrap(config);
 		GDALWarpAppOptionsFree(warpopts);
-		return nullptr;
+		return error;
 	}
 	int usageErr=0;
 	GDALDatasetH ret = GDALWarp(nullptr, dstDs, nSrcCount, srcDS, warpopts, &usageErr);
 	GDALWarpAppOptionsFree(warpopts);
 	godalUnwrap(config);
-	if(*error!=nullptr) {
-		return nullptr;
+	if(error!=nullptr) {
+		return error;
 	}
 	if(ret==nullptr || usageErr!=0) {
-		*error=strdup("warp: unknown error");
+		error=strdup("warp: unknown error");
 	}
-	return ret;
+	return nullptr;
 }
 
 GDALDatasetH godalDatasetVectorTranslate(char *dstName, GDALDatasetH ds, char **switches, char **error, char **config) {
