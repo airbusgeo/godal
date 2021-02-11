@@ -133,11 +133,8 @@ func TestDatasetWarpMulti(t *testing.T) {
 		t.Errorf("wrong size %d,%d", outputDataset.Structure().SizeX, outputDataset.Structure().SizeY)
 	}
 
-	data := make([]uint8, 50)
-	err = outputDataset.Read(0, 0, data, outputDataset.Structure().SizeX, outputDataset.Structure().SizeY, Bands(0, 1, 2), Window(10, 10))
-	assert.Error(t, err, "Access window out of range")
-
 	// read total warp result
+	data := make([]uint8, 50)
 	err = outputDataset.Read(0, 0, data, outputDataset.Structure().SizeX, outputDataset.Structure().SizeY,
 		Bands(0, 1, 2),
 		Window(outputDataset.Structure().SizeX, outputDataset.Structure().SizeY),
@@ -169,9 +166,9 @@ func TestDatasetWarpInto(t *testing.T) {
 
 	// Warp existing dataset with multiple input dataset
 	err := outputDataset.WarpInto([]*Dataset{inputDataset}, []string{"-co", "TILED=YES"})
-	assert.Error(t, err, "creation option option should have error not raised")
+	assert.Error(t, err, "creation option option should have raised an error")
 
-	if err = outputDataset.WarpInto([]*Dataset{inputDataset}, []string{}, ConfigOption("GDAL_CACHEMAX=64")); err != nil {
+	if err = outputDataset.WarpInto([]*Dataset{inputDataset}, []string{}); err != nil {
 		t.Fatal(err)
 	}
 
