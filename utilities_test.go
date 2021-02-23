@@ -563,3 +563,16 @@ func TestRasterizeGeometries(t *testing.T) {
 	assert.Error(t, err)
 
 }
+
+func TestBuildVRT(t *testing.T) {
+	ds, err := BuildVRT("/vsimem/vrt1.vrt", []string{"testdata/test.tif"}, nil)
+	assert.NoError(t, err)
+	defer ds.Close()
+	defer VSIUnlink("/vsimem/vrt1.vrt")
+
+	str := ds.Structure()
+	assert.Equal(t, 10, str.SizeX)
+
+	_, err = BuildVRT("/vsimem/vrt1.vrt", []string{"testdata/testnotexist.tif"}, nil)
+	assert.Error(t, err)
+}

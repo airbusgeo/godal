@@ -415,3 +415,62 @@ func cBuffer(buffer interface{}) (int, DataType, unsafe.Pointer) {
 	dsize := dtype.Size()
 	return dsize, dtype, cBuf
 }
+
+type buildVRTOpts struct {
+	config      []string
+	openOptions []string
+	bands       []int
+	resampling  ResamplingAlg
+}
+
+// BuildVRTOption is an option that can be passed to BuildVRT
+//
+// Available BuildVRTOptions are:
+//
+// • ConfigOption
+//
+// • DriverOpenOption
+//
+// • Bands
+//
+// • Resampling
+type BuildVRTOption interface {
+	setBuildVRTOpt(bvo *buildVRTOpts)
+}
+
+//BuildVRT runs the GDALBuildVRT function and creates a VRT dataset from a list of datasets
+func BuildVRT(dstVRTName string, sourceDatasets []string, switches []string, opts ...BuildVRTOption) (*Dataset, error) {
+	bvo := buildVRTOpts{}
+	for _, o := range opts {
+		o.setBuildVRTOpt(&bvo)
+	}
+	if bvo.resampling != Nearest {
+		switches = append(switches, "-r", bvo.resampling.String())
+	}
+	for _, b := range bvo.bands {
+		switches = append(switches, "-b", fmt.Sprintf("%d", b))
+	}
+	for _, oo := range bvo.openOptions {
+		switches = append(switches, "-oo", oo)
+	}
+	cswitches := sliceToCStringArray(switches)
+	defer cswitches.free()
+	cconfig := sliceToCStringArray(bvo.config)
+	defer cconfig.free()
+
+	cname := unsafe.Pointer(C.CString(dstVRTName))
+	defer C.free(cname)
+
+	csources := sliceToCStringArray(sourceDatasets)
+	defer csources.free()
+
+	var errmsg *C.char
+	hndl := C.godalBuildVRT((*C.char)(cname), csources.cPointer(),
+		cswitches.cPointer(), &errmsg, cconfig.cPointer())
+	if errmsg != nil {
+		defer C.free(unsafe.Pointer(errmsg))
+		return nil, errors.New(C.GoString(errmsg))
+	}
+	return &Dataset{majorObject{C.GDALMajorObjectH(hndl)}}, nil
+	return nil, nil
+}

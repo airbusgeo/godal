@@ -1052,6 +1052,33 @@ OGRFeatureH godalLayerNewFeature(OGRLayerH layer, OGRGeometryH geom, char **erro
 	}
 	return hFeature;
 }
+
+GDALDatasetH godalBuildVRT(char *dstName, char **sources, char **switches, char **error, char **config) {
+	godalWrap(error,config);
+	GDALBuildVRTOptions *ropts = GDALBuildVRTOptionsNew(switches,nullptr);
+	if(*error!=nullptr) {
+		godalUnwrap(config);
+		GDALBuildVRTOptionsFree(ropts);
+		return nullptr;
+	}
+	int usageErr=0;
+	int nSources = 0;
+	char **src = sources;
+	for( char **src = sources; *src; src++) {
+		nSources++;
+	}
+
+	GDALDatasetH ret = GDALBuildVRT(dstName, nSources, nullptr, sources, ropts, &usageErr);
+	GDALBuildVRTOptionsFree(ropts);
+	godalUnwrap(config);
+	if(*error!=nullptr) {
+		return nullptr;
+	}
+	if(ret==nullptr || usageErr!=0) {
+		*error=strdup("buildvrt: unknown error");
+	}
+	return ret;
+}
 /*
 g++ -I/opt/include -o godal godal.cpp -L/opt/lib -lgdal -ldl
 
