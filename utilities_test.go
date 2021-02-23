@@ -129,15 +129,17 @@ func TestDatasetWarpMulti(t *testing.T) {
 	defer os.Remove(filePath)
 	defer outputDataset.Close()
 
-	if outputDataset.Structure().SizeX != 10 || outputDataset.Structure().SizeY != 5 {
-		t.Errorf("wrong size %d,%d", outputDataset.Structure().SizeX, outputDataset.Structure().SizeY)
+	ostruct := outputDataset.Structure()
+
+	if ostruct.SizeX != 10 || ostruct.SizeY != 5 {
+		t.Errorf("wrong size %d,%d", ostruct.SizeX, ostruct.SizeY)
 	}
 
 	// read total warp result
 	data := make([]uint8, 50)
-	err = outputDataset.Read(0, 0, data, outputDataset.Structure().SizeX, outputDataset.Structure().SizeY,
+	err = outputDataset.Read(0, 0, data, ostruct.SizeX, ostruct.SizeY,
 		Bands(0, 1, 2),
-		Window(outputDataset.Structure().SizeX, outputDataset.Structure().SizeY),
+		Window(ostruct.SizeX, ostruct.SizeY),
 	)
 	assert.NoError(t, err)
 
