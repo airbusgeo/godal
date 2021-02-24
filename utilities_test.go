@@ -578,7 +578,7 @@ func TestBuildVRT(t *testing.T) {
 	_, err = BuildVRT("/vsimem/vrt1.vrt", []string{"testdata/test.tif"}, nil, DriverOpenOption("BOGUS=GGG"))
 	assert.Error(t, err)
 
-	ds, err = BuildVRT("/vsimem/vrt1.vrt", []string{"testdata/test.tif"}, nil, Bands(0), Resampling(Cubic))
+	ds, err = BuildVRT("/vsimem/vrt1.vrt", []string{"testdata/test.tif"}, nil, Bands(0), Resampling(Cubic), ConfigOption("VRT_VIRTUAL_OVERVIEWS=YES"))
 	assert.NoError(t, err)
 
 	str = ds.Structure()

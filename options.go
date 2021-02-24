@@ -305,6 +305,7 @@ func ConfigOption(cfgs ...string) interface {
 	RasterizeOption
 	DatasetIOOption
 	BandIOOption
+	BuildVRTOption
 } {
 	return configOpts{cfgs}
 }
@@ -344,6 +345,9 @@ func (co configOpts) setDatasetIOOpt(oo *datasetIOOpt) {
 }
 func (co configOpts) setBandIOOpt(oo *bandIOOpt) {
 	oo.config = append(oo.config, co.config...)
+}
+func (co configOpts) setBuildVRTOpt(bvo *buildVRTOpts) {
+	bvo.config = append(bvo.config, co.config...)
 }
 
 type minSizeOpt struct {

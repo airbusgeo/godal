@@ -427,6 +427,8 @@ type buildVRTOpts struct {
 //
 // Available BuildVRTOptions are:
 //
+// • ConfigOption
+//
 // • DriverOpenOption
 //
 // • Bands
