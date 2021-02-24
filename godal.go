@@ -472,5 +472,4 @@ func BuildVRT(dstVRTName string, sourceDatasets []string, switches []string, opt
 		return nil, errors.New(C.GoString(errmsg))
 	}
 	return &Dataset{majorObject{C.GDALMajorObjectH(hndl)}}, nil
-	return nil, nil
 }
