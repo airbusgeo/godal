@@ -15,6 +15,8 @@
 package godal
 
 import (
+	"bytes"
+	"io"
 	"os"
 	"path"
 	"testing"
@@ -562,4 +564,31 @@ func TestRasterizeGeometries(t *testing.T) {
 	err = mds.RasterizeGeometry(ff, Bands(0, 2, 3), Values(1, 2, 3))
 	assert.Error(t, err)
 
+}
+
+func TestBuildVRT(t *testing.T) {
+	ds, err := BuildVRT("/vsimem/vrt1.vrt", []string{"testdata/test.tif"}, nil)
+	assert.NoError(t, err)
+	defer func() { _ = VSIUnlink("/vsimem/vrt1.vrt") }()
+
+	str := ds.Structure()
+	assert.Equal(t, 10, str.SizeX)
+	ds.Close()
+
+	_, err = BuildVRT("/vsimem/vrt1.vrt", []string{"testdata/test.tif"}, nil, DriverOpenOption("BOGUS=GGG"))
+	assert.Error(t, err)
+
+	ds, err = BuildVRT("/vsimem/vrt1.vrt", []string{"testdata/test.tif"}, nil, Bands(0), Resampling(Cubic))
+	assert.NoError(t, err)
+
+	str = ds.Structure()
+	assert.Equal(t, 1, str.NBands)
+	ds.Close()
+
+	vrtReader, err := VSIOpen("/vsimem/vrt1.vrt")
+	assert.NoError(t, err)
+	b := bytes.Buffer{}
+	_, _ = io.Copy(&b, vrtReader)
+	vrtReader.Close()
+	assert.Contains(t, b.String(), "resampling=\"cubic\"")
 }

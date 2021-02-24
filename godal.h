@@ -106,6 +106,8 @@ extern "C" {
 	char* godalExportGeometryWKB(void **wkb, int *wkbLen, OGRGeometryH in);
 	char *godalGeometryTransformTo(OGRGeometryH geom, OGRSpatialReferenceH sr);
 	char *godalGeometryTransform(OGRGeometryH geom, OGRCoordinateTransformationH trn, OGRSpatialReferenceH dst);
+
+	GDALDatasetH godalBuildVRT(char *dstname, char **sources, char **switches, char **error, char **config);
 #ifdef __cplusplus
 }
 #endif

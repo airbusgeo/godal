@@ -111,11 +111,15 @@ type driverOpenOption struct {
 //be provided in a "KEY=value" format
 func DriverOpenOption(keyval ...string) interface {
 	OpenOption
+	BuildVRTOption
 } {
 	return driverOpenOption{keyval}
 }
 func (doo driverOpenOption) setOpenOption(oo *openOptions) {
 	oo.options = append(oo.options, doo.oo...)
+}
+func (doo driverOpenOption) setBuildVRTOpt(bvo *buildVRTOpts) {
+	bvo.openOptions = append(bvo.openOptions, doo.oo...)
 }
 
 type bandOpt struct {
@@ -131,6 +135,7 @@ func Bands(bnds ...int) interface {
 	DatasetIOOption
 	BuildOverviewsOption
 	RasterizeGeometryOption
+	BuildVRTOption
 } {
 	ib := make([]int, len(bnds))
 	for i := range bnds {
@@ -147,6 +152,9 @@ func (bo bandOpt) setBuildOverviewsOpt(ovr *buildOvrOpts) {
 }
 func (bo bandOpt) setRasterizeGeometryOpt(o *rasterizeGeometryOpt) {
 	o.bands = bo.bnds
+}
+func (bo bandOpt) setBuildVRTOpt(bvo *buildVRTOpts) {
+	bvo.bands = bo.bnds
 }
 
 type bandSpacingOpt struct {
@@ -367,6 +375,7 @@ func Resampling(alg ResamplingAlg) interface {
 	BuildOverviewsOption
 	DatasetIOOption
 	BandIOOption
+	BuildVRTOption
 } {
 	return resamplingOpt{alg}
 }
@@ -378,6 +387,9 @@ func (ro resamplingOpt) setDatasetIOOpt(io *datasetIOOpt) {
 }
 func (ro resamplingOpt) setBandIOOpt(io *bandIOOpt) {
 	io.resampling = ro.m
+}
+func (ro resamplingOpt) setBuildVRTOpt(bvo *buildVRTOpts) {
+	bvo.resampling = ro.m
 }
 
 type levelsOpt struct {
