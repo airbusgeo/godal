@@ -15,9 +15,11 @@
 #ifndef _GODAL_H_
 #define _GODAL_H_
 
+#define _GNU_SOURCE 1
 #include <gdal.h>
 #include <ogr_srs_api.h>
 #include <cpl_conv.h>
+#include "cpl_port.h"
 #include <gdal_frmts.h>
 
 #if GDAL_VERSION_NUM < 3020000
@@ -112,6 +114,5 @@ extern "C" {
 }
 #endif
 
+
 #endif // GO_GDAL_H_
-
-
