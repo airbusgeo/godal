@@ -304,7 +304,7 @@ func TestConfigOptions(t *testing.T) {
 	dsm.Close()
 	_ = os.Remove(tiffile2)
 
-	dsm, err = ds.Warp(tiffile2, nil, ConfigOption("GDAL_NUM_THREADS=-2"))
+	_, err = ds.Warp(tiffile2, nil, ConfigOption("GDAL_NUM_THREADS=-2"))
 	assert.Error(t, err)
 
 	ds.Close()
