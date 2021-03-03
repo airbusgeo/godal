@@ -27,6 +27,10 @@ func bytea(i int) []byte {
 
 func TestCache(t *testing.T) {
 	cache, _ := blockcache.NewCache(4)
+	testCache(t, cache)
+}
+func testCache(t *testing.T, cache blockcache.Cacher) {
+	t.Helper()
 	for i := 0; i < 4; i++ {
 		cache.Add("foo", uint(i), bytea(i))
 	}
