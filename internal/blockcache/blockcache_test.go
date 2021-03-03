@@ -36,9 +36,12 @@ var errOver50 = errors.New("ff50")
 
 func (r Reader) ReadAt(key string, buf []byte, off int64) (int, error) {
 	time.Sleep(delay)
-	if key == "fail_over_50" && off > 50 {
-		time.Sleep(delay)
-		return 0, errOver50
+	if key == "fail_over_50" {
+		if off < 50 {
+			time.Sleep(delay)
+		} else {
+			return 0, errOver50
+		}
 	}
 	if key == "enoent" {
 		return 0, syscall.ENOENT
@@ -98,6 +101,17 @@ func TestBlockCache(t *testing.T) {
 			//t.Logf("bs: %d, cs:%d", blockSize, cacheSize)
 			testBlockCache(t, true, blockSize, cacheSize)
 			testBlockCache(t, false, blockSize, cacheSize)
+		}
+	}
+	cache, _ := blockcache.NewCache(10)
+	bc := blockcache.New(rr, cache, 10, true)
+	for i := 1; i < 20; i++ {
+		buf := make([]byte, i)
+		for j := 0; j < 20; j++ {
+			_, err := bc.ReadAt("enoent", buf, int64(j))
+			if !errors.Is(err, syscall.ENOENT) {
+				t.Error(err)
+			}
 		}
 	}
 }
@@ -178,16 +192,6 @@ func testBlockCache(t *testing.T, split bool, blockSize int, numCachedBlocks int
 	exp, _ := rr.ReadAt("", expx, int64(blockSize*3-blockSize/2))
 	_, _ = bc.ReadAt("", buf[0:blockSize], int64(blockSize*3))
 	test(t, bc, buf, int64(blockSize*3-blockSize/2), exp, expx, nil)
-
-	for i := 1; i < blockSize*2; i++ {
-		buf = make([]byte, i)
-		for j := 0; j < blockSize; j++ {
-			_, err := bc.ReadAt("enoent", buf, int64(j))
-			if !errors.Is(err, syscall.ENOENT) {
-				t.Error(err)
-			}
-		}
-	}
 
 }
 
