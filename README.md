@@ -77,7 +77,7 @@ until essential functionality is covered.
 
 ### Contributing
 
-Contributions are welcome. Please read the [contribution guidelines](https://github.com/airbusgeo/godal/blob/main/.github/CONTRIBUTING.md)
+Contributions are welcome. Please read the [contribution guidelines](CONTRIBUTING.md)
 before submitting fixes or enhancements.
 
 ### Installation
