@@ -56,13 +56,9 @@ type KeyReaderAt interface {
 //
 // Get fetches the data for the given key and blockID. It returns
 // the data and wether the data was found in the cache or not
-//
-// Purge empties the underlying cache for the given key
 type Cacher interface {
 	Add(key string, blockID uint, data []byte)
 	Get(key string, blockID uint) ([]byte, bool)
-	PurgeKey(key string)
-	Purge()
 }
 
 // NamedOnceMutex is a locker on arbitrary lock names.
@@ -87,29 +83,25 @@ type BlockCache struct {
 	splitRanges bool
 }
 
+// New creates a BlockCache
 func New(reader KeyReaderAt, cache Cacher, blockSize uint, split bool) *BlockCache {
 
 	if blockSize == 0 {
 		blockSize = 64 * 1024
 	}
-	return &BlockCache{
-		blmu:        nsync.NewNamedOnceMutex(),
+	bc := &BlockCache{
 		cache:       cache,
 		blockSize:   int64(blockSize),
 		reader:      reader,
 		splitRanges: split,
 	}
+	bc.SetLocker(nsync.NewNamedOnceMutex())
+	return bc
 }
+
+//SetLocker makes b use a custom locker instead of the default nsync.NamedOnceMutex
 func (b *BlockCache) SetLocker(mu NamedOnceMutex) {
 	b.blmu = mu
-}
-
-func (b *BlockCache) PurgeKey(key string) {
-	b.cache.PurgeKey(key)
-}
-
-func (b *BlockCache) Purge() {
-	b.cache.Purge()
 }
 
 type blockRange struct {
@@ -277,7 +269,7 @@ func (b *BlockCache) ReadAtMulti(key string, bufs [][]byte, offsets []int64) ([]
 		}
 	}
 	for i, buf := range bufs {
-		if written[i] != len(buf) {
+		if written[i] != len(buf) && err == nil {
 			err = io.EOF
 		}
 	}

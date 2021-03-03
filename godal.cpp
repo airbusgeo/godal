@@ -1104,15 +1104,15 @@ namespace cpl
         VSIGoFilesystemHandler(size_t bufferSize, size_t cacheSize);
         ~VSIGoFilesystemHandler() override;
 
-        VSIVirtualHandle *Open(const char *pszFilename,
-                               const char *pszAccess,
-                               bool bSetError,
-							   CSLConstList /*papszOptions*/);
-        VSIVirtualHandle *Open(const char *pszFilename,
-                               const char *pszAccess,
-                               bool bSetError);
+		VSIVirtualHandle *Open(const char *pszFilename,
+							   const char *pszAccess,
+							   bool bSetError
+#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 3, 0)
+							   , CSLConstList /*papszOptions*/
+#endif
+							   ) override;
 
-        int Stat(const char *pszFilename, VSIStatBufL *pStatBuf, int nFlags) override;
+		int Stat(const char *pszFilename, VSIStatBufL *pStatBuf, int nFlags) override;
         char **SiblingFiles(const char *pszFilename) override;
         int HasOptimizedReadMultiRange(const char *pszPath) override;
     };
@@ -1332,18 +1332,15 @@ namespace cpl
     }
     VSIGoFilesystemHandler::~VSIGoFilesystemHandler() {}
 
-    VSIVirtualHandle *VSIGoFilesystemHandler::Open(const char *pszFilename,
-                                                   const char *pszAccess,
-                                                   bool bSetError,
-												   CSLConstList /*papszOptions*/)
-	{
-		return Open(pszFilename, pszAccess, bSetError);
-	}
 	VSIVirtualHandle *VSIGoFilesystemHandler::Open(const char *pszFilename,
-                                                   const char *pszAccess,
-                                                   bool bSetError)
-    {
-        if (strchr(pszAccess, 'w') != NULL ||
+												   const char *pszAccess,
+												   bool bSetError
+#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 3, 0)
+												   , CSLConstList /*papszOptions*/
+#endif
+	)
+	{
+		if (strchr(pszAccess, 'w') != NULL ||
             strchr(pszAccess, '+') != NULL)
         {
             CPLError(CE_Failure, CPLE_AppDefined, "Only read-only mode is supported");
@@ -1369,9 +1366,9 @@ namespace cpl
         {
             return VSICreateCachedFile(new VSIGoHandle(pszFilename, s), m_buffer, m_cache);
         }
-    }
+	}
 
-    int VSIGoFilesystemHandler::Stat(const char *pszFilename,
+	int VSIGoFilesystemHandler::Stat(const char *pszFilename,
                                      VSIStatBufL *pStatBuf,
                                      int nFlags)
     {

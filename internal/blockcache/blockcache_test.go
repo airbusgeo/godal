@@ -19,6 +19,7 @@ import (
 	"errors"
 	"io"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -33,6 +34,9 @@ var delay time.Duration
 
 func (r Reader) ReadAt(key string, buf []byte, off int64) (int, error) {
 	time.Sleep(delay)
+	if key != "" {
+		return 0, syscall.ENOENT
+	}
 	if off < 0 {
 		return 0, errors.New("negative offset")
 	}
@@ -124,7 +128,7 @@ func testBlockCache(t *testing.T, split bool, blockSize int, numCachedBlocks int
 	test(t, bc, buf, 0, 8, []byte{0, 0, 0, 0, 1, 1, 1, 1}, nil)
 	test(t, bc, buf, 2, 8, []byte{0, 0, 1, 1, 1, 1, 2, 2}, nil)
 	test(t, bc, buf, 2, 8, []byte{0, 0, 1, 1, 1, 1, 2, 2}, nil)
-	bc.Purge()
+	cache.Purge()
 	test(t, bc, buf, 255*4, 4, []byte{255, 255, 255, 255}, io.EOF)
 	test(t, bc, buf, 255*4-2, 6, []byte{254, 254, 255, 255, 255, 255}, io.EOF)
 	test(t, bc, buf, 255*4-2, 6, []byte{254, 254, 255, 255, 255, 255}, io.EOF)
@@ -153,7 +157,7 @@ func testBlockCache(t *testing.T, split bool, blockSize int, numCachedBlocks int
 	test(t, bc, buf, 256*4, 0, []byte{}, io.EOF)
 	test(t, bc, buf, 256*4+2, 0, []byte{}, io.EOF) //outside bounds, but first block touches last data block
 	test(t, bc, buf, 256*4+5, 0, []byte{}, io.EOF)
-	bc.Purge()
+	cache.Purge()
 
 	//read before and after an already cached block
 	buf = make([]byte, blockSize*4)
@@ -161,5 +165,15 @@ func testBlockCache(t *testing.T, split bool, blockSize int, numCachedBlocks int
 	exp, _ := rr.ReadAt("", expx, int64(blockSize*3-blockSize/2))
 	_, _ = bc.ReadAt("", buf[0:blockSize], int64(blockSize*3))
 	test(t, bc, buf, int64(blockSize*3-blockSize/2), exp, expx, nil)
+
+	for i := 1; i < blockSize*2; i++ {
+		buf = make([]byte, i)
+		for j := 0; j < blockSize; j++ {
+			_, err := bc.ReadAt("enoent", buf, int64(j))
+			if !errors.Is(err, syscall.ENOENT) {
+				t.Error(err)
+			}
+		}
+	}
 
 }
