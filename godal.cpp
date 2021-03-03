@@ -1106,7 +1106,11 @@ namespace cpl
 
         VSIVirtualHandle *Open(const char *pszFilename,
                                const char *pszAccess,
-                               bool bSetError) override;
+                               bool bSetError,
+							   CSLConstList /*papszOptions*/);
+        VSIVirtualHandle *Open(const char *pszFilename,
+                               const char *pszAccess,
+                               bool bSetError);
 
         int Stat(const char *pszFilename, VSIStatBufL *pStatBuf, int nFlags) override;
         char **SiblingFiles(const char *pszFilename) override;
@@ -1329,6 +1333,13 @@ namespace cpl
     VSIGoFilesystemHandler::~VSIGoFilesystemHandler() {}
 
     VSIVirtualHandle *VSIGoFilesystemHandler::Open(const char *pszFilename,
+                                                   const char *pszAccess,
+                                                   bool bSetError,
+												   CSLConstList /*papszOptions*/)
+	{
+		return Open(pszFilename, pszAccess, bSetError);
+	}
+	VSIVirtualHandle *VSIGoFilesystemHandler::Open(const char *pszFilename,
                                                    const char *pszAccess,
                                                    bool bSetError)
     {
