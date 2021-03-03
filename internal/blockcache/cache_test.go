@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/airbusgeo/godal/internal/blockcache"
+	"github.com/stretchr/testify/assert"
 )
 
 func bytea(i int) []byte {
@@ -26,11 +27,9 @@ func bytea(i int) []byte {
 }
 
 func TestCache(t *testing.T) {
+	_, err := blockcache.NewCache(0)
+	assert.Error(t, err)
 	cache, _ := blockcache.NewCache(4)
-	testCache(t, cache)
-}
-func testCache(t *testing.T, cache blockcache.Cacher) {
-	t.Helper()
 	for i := 0; i < 4; i++ {
 		cache.Add("foo", uint(i), bytea(i))
 	}
