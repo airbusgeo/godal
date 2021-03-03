@@ -56,13 +56,9 @@ type KeyReaderAt interface {
 //
 // Get fetches the data for the given key and blockID. It returns
 // the data and wether the data was found in the cache or not
-//
-// Purge empties the underlying cache for the given key
 type Cacher interface {
 	Add(key string, blockID uint, data []byte)
 	Get(key string, blockID uint) ([]byte, bool)
-	PurgeKey(key string)
-	Purge()
 }
 
 // NamedOnceMutex is a locker on arbitrary lock names.
@@ -87,29 +83,25 @@ type BlockCache struct {
 	splitRanges bool
 }
 
+// New creates a BlockCache
 func New(reader KeyReaderAt, cache Cacher, blockSize uint, split bool) *BlockCache {
 
 	if blockSize == 0 {
-		blockSize = 64 * 1024
+		panic("blocksize must be >0")
 	}
-	return &BlockCache{
-		blmu:        nsync.NewNamedOnceMutex(),
+	bc := &BlockCache{
 		cache:       cache,
 		blockSize:   int64(blockSize),
 		reader:      reader,
 		splitRanges: split,
 	}
+	bc.SetLocker(nsync.NewNamedOnceMutex())
+	return bc
 }
+
+//SetLocker makes b use a custom locker instead of the default nsync.NamedOnceMutex
 func (b *BlockCache) SetLocker(mu NamedOnceMutex) {
 	b.blmu = mu
-}
-
-func (b *BlockCache) PurgeKey(key string) {
-	b.cache.PurgeKey(key)
-}
-
-func (b *BlockCache) Purge() {
-	b.cache.Purge()
 }
 
 type blockRange struct {
@@ -195,6 +187,7 @@ func (b *BlockCache) applyBlock(mu *sync.Mutex, block int64, data []byte, writte
 
 func (b *BlockCache) ReadAtMulti(key string, bufs [][]byte, offsets []int64) ([]int, error) {
 	blids := make(map[int64]bool)
+	errmu := sync.Mutex{}
 	for ibuf := range bufs {
 		zblock := offsets[ibuf] / b.blockSize
 		lblock := (offsets[ibuf] + int64(len(bufs[ibuf])) - 1) / b.blockSize
@@ -208,13 +201,17 @@ func (b *BlockCache) ReadAtMulti(key string, bufs [][]byte, offsets []int64) ([]
 	var err error
 	if b.splitRanges {
 		wg := sync.WaitGroup{}
+		wg.Add(len(blids))
 		for k := range blids {
-			wg.Add(1)
 			go func(bid int64) {
 				defer wg.Done()
 				bdata, berr := b.getBlock(key, bid)
-				if berr != nil && err == nil {
-					err = berr
+				if berr != nil {
+					errmu.Lock()
+					defer errmu.Unlock()
+					if err == nil {
+						err = berr
+					}
 					return
 				}
 				b.applyBlock(mu, bid, bdata, written, bufs, offsets)
@@ -245,8 +242,12 @@ func (b *BlockCache) ReadAtMulti(key string, bufs [][]byte, offsets []int64) ([]
 					go func(rng blockRange) {
 						defer wg.Done()
 						bblocks, berr := b.getRange(key, rng)
-						if berr != nil && err == nil {
-							err = berr
+						if berr != nil {
+							errmu.Lock()
+							defer errmu.Unlock()
+							if err == nil {
+								err = berr
+							}
 							return
 						}
 						for ib := range bblocks {
@@ -262,8 +263,12 @@ func (b *BlockCache) ReadAtMulti(key string, bufs [][]byte, offsets []int64) ([]
 
 			//fmt.Printf("get range [%d,%d]\n", rng.start, rng.end)
 			bblocks, berr := b.getRange(key, rng)
-			if berr != nil && err == nil {
-				err = berr
+			if berr != nil {
+				errmu.Lock()
+				if err == nil {
+					err = berr
+				}
+				errmu.Unlock()
 			} else {
 				for ib := range bblocks {
 					b.applyBlock(mu, rng.start+int64(ib), bblocks[ib], written, bufs, offsets)
@@ -277,7 +282,7 @@ func (b *BlockCache) ReadAtMulti(key string, bufs [][]byte, offsets []int64) ([]
 		}
 	}
 	for i, buf := range bufs {
-		if written[i] != len(buf) {
+		if written[i] != len(buf) && err == nil {
 			err = io.EOF
 		}
 	}
