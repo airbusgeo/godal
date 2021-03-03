@@ -12,7 +12,6 @@ mkdir gdal
 tar  xzf gdal.tar.gz -C gdal --strip-components 1
 cd gdal/gdal
 ./configure --prefix=/optgdal \
-	--disable-static \
 	--enable-shared \
 	--disable-static \
 	--disable-all-optional-drivers \
@@ -20,7 +19,6 @@ cd gdal/gdal
 	--with-jpeg \
 	--with-libtiff=internal \
 	--with-geotiff=internal \
-	--with-geos \
 	--without-crypto \
 	--without-cryptopp \
 	--without-gnm \
