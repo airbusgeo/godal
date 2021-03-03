@@ -37,6 +37,7 @@ var errOver50 = errors.New("ff50")
 func (r Reader) ReadAt(key string, buf []byte, off int64) (int, error) {
 	time.Sleep(delay)
 	if key == "fail_over_50" && off > 50 {
+		time.Sleep(delay)
 		return 0, errOver50
 	}
 	if key == "enoent" {
