@@ -28,7 +28,12 @@
 
 #include <gdal_utils.h>
 #include <gdal_alg.h>
-#include "_cgo_export.h"
+
+extern "C" {
+	extern long long int _gogdalSizeCallback(char* key, char** errorString);
+	extern int _gogdalMultiReadCallback(char* key, int nRanges, void* pocbuffers, void* coffsets, void* clengths, char** errorString);
+	extern size_t _gogdalReadCallback(char* key, void* buffer, size_t off, size_t clen, char** errorString);
+}
 
 char *cplErrToString(CPLErr err) {
 	const char *msg = "cpl error %d";
