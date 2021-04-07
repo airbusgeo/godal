@@ -48,7 +48,14 @@ char *ogrErrToString(OGRErr err) {
 	return str;
 }
 
+typedef struct {
+	char **msg;
+	int ignore_warnings;
+} errorUserData;
+
 static void godalUnwrap(char **options) {
+	errorUserData *eud = (errorUserData*)CPLGetErrorHandlerUserData();
+	free(eud);
 	CPLPopErrorHandler();
 	if(options!=nullptr) {
 		for(char* option=*options; option; option=*(++options)) {
@@ -68,21 +75,46 @@ static void godalErrorHandler(CPLErr e, CPLErrorNum n, const char* msg) {
 		fprintf(stderr,"GDAL INFO: %s\n",msg);
 		return;
 	}
-	char **hmsg = (char**)CPLGetErrorHandlerUserData();
-	assert(hmsg!=nullptr);
-	if(*hmsg==nullptr) {
-		*hmsg = (char*)malloc(strlen(msg)+1);
-		strcpy(*hmsg,msg);
+	errorUserData *eud = (errorUserData*)CPLGetErrorHandlerUserData();
+	if (e == CE_Warning && eud->ignore_warnings) {
+		fprintf(stderr,"GDAL WARN: %s\n",msg);
+		return;
+	}
+	assert(eud!=nullptr);
+	if(*(eud->msg)==nullptr) {
+		*(eud->msg) = (char*)malloc(strlen(msg)+1);
+		strcpy(*(eud->msg),msg);
 	} else {
-		*hmsg = (char*)realloc(*hmsg,strlen(*hmsg)+strlen(msg)+3);
-		strcat(*hmsg,"\n");
-		strcat(*hmsg,msg);
+		*(eud->msg) = (char*)realloc(*(eud->msg),strlen(*(eud->msg))+strlen(msg)+3);
+		strcat(*(eud->msg),"\n");
+		strcat(*(eud->msg),msg);
 	}
 }
 
+
+static void godalWrapIgnoreWarnings (char **hmsg, char **options) {
+	*hmsg=nullptr;
+	errorUserData *eud = (errorUserData*)malloc(sizeof(errorUserData));
+	eud->msg=hmsg;
+	eud->ignore_warnings=1;
+	CPLPushErrorHandlerEx(&godalErrorHandler,eud);
+	if(options!=nullptr) {
+		for(char* option=*options; option; option=*(++options)) {
+			char *idx = strchr(option,'=');
+			if(idx) {
+				*idx='\0';
+				CPLSetThreadLocalConfigOption(option,idx+1);
+				*idx='=';
+			}
+		}
+	}
+}
 static void godalWrap(char **hmsg, char **options) {
 	*hmsg=nullptr;
-	CPLPushErrorHandlerEx(&godalErrorHandler,hmsg);
+	errorUserData *eud = (errorUserData*)malloc(sizeof(errorUserData));
+	eud->msg=hmsg;
+	eud->ignore_warnings=0;
+	CPLPushErrorHandlerEx(&godalErrorHandler,eud);
 	if(options!=nullptr) {
 		for(char* option=*options; option; option=*(++options)) {
 			char *idx = strchr(option,'=');
@@ -126,7 +158,7 @@ char *godalSetRasterColorInterpretation(GDALRasterBandH bnd, GDALColorInterp ci)
 GDALDatasetH godalOpen(const char *name, unsigned int nOpenFlags, const char *const *papszAllowedDrivers,
 					const char *const *papszOpenOptions, const char *const *papszSiblingFiles,
 					char **error, char **config) {
-	godalWrap(error, config);
+	godalWrapIgnoreWarnings(error, config);
 	GDALDatasetH ret = GDALOpenEx(name,nOpenFlags,papszAllowedDrivers,papszOpenOptions,papszSiblingFiles);
 	godalUnwrap(config);
 	if (ret==nullptr && *error==nullptr) {
