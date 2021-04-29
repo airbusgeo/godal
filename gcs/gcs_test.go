@@ -102,7 +102,11 @@ func TestVSICacher(t *testing.T) {
 	cacher, _ := blockcache.NewCache(10)
 	godal.RegisterInternalDrivers()
 	ctx := context.Background()
-	_ = gcs.RegisterHandler(ctx, gcs.Prefix("cc://"), gcs.Cacher(cacher))
+	st, err := storage.NewClient(ctx, option.WithoutAuthentication())
+	if err != nil {
+		t.Skipf("failed to create gcs client: %v", err)
+	}
+	_ = gcs.RegisterHandler(ctx, gcs.Prefix("cc://"), gcs.Cacher(cacher), gcs.Client(st))
 	ds, err := godal.Open("cc://godal-ci-data/test.tif")
 	if err != nil {
 		t.Error(err)
