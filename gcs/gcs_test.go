@@ -21,6 +21,8 @@ import (
 	"cloud.google.com/go/storage"
 	"github.com/airbusgeo/godal"
 	"github.com/airbusgeo/godal/gcs"
+	"github.com/airbusgeo/godal/pkg/blockcache"
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/api/option"
 )
 
@@ -94,4 +96,19 @@ func TestVSIGCSNoAuth(t *testing.T) {
 	if err == nil {
 		t.Error("ENOENT not raised")
 	}
+}
+
+func TestVSICacher(t *testing.T) {
+	cacher, _ := blockcache.NewCache(10)
+	godal.RegisterInternalDrivers()
+	ctx := context.Background()
+	_ = gcs.RegisterHandler(ctx, gcs.Prefix("cc://"), gcs.Cacher(cacher))
+	ds, err := godal.Open("cc://godal-ci-data/test.tif")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer ds.Close()
+	_, ok := cacher.Get("godal-ci-data/test.tif", 0)
+	assert.True(t, ok)
 }
