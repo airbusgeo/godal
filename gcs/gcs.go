@@ -23,7 +23,7 @@ import (
 	"syscall"
 
 	"github.com/airbusgeo/godal"
-	"github.com/airbusgeo/godal/internal/blockcache"
+	"github.com/airbusgeo/godal/pkg/blockcache"
 
 	"cloud.google.com/go/storage"
 	lru "github.com/hashicorp/golang-lru"
