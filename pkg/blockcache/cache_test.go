@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/airbusgeo/godal/internal/blockcache"
+	"github.com/airbusgeo/godal/pkg/blockcache"
 	"github.com/stretchr/testify/assert"
 )
 

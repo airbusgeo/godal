@@ -23,7 +23,7 @@ import (
 	"syscall"
 
 	"github.com/airbusgeo/godal"
-	"github.com/airbusgeo/godal/internal/blockcache"
+	"github.com/airbusgeo/godal/pkg/blockcache"
 
 	"cloud.google.com/go/storage"
 	lru "github.com/hashicorp/golang-lru"
@@ -34,6 +34,7 @@ type gcsHandler struct {
 	ctx                context.Context
 	prefix             string
 	client             *storage.Client
+	cacher             blockcache.Cacher
 	blockSize          int
 	maxCachedBlocks    int
 	maxCachedMetadatas int
@@ -61,6 +62,15 @@ func Prefix(prefix string) Option {
 func Client(cl *storage.Client) Option {
 	return func(o *gcsHandler) {
 		o.client = cl
+	}
+}
+
+// Cacher allows to plugin a custom cache mechanism instead of the default in
+// memory lru cache. MaxCachedBlocks() will not be honored if you provide your
+// own cacher, it is up to your cacher implementation to handle block eviction
+func Cacher(cacher blockcache.Cacher) Option {
+	return func(o *gcsHandler) {
+		o.cacher = cacher
 	}
 }
 
@@ -155,8 +165,10 @@ func RegisterHandler(ctx context.Context, opts ...Option) error {
 		}
 		handler.client = cl
 	}
-	cache, _ := blockcache.NewCache(uint(handler.maxCachedBlocks))
-	handler.blockCache = blockcache.New(handler, cache, uint(handler.blockSize), handler.splitRanges)
+	if handler.cacher == nil {
+		handler.cacher, _ = blockcache.NewCache(uint(handler.maxCachedBlocks))
+	}
+	handler.blockCache = blockcache.New(handler, handler.cacher, uint(handler.blockSize), handler.splitRanges)
 	return godal.RegisterVSIHandler(handler.prefix, handler,
 		godal.VSIHandlerBufferSize(handler.handleBufferSize),
 		godal.VSIHandlerCacheSize(handler.handleCacheSize))
