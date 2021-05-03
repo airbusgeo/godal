@@ -110,6 +110,8 @@ extern "C" {
 	char *godalGeometryTransform(OGRGeometryH geom, OGRCoordinateTransformationH trn, OGRSpatialReferenceH dst);
 
 	GDALDatasetH godalBuildVRT(char *dstname, char **sources, char **switches, char **error, char **config);
+
+	char *test_godal_error_handling(int debugEnabled, int loggerID, CPLErr failLevel);
 #ifdef __cplusplus
 }
 #endif

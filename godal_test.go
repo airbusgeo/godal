@@ -2732,3 +2732,48 @@ func TestVSIGCSNoAuth(t *testing.T) {
 		t.Error("ENOENT not raised")
 	}
 }
+
+type errLogger struct {
+	logs []struct {
+		ec  ErrorCategory
+		msg string
+	}
+}
+
+func (e *errLogger) Log(ec ErrorCategory, message string) {
+	e.logs = append(e.logs, struct {
+		ec  ErrorCategory
+		msg string
+	}{ec, message})
+}
+func TestErrorHandling(t *testing.T) {
+	err := testErrorAndLogging()
+	assert.EqualError(t, err, "this is a warning message\nthis is a failure message")
+
+	err = testErrorAndLogging(FailureLevel(CE_Failure))
+	assert.EqualError(t, err, "this is a failure message")
+
+	err = testErrorAndLogging(FailureLevel(CE_Fatal))
+	assert.NoError(t, err)
+
+	el := &errLogger{}
+	err = testErrorAndLogging(FailureLevel(CE_Failure), Logger(el.Log, true))
+	assert.EqualError(t, err, "this is a failure message")
+	assert.Equal(t, []struct {
+		ec  ErrorCategory
+		msg string
+	}{
+		{CE_Debug, "godal: this is a debug message"},
+		{CE_Warning, "this is a warning message"},
+	}, el.logs)
+
+	el.logs = nil
+	err = testErrorAndLogging(FailureLevel(CE_Failure), Logger(el.Log, false))
+	assert.EqualError(t, err, "this is a failure message")
+	assert.Equal(t, []struct {
+		ec  ErrorCategory
+		msg string
+	}{
+		{CE_Warning, "this is a warning message"},
+	}, el.logs)
+}

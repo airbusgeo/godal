@@ -33,6 +33,7 @@ extern "C" {
 	extern long long int _gogdalSizeCallback(char* key, char** errorString);
 	extern int _gogdalMultiReadCallback(char* key, int nRanges, void* pocbuffers, void* coffsets, void* clengths, char** errorString);
 	extern size_t _gogdalReadCallback(char* key, void* buffer, size_t off, size_t clen, char** errorString);
+	extern void godalLogger(int loggerID, CPLErr lvl, const char *msg);
 }
 
 char *cplErrToString(CPLErr err) {
@@ -1426,5 +1427,73 @@ char* VSIInstallGoHandler(const char *pszPrefix, size_t bufferSize, size_t cache
     const std::string sPrefix(pszPrefix);
     VSIFileManager::InstallHandler(sPrefix, poHandler);
     return nullptr;
+}
+
+typedef struct {
+	char **message;
+	CPLErr failLevel;
+	int loggerID;
+} ErrorHandler;
+
+static void godalErrorHandler2(CPLErr e, CPLErrorNum n, const char* msg) {
+	ErrorHandler *eh = (ErrorHandler*)CPLGetErrorHandlerUserData();
+	assert(eh!=nullptr);
+	if(e >= eh->failLevel) {
+		if (*eh->message == nullptr) {
+			*eh->message = (char *)malloc(strlen(msg) + 1);
+			strcpy(*eh->message, msg);
+		} else {
+			*eh->message = (char *)realloc(*eh->message, strlen(*eh->message) + strlen(msg) + 3);
+			strcat(*eh->message, "\n");
+			strcat(*eh->message, msg);
+		}
+	} else if( eh->loggerID != 0) {
+		godalLogger(eh->loggerID, e, msg);
+	}
+}
+
+static void godalWrap2(int debugEnabled, ErrorHandler *eh, char **options) {
+	CPLPushErrorHandlerEx(&godalErrorHandler2,eh);
+	if(options!=nullptr) {
+		for(char* option=*options; option; option=*(++options)) {
+			char *idx = strchr(option,'=');
+			if(idx) {
+				*idx='\0';
+				CPLSetThreadLocalConfigOption(option,idx+1);
+				*idx='=';
+			}
+		}
+	}
+	if (debugEnabled) {
+		CPLSetThreadLocalConfigOption("CPL_DEBUG","ON");
+	}
+}
+
+static void godalUnwrap2(int debugEnabled, char **options) {
+	CPLPopErrorHandler();
+	if(options!=nullptr) {
+		for(char* option=*options; option; option=*(++options)) {
+			char *idx = strchr(option,'=');
+			if(idx) {
+				*idx='\0';
+				CPLSetThreadLocalConfigOption(option,nullptr);
+				*idx='=';
+			}
+		}
+	}
+	if (debugEnabled) {
+		CPLSetThreadLocalConfigOption("CPL_DEBUG",nullptr);
+	}
+}
+
+char *test_godal_error_handling(int debugEnabled, int loggerID, CPLErr failLevel) {
+	char *msg = nullptr;
+	ErrorHandler eh{&msg, failLevel, loggerID};
+	godalWrap2(debugEnabled, &eh,nullptr);
+	CPLDebug("godal","this is a debug message");
+	CPLError(CE_Warning, CPLE_AppDefined, "this is a warning message");
+	CPLError(CE_Failure, CPLE_AppDefined, "this is a failure message");
+	godalUnwrap2(debugEnabled,nullptr);
+	return msg;
 }
 

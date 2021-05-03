@@ -67,6 +67,16 @@ const (
 	CFloat64 = DataType(C.GDT_CFloat64)
 )
 
+type ErrorCategory int
+
+const (
+	CE_None    = ErrorCategory(C.CE_None)
+	CE_Debug   = ErrorCategory(C.CE_Debug)
+	CE_Warning = ErrorCategory(C.CE_Warning)
+	CE_Failure = ErrorCategory(C.CE_Failure)
+	CE_Fatal   = ErrorCategory(C.CE_Fatal)
+)
+
 // String implements Stringer
 func (dtype DataType) String() string {
 	return C.GoString(C.GDALGetDataTypeName(C.GDALDataType(dtype)))
@@ -1839,9 +1849,102 @@ func AssertMinVersion(major, minor, revision int) {
 	}
 }
 
+var loggerMu sync.Mutex
+var loggerIndex int
+var loggerFns = make(map[int]func(ErrorCategory, string))
+
+func registerLogger(fn func(ErrorCategory, string)) int {
+	loggerMu.Lock()
+	defer loggerMu.Unlock()
+	loggerIndex++
+	for loggerIndex == 0 && loggerFns[loggerIndex] != nil {
+		loggerIndex++
+	}
+	loggerFns[loggerIndex] = fn
+	return loggerIndex
+}
+
+func getLogger(i int) func(ErrorCategory, string) {
+	loggerMu.Lock()
+	defer loggerMu.Unlock()
+	return loggerFns[i]
+}
+
+func unregisterLogger(i int) {
+	loggerMu.Lock()
+	defer loggerMu.Unlock()
+	delete(loggerFns, i)
+}
+
 func init() {
 	compiledVersion := LibVersion(C.GDAL_VERSION_NUM)
 	AssertMinVersion(compiledVersion.Major(), compiledVersion.Minor(), 0)
+}
+
+//export godalLogger
+func godalLogger(loggerID C.int, ec C.int, msg *C.char) {
+	lfn := getLogger(int(loggerID))
+	lfn(ErrorCategory(ec), C.GoString(msg))
+}
+
+type logCallback struct {
+	logFn        func(ec ErrorCategory, message string)
+	debugEnabled bool
+}
+
+func (lcb logCallback) setErrorAndLoggingOpt(elo *errorAndLoggingOpts) {
+	elo.logFn = lcb.logFn
+	if lcb.debugEnabled {
+		elo.debugEnabled = 1
+	}
+}
+
+func Logger(logFn func(ec ErrorCategory, message string), debugEnabled bool) interface {
+	errorAndLoggingOption
+} {
+	return logCallback{logFn, debugEnabled}
+}
+
+type failureLevel struct {
+	ec ErrorCategory
+}
+
+func (fl failureLevel) setErrorAndLoggingOpt(elo *errorAndLoggingOpts) {
+	elo.ec = fl.ec
+}
+
+func FailureLevel(ec ErrorCategory) interface {
+	errorAndLoggingOption
+} {
+	return failureLevel{ec}
+}
+
+type errorAndLoggingOpts struct {
+	logFn        func(ec ErrorCategory, message string)
+	debugEnabled int
+	ec           ErrorCategory
+}
+
+type errorAndLoggingOption interface {
+	setErrorAndLoggingOpt(elo *errorAndLoggingOpts)
+}
+
+func testErrorAndLogging(opts ...errorAndLoggingOption) error {
+	ealo := errorAndLoggingOpts{nil, 0, CE_Warning}
+	for _, o := range opts {
+		o.setErrorAndLoggingOpt(&ealo)
+	}
+	var logIdx int
+	if ealo.logFn != nil {
+		logIdx = registerLogger(ealo.logFn)
+		defer unregisterLogger(logIdx)
+	}
+	errmsg := C.test_godal_error_handling(C.int(ealo.debugEnabled), C.int(logIdx), C.CPLErr(ealo.ec))
+	if errmsg != nil {
+		defer C.free(unsafe.Pointer(errmsg))
+		return errors.New(C.GoString(errmsg))
+	}
+	return nil
 }
 
 // Version returns the runtime version of the gdal library
