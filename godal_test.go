@@ -2757,7 +2757,7 @@ func TestErrorHandling(t *testing.T) {
 	assert.NoError(t, err)
 
 	el := &errLogger{}
-	err = testErrorAndLogging(FailureLevel(CE_Failure), Logger(el.Log, true))
+	err = testErrorAndLogging(FailureLevel(CE_Failure), Logger(el.Log), ConfigOption("CPL_DEBUG=ON"))
 	assert.EqualError(t, err, "this is a failure message")
 	assert.Equal(t, []struct {
 		ec  ErrorCategory
@@ -2768,7 +2768,7 @@ func TestErrorHandling(t *testing.T) {
 	}, el.logs)
 
 	el.logs = nil
-	err = testErrorAndLogging(FailureLevel(CE_Failure), Logger(el.Log, false))
+	err = testErrorAndLogging(FailureLevel(CE_Failure), Logger(el.Log))
 	assert.EqualError(t, err, "this is a failure message")
 	assert.Equal(t, []struct {
 		ec  ErrorCategory

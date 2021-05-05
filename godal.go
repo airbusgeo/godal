@@ -1888,21 +1888,17 @@ func godalLogger(loggerID C.int, ec C.int, msg *C.char) {
 }
 
 type logCallback struct {
-	logFn        func(ec ErrorCategory, message string)
-	debugEnabled bool
+	logFn func(ec ErrorCategory, message string)
 }
 
 func (lcb logCallback) setErrorAndLoggingOpt(elo *errorAndLoggingOpts) {
 	elo.logFn = lcb.logFn
-	if lcb.debugEnabled {
-		elo.debugEnabled = 1
-	}
 }
 
-func Logger(logFn func(ec ErrorCategory, message string), debugEnabled bool) interface {
+func Logger(logFn func(ec ErrorCategory, message string)) interface {
 	errorAndLoggingOption
 } {
-	return logCallback{logFn, debugEnabled}
+	return logCallback{logFn}
 }
 
 type failureLevel struct {
@@ -1920,9 +1916,9 @@ func FailureLevel(ec ErrorCategory) interface {
 }
 
 type errorAndLoggingOpts struct {
-	logFn        func(ec ErrorCategory, message string)
-	debugEnabled int
-	ec           ErrorCategory
+	logFn  func(ec ErrorCategory, message string)
+	ec     ErrorCategory
+	config []string
 }
 
 type errorAndLoggingOption interface {
@@ -1930,16 +1926,19 @@ type errorAndLoggingOption interface {
 }
 
 func testErrorAndLogging(opts ...errorAndLoggingOption) error {
-	ealo := errorAndLoggingOpts{nil, 0, CE_Warning}
+	ealo := errorAndLoggingOpts{nil, CE_Warning, nil}
 	for _, o := range opts {
 		o.setErrorAndLoggingOpt(&ealo)
 	}
+	cconfig := sliceToCStringArray(ealo.config)
+	defer cconfig.free()
+
 	var logIdx int
 	if ealo.logFn != nil {
 		logIdx = registerLogger(ealo.logFn)
 		defer unregisterLogger(logIdx)
 	}
-	errmsg := C.test_godal_error_handling(C.int(ealo.debugEnabled), C.int(logIdx), C.CPLErr(ealo.ec))
+	errmsg := C.test_godal_error_handling(C.int(logIdx), C.CPLErr(ealo.ec), cconfig.cPointer())
 	if errmsg != nil {
 		defer C.free(unsafe.Pointer(errmsg))
 		return errors.New(C.GoString(errmsg))
@@ -2489,6 +2488,7 @@ func ConfigOption(cfgs ...string) interface {
 	DatasetIOOption
 	BandIOOption
 	BuildVRTOption
+	errorAndLoggingOption
 } {
 	return configOpts{cfgs}
 }
@@ -2531,6 +2531,9 @@ func (co configOpts) setBandIOOpt(oo *bandIOOpt) {
 }
 func (co configOpts) setBuildVRTOpt(bvo *buildVRTOpts) {
 	bvo.config = append(bvo.config, co.config...)
+}
+func (co configOpts) setErrorAndLoggingOpt(elo *errorAndLoggingOpts) {
+	elo.config = append(elo.config, co.config...)
 }
 
 type minSizeOpt struct {
