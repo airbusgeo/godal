@@ -59,7 +59,7 @@ will be written as
 * Godal exposes a VSI handler that can easily allow you to expose an
   [io.ReaderAt](https://golang.org/pkg/io/#ReaderAt) as a filename that can be
   opened by GDAL. A handler for opening `gs://` google cloud storage URIs is
-  provided.
+  provided through https://github.com/airbusgeo/osio
 
 ### Documentation
 
