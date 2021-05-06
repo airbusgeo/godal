@@ -8,67 +8,15 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"unicode"
 
-	"github.com/airbusgeo/godal/gcs"
+	"github.com/airbusgeo/godal"
+	"github.com/airbusgeo/osio"
 )
 
 var ctx context.Context
 
-func blockSize() int {
-	s := os.Getenv("GODAL_BLOCKSIZE")
-	const (
-		BYTE = 1 << (10 * iota)
-		KILOBYTE
-		MEGABYTE
-		GIGABYTE
-		TERABYTE
-		PETABYTE
-		EXABYTE
-	)
-	s = strings.TrimSpace(s)
-	if len(s) == 0 {
-		return 0
-	}
-	s = strings.ToUpper(s)
-
-	i := strings.IndexFunc(s, unicode.IsLetter)
-
-	if i == -1 {
-		ii, err := strconv.Atoi(s)
-		if err != nil || ii <= 0 {
-			log.Printf("failed to parse GODAL_BLOCKSIZE %s", s)
-			return 0
-		}
-		return ii
-	}
-
-	bytesString, multiple := s[:i], s[i:]
-	bytes, err := strconv.ParseFloat(bytesString, 64)
-	if err != nil || bytes < 0 {
-		log.Printf("failed to parse GODAL_BLOCKSIZE %s", s)
-		return 0
-	}
-
-	switch multiple {
-	case "E", "EB", "EIB":
-		return int(bytes * EXABYTE)
-	case "P", "PB", "PIB":
-		return int(bytes * PETABYTE)
-	case "T", "TB", "TIB":
-		return int(bytes * TERABYTE)
-	case "G", "GB", "GIB":
-		return int(bytes * GIGABYTE)
-	case "M", "MB", "MIB":
-		return int(bytes * MEGABYTE)
-	case "K", "KB", "KIB":
-		return int(bytes * KILOBYTE)
-	case "B":
-		return int(bytes)
-	default:
-		log.Printf("failed to parse GODAL_BLOCKSIZE %s", s)
-		return 0
-	}
+func blockSize() string {
+	return os.Getenv("GODAL_BLOCKSIZE")
 }
 
 func numBlocks() int {
@@ -98,19 +46,28 @@ func splitRanges() bool {
 //export GDALRegister_gcs
 func GDALRegister_gcs() {
 	ctx = context.Background()
-	opts := []gcs.Option{}
-	if bs := blockSize(); bs > 0 {
-		opts = append(opts, gcs.BlockSize(bs))
+	opts := []osio.AdapterOption{
+		osio.SplitRanges(splitRanges()),
+	}
+	if bs := blockSize(); bs != "" {
+		opts = append(opts, osio.BlockSize(bs))
 	}
 	if nb := numBlocks(); nb > 0 {
-		opts = append(opts, gcs.MaxCachedBlocks(nb))
+		opts = append(opts, osio.NumCachedBlocks(nb))
 	}
-	if splitRanges() {
-		opts = append(opts, gcs.SplitConsecutiveRanges(true))
-	}
-	err := gcs.RegisterHandler(ctx, opts...)
+	gcs, err := osio.GCSHandle(ctx)
 	if err != nil {
-		log.Printf("Failed to register gcs handler: %v", err)
+		log.Printf("osio.gcshandle() failed: %v", err)
+		return
+	}
+	gcsa, err := osio.NewAdapter(gcs, opts...)
+	if err != nil {
+		log.Printf("osio.newadapter() failed: %v", err)
+		return
+	}
+	err = godal.RegisterVSIAdapter("gs://", gcsa)
+	if err != nil {
+		log.Printf("godal.registervsiadapter() failed: %v", err)
 		return
 	}
 	go func() {

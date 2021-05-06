@@ -32,6 +32,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"unsafe"
+
+	"github.com/airbusgeo/osio"
 )
 
 // DataType is a pixel data types
@@ -3715,7 +3717,7 @@ func (vf *VSIFile) Read(buf []byte) (int, error) {
 // VSI implementation will concurrently call ReadAt([]byte,int64)
 type VSIReader interface {
 	io.ReaderAt
-	Size() (uint64, error)
+	Size() int64
 }
 
 // VSIMultiReader is an optional interface that can be implemented by VSIReader that
@@ -3743,12 +3745,7 @@ func _gogdalSizeCallback(key *C.char, errorString **C.char) C.longlong {
 	if cbd == nil {
 		return -1
 	}
-	size, err := cbd.Size()
-	if err != nil {
-		*errorString = C.CString(err.Error())
-		return -1
-	}
-	return C.longlong(size)
+	return C.longlong(cbd.Size())
 }
 
 //export _gogdalMultiReadCallback
@@ -3796,7 +3793,11 @@ func _gogdalMultiReadCallback(key *C.char, nRanges C.int, pocbuffers unsafe.Poin
 			}
 			if rlen != int(lengths[bidx]) {
 				if *errorString == nil {
-					*errorString = C.CString(err.Error())
+					if err != nil {
+						*errorString = C.CString(err.Error())
+					} else {
+						*errorString = C.CString("short read")
+					}
 				}
 				atomic.StoreInt64(&ret, -1)
 			}
@@ -3866,6 +3867,18 @@ func VSIHandlerCacheSize(s int) VSIHandlerOption {
 	return func(o *vsiHandlerOptions) {
 		o.cacheSize = C.size_t(s)
 	}
+}
+
+type osioAdapterWrapper struct {
+	*osio.Adapter
+}
+
+func (ga osioAdapterWrapper) VSIReader(key string) (VSIReader, error) {
+	return ga.Reader(key)
+}
+
+func RegisterVSIAdapter(prefix string, keyReader *osio.Adapter, opts ...VSIHandlerOption) error {
+	return RegisterVSIHandler(prefix, osioAdapterWrapper{keyReader}, opts...)
 }
 
 // RegisterVSIHandler registers keyReader on the given prefix.

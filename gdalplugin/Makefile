@@ -1,7 +1,7 @@
 all: build
 
 build:
-	go build -o gdal_gcs.so -buildmode=c-shared
+	go build -o gdal_gcs.so -buildmode=c-shared gcs_adapter.go
 
 GDALCONFIG := $(shell command -v gdal-config 2> /dev/null)
 

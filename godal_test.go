@@ -16,6 +16,7 @@ package godal
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -25,8 +26,11 @@ import (
 	"syscall"
 	"testing"
 
+	"cloud.google.com/go/storage"
+	"github.com/airbusgeo/osio"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/api/option"
 )
 
 func init() {
@@ -2439,8 +2443,8 @@ func (mb mbufAdapter) ReadAtMulti(bufs [][]byte, offs []int64) ([]int, error) {
 	}
 	return ret, nil
 }
-func (b bufAdapter) Size() (uint64, error) {
-	return uint64(len(b)), nil
+func (b bufAdapter) Size() int64 {
+	return int64(len(b))
 }
 
 type vpAdapter struct {
@@ -2539,9 +2543,6 @@ func TestVSIPluginNoMulti(t *testing.T) {
 	}
 }
 
-type sizeErroringAdapter struct {
-	bufAdapter
-}
 type readErroringAdapter struct {
 	bufAdapter
 }
@@ -2552,9 +2553,6 @@ type multireadErroringAdapter struct {
 	bufAdapter
 }
 
-func (se sizeErroringAdapter) Size() (uint64, error) {
-	return 0, fmt.Errorf("not implemented")
-}
 func (re readErroringAdapter) ReadAt(buf []byte, off int64) (int, error) {
 	return 0, fmt.Errorf("not implemented")
 }
@@ -2575,17 +2573,12 @@ func TestVSIErrors(t *testing.T) {
 	ds.Close()
 	vpa := vpAdapter{datas: make(map[string]VSIReader)}
 	tifdat, _ := ioutil.ReadFile(tt)
-	vpa.datas["test.tif"] = sizeErroringAdapter{bufAdapter(tifdat)}
 	vpa.datas["test2.tif"] = readErroringAdapter{bufAdapter(tifdat)}
 	vpa.datas["test3.tif"] = multireadErroringAdapter{bufAdapter(tifdat)}
 	vpa.datas["test4.tif"] = bodyreadErroringAdapter{bufAdapter(tifdat)}
 	_ = RegisterVSIHandler("testmem4://", vpa, VSIHandlerBufferSize(0), VSIHandlerCacheSize(0))
 
-	_, err := Open("testmem4://test.tif")
-	if err == nil {
-		t.Error("err not raised")
-	}
-	_, err = Open("testmem4://test2.tif")
+	_, err := Open("testmem4://test2.tif")
 	if err == nil {
 		t.Error("err not raised")
 	}
@@ -2648,4 +2641,81 @@ func TestBuildVRT(t *testing.T) {
 	_, _ = io.Copy(&b, vrtReader)
 	vrtReader.Close()
 	assert.Contains(t, b.String(), "resampling=\"cubic\"")
+}
+
+func TestVSIGCS(t *testing.T) {
+	ctx := context.Background()
+	_, err := storage.NewClient(ctx)
+	if err != nil {
+		t.Skipf("skip test on missing credentials: %v", err)
+	}
+	gcs, _ := osio.GCSHandle(ctx)
+	if err != nil {
+		t.Error(err)
+	}
+	gcsa, _ := osio.NewAdapter(gcs)
+	err = RegisterVSIAdapter("gdalgs://", gcsa)
+	if err != nil {
+		t.Error(err)
+	}
+	ds, err := Open("gdalgs://godal-ci-data/test.tif")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer ds.Close()
+	if ds.Structure().SizeX != 10 {
+		t.Errorf("xsize: %d", ds.Structure().SizeX)
+	}
+	data := make([]byte, 100)
+	err = ds.Read(0, 0, data, 10, 10)
+	if err != nil {
+		t.Error(err)
+	}
+
+	_, err = Open("gdalgs://godal-ci-data/gdd/doesnotexist.tif")
+	if err == nil {
+		t.Error("ENOENT not raised")
+	}
+	_, err = Open("gdalgs://godal-fake-test/gdaltesdata/doesnotexist.tif")
+	if err == nil {
+		t.Error("ENOENT not raised")
+	}
+}
+
+func TestVSIGCSNoAuth(t *testing.T) {
+	ctx := context.Background()
+	st, err := storage.NewClient(ctx, option.WithoutAuthentication())
+	if err != nil {
+		t.Skipf("failed to create gcs client: %v", err)
+	}
+	gcs, _ := osio.GCSHandle(ctx, osio.GCSClient(st))
+	gcsa, _ := osio.NewAdapter(gcs)
+	err = RegisterVSIAdapter("gdalgcs://", gcsa)
+	if err != nil {
+		t.Error(err)
+	}
+	ds, err := Open("gdalgcs://godal-ci-data/test.tif")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer ds.Close()
+	if ds.Structure().SizeX != 10 {
+		t.Errorf("xsize: %d", ds.Structure().SizeX)
+	}
+	data := make([]byte, 100)
+	err = ds.Read(0, 0, data, 10, 10)
+	if err != nil {
+		t.Error(err)
+	}
+
+	_, err = Open("gdalgcs://godal-ci-data/gdd/doesnotexist.tif")
+	if err == nil {
+		t.Error("ENOENT not raised")
+	}
+	_, err = Open("gdalgs://godal-fake-test/gdaltesdata/doesnotexist.tif")
+	if err == nil {
+		t.Error("ENOENT not raised")
+	}
 }
