@@ -1118,7 +1118,9 @@ namespace cpl
 							   ) override;
 
 		int Stat(const char *pszFilename, VSIStatBufL *pStatBuf, int nFlags) override;
+#if GDAL_VERSION_NUM >= 3020000
         char **SiblingFiles(const char *pszFilename) override;
+#endif
         int HasOptimizedReadMultiRange(const char *pszPath) override;
     };
 
@@ -1403,10 +1405,12 @@ namespace cpl
         return TRUE;
     }
 
+#if GDAL_VERSION_NUM >= 3020000
     char **VSIGoFilesystemHandler::SiblingFiles(const char *pszFilename)
     {
         return (char **)calloc(1, sizeof(char *));
     }
+#endif
 
 } // namespace cpl
 

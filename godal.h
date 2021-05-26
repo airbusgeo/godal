@@ -22,8 +22,8 @@
 #include "cpl_port.h"
 #include <gdal_frmts.h>
 
-#if GDAL_VERSION_NUM < 3020000
-	#error "this code is only compatible with gdal version >= 3.2"
+#if GDAL_VERSION_NUM < 3000000
+	#error "this code is only compatible with gdal version >= 3.0"
 #endif
 
 #ifdef __cplusplus
