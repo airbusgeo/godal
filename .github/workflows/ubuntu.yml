@@ -7,11 +7,28 @@ on:
   pull_request:
 
 jobs:
+  ubuntu2004:
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        go: [ '1.16', '1.15', '1.14' ]
+    name: Go ${{ matrix.go }} + GDAL on ubuntu 20.04 test
+    steps:
+      - name: APT
+        run: sudo apt-get install gcc g++ libgeos-c1v5 libproj15 libsqlite3-0 pkgconf libjpeg-turbo8 libgdal-dev
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Setup Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go }}
+      - name: Coverage Tests
+        run: go test . -race
   build_gdal:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        gdal: [ 'release/3.2', 'release/3.3', 'master' ]
+        gdal: [ 'release/3.1', 'release/3.2', 'release/3.3', 'master' ]
     name: GDAL ${{ matrix.gdal }} build
     steps:
       - name: Checkout
@@ -70,7 +87,7 @@ jobs:
     strategy:
       matrix:
         go: [ '1.16', '1.15', '1.14' ]
-        gdal: [ 'release/3.2', 'release/3.3', 'master' ]
+        gdal: [ 'release/3.1', 'release/3.2', 'release/3.3', 'master' ]
     name: Go ${{ matrix.go }} + GDAL ${{ matrix.gdal }} test
     steps:
       - name: APT
