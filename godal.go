@@ -26,6 +26,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -1664,7 +1665,8 @@ type OpenOption interface {
 //the xml string representing a vrt dataset, etc...)
 func Open(name string, options ...OpenOption) (*Dataset, error) {
 	oopts := openOptions{
-		flags: C.GDAL_OF_READONLY | C.GDAL_OF_VERBOSE_ERROR,
+		flags:        C.GDAL_OF_READONLY | C.GDAL_OF_VERBOSE_ERROR,
+		siblingFiles: []string{filepath.Base(name)},
 	}
 	for _, opt := range options {
 		opt.setOpenOption(&oopts)
@@ -2140,17 +2142,31 @@ type siblingFilesOpt struct {
 }
 
 //SiblingFiles specifies the list of files that may be opened alongside the prinicpal dataset name.
-//This should only be used on dataset names that are backed by an actual filesystem: see gdal docs
 //
 //files must not contain a directory component (i.e. are expected to be in the same directory as
 //the main dataset)
+//
+// SiblingFiles may be used in 3 different manners:
+//
+// • By default, i.e. by not using the option, godal will consider that there are no sibling files
+// at all and will prevent any scanning or probing of specific sibling files by passing a list of
+// sibling files to gdal containing only the main file
+//
+// • By passing a list of files, only those files will be probed
+//
+// • By passing SiblingFiles() (i.e. with an empty list of files), the default gdal behavior of
+// reading the directory content and/or probing for well-known sidecar filenames will be used.
 func SiblingFiles(files ...string) interface {
 	OpenOption
 } {
 	return siblingFilesOpt{files}
 }
 func (sf siblingFilesOpt) setOpenOption(oo *openOptions) {
-	oo.siblingFiles = append(oo.siblingFiles, sf.files...)
+	if len(sf.files) > 0 {
+		oo.siblingFiles = append(oo.siblingFiles, sf.files...)
+	} else {
+		oo.siblingFiles = nil
+	}
 }
 
 type driversOpt struct {
