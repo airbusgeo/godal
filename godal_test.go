@@ -509,7 +509,7 @@ func TestStructure(t *testing.T) {
 }
 
 func TestVersion(t *testing.T) {
-	AssertMinVersion(3, 2, 0)
+	AssertMinVersion(3, 0, 0)
 	assert.Panics(t, func() { AssertMinVersion(99, 99, 99) })
 }
 
