@@ -16,8 +16,10 @@ package godal_test
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"os"
 	"strings"
@@ -513,4 +515,40 @@ func Example_vectorTutorial() {
 	// map[foo:baz]
 	// geom: POLYGON ((100 0,101 0,101 1,100 1,100 0))
 	// created geometry { "type": "Point", "coordinates": [ 1.0, 1.0 ] }
+}
+
+//ExampleErrorHandler_sentinel is an example to make godal.Open return a specific golang
+//error when the gdal emitted error/log matches certain criteria
+func ExampleErrorHandler_sentinel() {
+	sentinel := errors.New("noent")
+	eh := func(ec godal.ErrorCategory, code int, msg string) error {
+		/* do some advanced checking of ec, code and msg to determine if this is an actual error */
+		haveError := true
+		if !haveError {
+			log.Println(msg)
+			return nil
+		}
+		return sentinel
+	}
+	_, err := godal.Open("nonexistent.tif", godal.ErrLogger(eh))
+	if err == sentinel {
+		fmt.Println(err.Error())
+	}
+
+	// Output:
+	// noent
+}
+
+//ExampleErrorHandler_warnings is an example to set up an error handler that ignores gdal warnings
+func ExampleErrorHandler_warnings() {
+	eh := func(ec godal.ErrorCategory, code int, msg string) error {
+		if ec <= godal.CE_Warning {
+			log.Println(msg)
+			return nil
+		}
+		return fmt.Errorf("GDAL %d: %s", code, msg)
+	}
+	_, err := godal.Open("nonexistent.tif", godal.ErrLogger(eh))
+	// err if returned will not arise from a gdal warning
+	_ = err
 }
