@@ -2845,7 +2845,7 @@ func TestBuildVRT(t *testing.T) {
 	ds, err := BuildVRT("/vsimem/vrt1.vrt", []string{"testdata/test.tif"}, nil)
 	assert.NoError(t, err)
 	ds.Close()
-	VSIUnlink("/vsimem/vrt1.vrt")
+	_ = VSIUnlink("/vsimem/vrt1.vrt")
 
 	ehc := eh()
 	ds, err = BuildVRT("/vsimem/vrt1.vrt", []string{"testdata/test.tif"}, nil, ErrLogger(ehc.ErrorHandler))
