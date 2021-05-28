@@ -27,7 +27,6 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -230,19 +229,6 @@ func (band Band) MaskBand() Band {
 	return Band{majorObject{C.GDALMajorObjectH(hndl)}}
 }
 
-type bandCreateMaskOpts struct {
-	config []string
-}
-
-// BandCreateMaskOption is an option that can be passed to Band.CreateMask()
-//
-// Available BandCreateMaskOptions are:
-//
-// • ConfigOption
-type BandCreateMaskOption interface {
-	setBandCreateMaskOpt(dcm *bandCreateMaskOpts)
-}
-
 //CreateMask creates a mask (nodata) band for this band.
 //Any handle returned by a previous call to MaskBand() should not be used after a call to CreateMask
 //See https://gdal.org/development/rfc/rfc15_nodatabitmask.html for how flag should be used
@@ -271,32 +257,6 @@ func (band Band) Fill(real, imag float64) error {
 		return errors.New(C.GoString(errmsg))
 	}
 	return nil
-}
-
-type bandIOOpt struct {
-	config                    []string
-	dsWidth, dsHeight         int
-	resampling                ResamplingAlg
-	pixelSpacing, lineSpacing int
-}
-
-// BandIOOption is an option to modify the default behavior of band.IO
-//
-// Available BandIOOptions are:
-//
-// • Stride
-//
-// • Window
-//
-// • Resampling
-//
-// • ConfigOption
-//
-// • PixelSpacing
-//
-// • LineSpacing
-type BandIOOption interface {
-	setBandIOOpt(ro *bandIOOpt)
 }
 
 // Read populates the supplied buffer with the pixels contained in the supplied window
@@ -352,26 +312,6 @@ func (band Band) IO(rw IOOperation, srcX, srcY int, buffer interface{}, bufWidth
 	return nil
 }
 
-type polygonizeOpt struct {
-	mask          *Band
-	options       []string
-	pixFieldIndex int
-}
-
-// PolygonizeOption is an option to modify the default behavior of band.IO
-//
-// Available PolygonizeOptions are:
-//
-// • EightConnected() to enable 8-connectivity. Leave out completely for 4-connectivity (default)
-//
-// • PixelValueFieldIndex(fieldidx) to populate the fieldidx'th field of the output
-// dataset with the polygon's pixel value
-//
-// • Mask(band) to use given band as nodata mask instead of the internal nodata mask
-type PolygonizeOption interface {
-	setPolygonizeOpt(ro *polygonizeOpt)
-}
-
 // Polygonize wraps GDALPolygonize
 func (band Band) Polygonize(dstLayer Layer, opts ...PolygonizeOption) error {
 	popt := polygonizeOpt{
@@ -418,101 +358,6 @@ func (band Band) Overviews() []Band {
 	}
 }
 
-// Histogram is a band's histogram.
-type Histogram struct {
-	min, max float64
-	counts   []uint64
-}
-
-// Bucket is a histogram entry. It spans [Min,Max] and contains Count entries.
-type Bucket struct {
-	Min, Max float64
-	Count    uint64
-}
-
-//Len returns the number of buckets contained in the histogram
-func (h Histogram) Len() int {
-	return len(h.counts)
-}
-
-//Bucket returns the i'th bucket in the histogram. i must be between 0 and Len()-1.
-func (h Histogram) Bucket(i int) Bucket {
-	width := (h.max - h.min) / float64(len(h.counts))
-	return Bucket{
-		Min:   h.min + width*float64(i),
-		Max:   h.min + width*float64(i+1),
-		Count: h.counts[i],
-	}
-}
-
-type histogramOpts struct {
-	approx         C.int
-	includeOutside C.int
-	min, max       C.double
-	buckets        C.int
-}
-
-// HistogramOption is an option that can be passed to Band.Histogram()
-//
-// Available HistogramOptions are:
-//
-// • Approximate() to allow the algorithm to operate on a subset of the full resolution data
-//
-// • Intervals(count int, min,max float64) to compute a histogram with count buckets, spanning [min,max].
-//   Each bucket will be (max-min)/count wide. If not provided, the default histogram will be returned.
-//
-// • IncludeOutOfRange() to populate the first and last bucket with values under/over the specified min/max
-//   when used in conjuntion with Intervals()
-type HistogramOption interface {
-	setHistogramOpt(ho *histogramOpts)
-}
-
-type includeOutsideOpt struct{}
-
-func (ioo includeOutsideOpt) setHistogramOpt(ho *histogramOpts) {
-	ho.includeOutside = C.int(1)
-}
-
-// IncludeOutOfRange populates the first and last bucket with values under/over the specified min/max
-// when used in conjuntion with Intervals()
-func IncludeOutOfRange() interface {
-	HistogramOption
-} {
-	return includeOutsideOpt{}
-}
-
-type approximateOkOption struct{}
-
-func (aoo approximateOkOption) setHistogramOpt(ho *histogramOpts) {
-	ho.approx = C.int(1)
-}
-
-// Approximate allows the histogram algorithm to operate on a subset of the full resolution data
-func Approximate() interface {
-	HistogramOption
-} {
-	return approximateOkOption{}
-}
-
-type intervalsOption struct {
-	min, max float64
-	buckets  int
-}
-
-func (io intervalsOption) setHistogramOpt(ho *histogramOpts) {
-	ho.min = C.double(io.min)
-	ho.max = C.double(io.max)
-	ho.buckets = C.int(io.buckets)
-}
-
-// Intervals computes a histogram with count buckets, spanning [min,max].
-// Each bucket will be (max-min)/count wide. If not provided, the default histogram will be returned.
-func Intervals(count int, min, max float64) interface {
-	HistogramOption
-} {
-	return intervalsOption{min: min, max: max, buckets: count}
-}
-
 //Histogram returns or computes the bands histogram
 func (band Band) Histogram(opts ...HistogramOption) (Histogram, error) {
 	hopt := histogramOpts{}
@@ -522,19 +367,19 @@ func (band Band) Histogram(opts ...HistogramOption) (Histogram, error) {
 	var values *C.ulonglong = nil
 	defer C.VSIFree(unsafe.Pointer(values))
 
-	errmsg := C.godalRasterHistogram(band.handle(), &hopt.min, &hopt.max, &hopt.buckets,
-		&values, hopt.includeOutside, hopt.approx)
+	errmsg := C.godalRasterHistogram(band.handle(), (*C.double)(&hopt.min), (*C.double)(&hopt.max), (*C.int)(&hopt.buckets),
+		&values, C.int(hopt.includeOutside), C.int(hopt.approx))
 	if errmsg != nil {
 		defer C.free(unsafe.Pointer(errmsg))
 		return Histogram{}, errors.New(C.GoString(errmsg))
 	}
 	counts := (*[1 << 30]C.ulonglong)(unsafe.Pointer(values))
 	h := Histogram{
-		min:    float64(hopt.min),
-		max:    float64(hopt.max),
-		counts: make([]uint64, int(hopt.buckets)),
+		min:    hopt.min,
+		max:    hopt.max,
+		counts: make([]uint64, hopt.buckets),
 	}
-	for i := 0; i < int(hopt.buckets); i++ {
+	for i := int32(0); i < hopt.buckets; i++ {
 		h.counts[i] = uint64(counts[i])
 	}
 	return h, nil
@@ -729,19 +574,6 @@ func (ds *Dataset) Bounds(opts ...BoundsOption) ([4]float64, error) {
 	return ret, nil
 }
 
-type dsCreateMaskOpts struct {
-	config []string
-}
-
-// DatasetCreateMaskOption is an option that can be passed to Dataset.CreateMaskBand()
-//
-// Available DatasetCreateMaskOptions are:
-//
-// • ConfigOption
-type DatasetCreateMaskOption interface {
-	setDatasetCreateMaskOpt(dcm *dsCreateMaskOpts)
-}
-
 //CreateMaskBand creates a mask (nodata) band shared for all bands of this dataset.
 //Any handle returned by a previous call to Band.MaskBand() should not be used after a call to CreateMaskBand
 //See https://gdal.org/development/rfc/rfc15_nodatabitmask.html for how flag should be used
@@ -843,25 +675,6 @@ func (ds *Dataset) SetNoData(nd float64) error {
 	return nil
 }
 
-type dsTranslateOpts struct {
-	config   []string
-	creation []string
-	driver   DriverName
-}
-
-// DatasetTranslateOption is an option that can be passed to Dataset.Translate()
-//
-// Available DatasetTranslateOptions are:
-//
-// • ConfigOption
-//
-// • CreationOption
-//
-// • DriverName
-type DatasetTranslateOption interface {
-	setDatasetTranslateOpt(dto *dsTranslateOpts)
-}
-
 // Translate runs the library version of gdal_translate.
 // See the gdal_translate doc page to determine the valid flags/opts that can be set in switches.
 //
@@ -905,25 +718,6 @@ func (ds *Dataset) Translate(dstDS string, switches []string, opts ...DatasetTra
 		return nil, errors.New(C.GoString(errmsg))
 	}
 	return &Dataset{majorObject{C.GDALMajorObjectH(hndl)}}, nil
-}
-
-type dsWarpOpts struct {
-	config   []string
-	creation []string
-	driver   DriverName
-}
-
-// DatasetWarpOption is an option that can be passed to Dataset.Warp()
-//
-// Available DatasetWarpOptions are:
-//
-// • ConfigOption
-//
-// • CreationOption
-//
-// • DriverName
-type DatasetWarpOption interface {
-	setDatasetWarpOpt(dwo *dsWarpOpts)
 }
 
 // Warp runs the library version of gdalwarp
@@ -995,20 +789,6 @@ func Warp(dstDS string, sourceDS []*Dataset, switches []string, opts ...DatasetW
 	return &Dataset{majorObject{C.GDALMajorObjectH(hndl)}}, nil
 }
 
-// DatasetWarpIntoOption is an option that can be passed to Dataset.WarpInto()
-//
-// Available DatasetWarpIntoOption is:
-//
-// • ConfigOption
-//
-type DatasetWarpIntoOption interface {
-	setDatasetWarpIntoOpt(dwo *dsWarpIntoOpts)
-}
-
-type dsWarpIntoOpts struct {
-	config []string
-}
-
 // WarpInto writes provided sourceDS Datasets into self existing dataset and runs the library version of gdalwarp
 // See the gdalwarp doc page to determine the valid flags/opts that can be set in switches.
 //
@@ -1044,31 +824,6 @@ func (ds *Dataset) WarpInto(sourceDS []*Dataset, switches []string, opts ...Data
 		return errors.New(C.GoString(errmsg))
 	}
 	return nil
-}
-
-type buildOvrOpts struct {
-	config     []string
-	minSize    int
-	resampling ResamplingAlg
-	bands      []int
-	levels     []int
-}
-
-// BuildOverviewsOption is an option to specify how overview building should behave.
-//
-// Available BuildOverviewsOptions are:
-//
-// • ConfigOption
-//
-// • Resampling
-//
-// • Levels
-//
-// • MinSize
-//
-// • Bands
-type BuildOverviewsOption interface {
-	setBuildOverviewsOpt(bo *buildOvrOpts)
 }
 
 // BuildOverviews computes overviews for the dataset.
@@ -1166,40 +921,6 @@ func (ds *Dataset) Structure() DatasetStructure {
 	}
 }
 
-type datasetIOOpt struct {
-	config                                 []string
-	bands                                  []int
-	dsWidth, dsHeight                      int
-	resampling                             ResamplingAlg
-	bandInterleave                         bool //return r1r2...rn,g1g2...gn,b1b2...bn instead of r1g1b1,r2g2b2,...,rngnbn
-	bandSpacing, pixelSpacing, lineSpacing int
-}
-
-// DatasetIOOption is an option to modify the default behavior of dataset.IO
-//
-// Available DatasetIOOptions are:
-//
-// • Stride
-//
-// • Window
-//
-// • Resampling
-//
-// • ConfigOption
-//
-// • Bands
-//
-// • BandInterleaved
-//
-// • PixelSpacing
-//
-// • LineSpacing
-//
-// • BandSpacing
-type DatasetIOOption interface {
-	setDatasetIOOpt(ro *datasetIOOpt)
-}
-
 // Read populates the supplied buffer with the pixels contained in the supplied window
 func (ds *Dataset) Read(srcX, srcY int, buffer interface{}, bufWidth, bufHeight int, opts ...DatasetIOOption) error {
 	return ds.IO(IORead, srcX, srcY, buffer, bufWidth, bufHeight, opts...)
@@ -1273,116 +994,6 @@ func (ds *Dataset) IO(rw IOOperation, srcX, srcY int, buffer interface{}, bufWid
 	}
 	return nil
 }
-
-//DriverName is GDAL driver
-type DriverName string
-
-const (
-	//GTiff GeoTIFF
-	GTiff DriverName = "GTiff"
-	//GeoJSON RFCxxxx geojson
-	GeoJSON DriverName = "GeoJSON"
-	//Memory in memory driver
-	Memory DriverName = "Memory"
-	//VRT is a VRT
-	VRT DriverName = "VRT"
-	//Shapefile is an ESRI Shapefile
-	Shapefile DriverName = "ESRI Shapefile"
-	//GeoPackage is a geo-package
-	GeoPackage DriverName = "GPKG"
-	//JP2KAK is a Kakadu Jpeg2000
-	JP2KAK DriverName = "JP2KAK"
-	//OpenJPEG is an OpenJPEG JPEG2000
-	OpenJPEG DriverName = "OpenJPEG"
-	//DIMAP is a Dimap
-	DIMAP DriverName = "DIMAP"
-	//HFA is an erdas img
-	HFA DriverName = "HFA"
-	//Mitab is a mapinfo mif/tab file
-	Mitab DriverName = "Mitab"
-)
-
-type driverMapping struct {
-	rasterName     string
-	vectorName     string
-	rasterRegister string
-	vectorRegister string
-}
-
-var driverMappings = map[DriverName]driverMapping{
-	GTiff: {
-		rasterName:     "GTiff",
-		rasterRegister: "GDALRegister_GTiff",
-	},
-	Memory: {
-		rasterName:     "MEM",
-		vectorName:     "Memory",
-		rasterRegister: "GDALRegister_MEM",
-		vectorRegister: "RegisterOGRMEM",
-	},
-	GeoJSON: {
-		vectorName:     "GeoJSON",
-		vectorRegister: "RegisterOGRGeoJSON",
-	},
-	VRT: {
-		rasterName:     "VRT",
-		vectorName:     "OGR_VRT",
-		rasterRegister: "GDALRegister_VRT",
-		vectorRegister: "RegisterOGRVRT",
-	},
-	Shapefile: {
-		vectorName:     "ESRI Shapefile",
-		vectorRegister: "RegisterOGRShape",
-	},
-	GeoPackage: {
-		rasterName:     "GPKG",
-		vectorName:     "GPKG",
-		rasterRegister: "RegisterOGRGeoPackage",
-		vectorRegister: "RegisterOGRGeoPackage",
-	},
-	JP2KAK: {
-		rasterName:     "JP2KAK",
-		rasterRegister: "GDALRegister_JP2KAK",
-	},
-	OpenJPEG: {
-		rasterName:     "OpenJPEG",
-		rasterRegister: "GDALRegister_JP2OpenJPEG",
-	},
-	DIMAP: {
-		rasterName:     "DIMAP",
-		rasterRegister: "GDALRegister_DIMAP",
-	},
-	HFA: {
-		rasterName:     "HFA",
-		rasterRegister: "GDALRegister_HFA",
-	},
-	Mitab: {
-		vectorName:     "Mapinfo File",
-		vectorRegister: "RegisterOGRTAB",
-	},
-}
-
-func (dn DriverName) setDatasetVectorTranslateOpt(to *dsVectorTranslateOpts) {
-	to.driver = dn
-}
-
-func (dn DriverName) setDatasetTranslateOpt(to *dsTranslateOpts) {
-	to.driver = dn
-}
-
-func (dn DriverName) setDatasetWarpOpt(to *dsWarpOpts) {
-	to.driver = dn
-}
-
-func (dn DriverName) setRasterizeOpt(to *rasterizeOpts) {
-	to.driver = dn
-}
-
-//compile time checks
-var _ DatasetVectorTranslateOption = DriverName("")
-var _ DatasetTranslateOption = DriverName("")
-var _ DatasetWarpOption = DriverName("")
-var _ RasterizeOption = DriverName("")
 
 // RegisterAll calls GDALAllRegister which registers all available raster and vector
 // drivers.
@@ -1537,22 +1148,6 @@ func getDriver(name string) (Driver, bool) {
 	return Driver{}, false
 }
 
-type dsCreateOpts struct {
-	config   []string
-	creation []string
-}
-
-// DatasetCreateOption is an option that can be passed to Create()
-//
-// Available DatasetCreateOptions are:
-//
-// • CreationOption
-//
-// • ConfigOption
-type DatasetCreateOption interface {
-	setDatasetCreateOpt(dc *dsCreateOpts)
-}
-
 // Create wraps GDALCreate and uses driver to creates a new raster dataset with the given name (usually filename), size, type and bands.
 func Create(driver DriverName, name string, nBands int, dtype DataType, width, height int, opts ...DatasetCreateOption) (*Dataset, error) {
 	drvname := string(driver)
@@ -1638,38 +1233,6 @@ func (ds *Dataset) handle() C.GDALDatasetH {
 	return C.GDALDatasetH(ds.majorObject.cHandle)
 }
 
-type openOptions struct {
-	flags        uint
-	drivers      []string //list of drivers that can be tried to open the given name
-	options      []string //driver specific open options (see gdal docs for each driver)
-	siblingFiles []string //list of sidecar files
-	config       []string
-	errorHandler ErrorHandler
-}
-
-//OpenOption is an option passed to Open()
-//
-// Available OpenOptions are:
-//
-// • Drivers
-//
-// • SiblingFiles
-//
-// • Shared
-//
-// • ConfigOption
-//
-// • Update
-//
-// • DriverOpenOption
-//
-// • RasterOnly
-//
-// • VectorOnly
-type OpenOption interface {
-	setOpenOption(oo *openOptions)
-}
-
 //Open calls GDALOpenEx() with the provided options. It returns nil and an error
 //in case there was an error opening the provided dataset name.
 //name may be a filename or any supported string supported by gdal (e.g. a /vsixxx path,
@@ -1717,104 +1280,6 @@ func (ds *Dataset) Close() error {
 	return nil
 }
 
-// Block is a window inside a dataset, starting at pixel X0,Y0 and spanning
-// W,H pixels.
-type Block struct {
-	X0, Y0 int
-	W, H   int
-	bw, bh int //block size
-	sx, sy int //img size
-	nx, ny int //num blocks
-	i, j   int //cur
-}
-
-// Next returns the following block in scanline order. It returns Block{},false
-// when there are no more blocks in the scanlines
-func (b Block) Next() (Block, bool) {
-	nb := b
-	nb.i++
-	if nb.i >= nb.nx {
-		nb.i = 0
-		nb.j++
-	}
-	if nb.j >= nb.ny {
-		return Block{}, false
-	}
-	nb.X0 = nb.i * nb.bw
-	nb.Y0 = nb.j * nb.bh
-	nb.W, nb.H = actualBlockSize(nb.sx, nb.sy, nb.bw, nb.bh, nb.i, nb.j)
-
-	return nb, true
-}
-
-// BlockIterator returns the blocks covering a sizeX,sizeY dataset.
-// All sizes must be strictly positive.
-func BlockIterator(sizeX, sizeY int, blockSizeX, blockSizeY int) Block {
-	bl := Block{
-		X0: 0,
-		Y0: 0,
-		i:  0,
-		j:  0,
-		bw: blockSizeX,
-		bh: blockSizeY,
-		sx: sizeX,
-		sy: sizeY,
-	}
-	bl.nx, bl.ny = (sizeX+blockSizeX-1)/blockSizeX,
-		(sizeY+blockSizeY-1)/blockSizeY
-	bl.W, bl.H = actualBlockSize(sizeX, sizeY, blockSizeX, blockSizeY, 0, 0)
-	return bl
-}
-
-// BandStructure implements Structure for a Band
-type BandStructure struct {
-	SizeX, SizeY           int
-	BlockSizeX, BlockSizeY int
-	DataType               DataType
-}
-
-// DatasetStructure implements Structure for a Dataset
-type DatasetStructure struct {
-	BandStructure
-	NBands int
-}
-
-// FirstBlock returns the topleft block definition
-func (is BandStructure) FirstBlock() Block {
-	return BlockIterator(is.SizeX, is.SizeY, is.BlockSizeX, is.BlockSizeY)
-}
-
-// BlockCount returns the number of blocks in the x and y dimensions
-func (is BandStructure) BlockCount() (int, int) {
-	return (is.SizeX + is.BlockSizeX - 1) / is.BlockSizeX,
-		(is.SizeY + is.BlockSizeY - 1) / is.BlockSizeY
-}
-
-// ActualBlockSize returns the number of pixels in the x and y dimensions
-// that actually contain data for the given x,y block
-func (is BandStructure) ActualBlockSize(blockX, blockY int) (int, int) {
-	return actualBlockSize(is.SizeX, is.SizeY, is.BlockSizeX, is.BlockSizeY, blockX, blockY)
-}
-
-func actualBlockSize(sizeX, sizeY int, blockSizeX, blockSizeY int, blockX, blockY int) (int, int) {
-	cx, cy := (sizeX+blockSizeX-1)/blockSizeX,
-		(sizeY+blockSizeY-1)/blockSizeY
-	if blockX < 0 || blockY < 0 || blockX >= cx || blockY >= cy {
-		return 0, 0
-	}
-	retx := blockSizeX
-	rety := blockSizeY
-	if blockX == cx-1 {
-		nXPixelOff := blockX * blockSizeX
-		retx = sizeX - nXPixelOff
-	}
-	if blockY == cy-1 {
-		nYPixelOff := blockY * blockSizeY
-		rety = sizeY - nYPixelOff
-	}
-	return retx, rety
-}
-
 //LibVersion is the GDAL lib versioning scheme
 type LibVersion int
 
@@ -1844,52 +1309,6 @@ func AssertMinVersion(major, minor, revision int) {
 	}
 }
 
-var errorHandlerMu sync.Mutex
-var errorHandlerIndex int
-
-// ErrorHandler is a function that can be used to override godal's default behavior
-// of treating all messages with severity >= CE_Warning as errors. When an ErrorHandler
-// is passed as an option to a godal function, all logs/errors emitted by gdal will be passed
-// to this function, which can decide wether the parameters correspond to an actual error
-// or not.
-//
-// If the ErrorHandler returns nil, the parent function will not return an error. It is up
-// to the ErrorHandler to log the message if needed.
-//
-// If the ErrorHandler returns an error, that error will be returned as-is to the caller
-// of the parent function
-type ErrorHandler func(ec ErrorCategory, code int, msg string) error
-
-type errorHandlerWrapper struct {
-	fn     ErrorHandler
-	errors []error
-}
-
-var errorHandlers = make(map[int]*errorHandlerWrapper)
-
-func registerErrorHandler(fn ErrorHandler) int {
-	errorHandlerMu.Lock()
-	defer errorHandlerMu.Unlock()
-	errorHandlerIndex++
-	for errorHandlerIndex == 0 || errorHandlers[errorHandlerIndex] != nil {
-		errorHandlerIndex++
-	}
-	errorHandlers[errorHandlerIndex] = &errorHandlerWrapper{fn: fn}
-	return errorHandlerIndex
-}
-
-func getErrorHandler(i int) *errorHandlerWrapper {
-	errorHandlerMu.Lock()
-	defer errorHandlerMu.Unlock()
-	return errorHandlers[i]
-}
-
-func unregisterErrorHandler(i int) {
-	errorHandlerMu.Lock()
-	defer errorHandlerMu.Unlock()
-	delete(errorHandlers, i)
-}
-
 func init() {
 	compiledVersion := LibVersion(C.GDAL_VERSION_NUM)
 	AssertMinVersion(compiledVersion.Major(), compiledVersion.Minor(), 0)
@@ -1906,34 +1325,6 @@ func goErrorHandler(loggerID C.int, ec C.int, code C.int, msg *C.char) C.int {
 		return 1
 	}
 	return 0
-}
-
-type errorAndLoggingOpts struct {
-	eh     ErrorHandler
-	config []string
-}
-
-type errorCallback struct {
-	fn ErrorHandler
-}
-
-type errorAndLoggingOption interface {
-	setErrorAndLoggingOpt(elo *errorAndLoggingOpts)
-}
-
-func ErrLogger(fn ErrorHandler) interface {
-	errorAndLoggingOption
-	OpenOption
-} {
-	return errorCallback{fn}
-}
-
-func (ec errorCallback) setErrorAndLoggingOpt(elo *errorAndLoggingOpts) {
-	elo.eh = ec.fn
-}
-
-func (ec errorCallback) setOpenOption(oo *openOptions) {
-	oo.errorHandler = ec.fn
 }
 
 func testErrorAndLogging(opts ...errorAndLoggingOption) error {
@@ -2105,28 +1496,6 @@ func cBuffer(buffer interface{}) (int, DataType, unsafe.Pointer) {
 	return dsize, dtype, cBuf
 }
 
-type metadataOpt struct {
-	domain string
-}
-
-// MetadataOption is an option that can be passed to metadata related calls
-// Available MetadataOptions are:
-//
-// • Domain
-type MetadataOption interface {
-	setMetadataOpt(mo *metadataOpt)
-}
-
-// Domain specifies the gdal metadata domain to use
-func Domain(mdDomain string) interface {
-	MetadataOption
-} {
-	return metadataOpt{mdDomain}
-}
-func (mdo metadataOpt) setMetadataOpt(mo *metadataOpt) {
-	mo.domain = mdo.domain
-}
-
 func (mo majorObject) Metadata(key string, opts ...MetadataOption) string {
 	mopts := metadataOpt{}
 	for _, opt := range opts {
@@ -2240,457 +1609,10 @@ func (rasterOnlyOpt) setOpenOption(oo *openOptions) {
 	oo.flags |= C.GDAL_OF_RASTER
 }
 
-type siblingFilesOpt struct {
-	files []string
-}
-
-//SiblingFiles specifies the list of files that may be opened alongside the prinicpal dataset name.
-//
-//files must not contain a directory component (i.e. are expected to be in the same directory as
-//the main dataset)
-//
-// SiblingFiles may be used in 3 different manners:
-//
-// • By default, i.e. by not using the option, godal will consider that there are no sibling files
-// at all and will prevent any scanning or probing of specific sibling files by passing a list of
-// sibling files to gdal containing only the main file
-//
-// • By passing a list of files, only those files will be probed
-//
-// • By passing SiblingFiles() (i.e. with an empty list of files), the default gdal behavior of
-// reading the directory content and/or probing for well-known sidecar filenames will be used.
-func SiblingFiles(files ...string) interface {
-	OpenOption
-} {
-	return siblingFilesOpt{files}
-}
-func (sf siblingFilesOpt) setOpenOption(oo *openOptions) {
-	if len(sf.files) > 0 {
-		oo.siblingFiles = append(oo.siblingFiles, sf.files...)
-	} else {
-		oo.siblingFiles = nil
-	}
-}
-
-type driversOpt struct {
-	drivers []string
-}
-
-//Drivers specifies the list of drivers that are allowed to try opening the dataset
-func Drivers(drivers ...string) interface {
-	OpenOption
-} {
-	return driversOpt{drivers}
-}
-func (do driversOpt) setOpenOption(oo *openOptions) {
-	oo.drivers = append(oo.drivers, do.drivers...)
-}
-
-type driverOpenOption struct {
-	oo []string
-}
-
-//DriverOpenOption adds a list of Open Options (-oo switch) to the open command. Each keyval must
-//be provided in a "KEY=value" format
-func DriverOpenOption(keyval ...string) interface {
-	OpenOption
-	BuildVRTOption
-} {
-	return driverOpenOption{keyval}
-}
-func (doo driverOpenOption) setOpenOption(oo *openOptions) {
-	oo.options = append(oo.options, doo.oo...)
-}
-func (doo driverOpenOption) setBuildVRTOpt(bvo *buildVRTOpts) {
-	bvo.openOptions = append(bvo.openOptions, doo.oo...)
-}
-
-type bandOpt struct {
-	bnds []int
-}
-
-// Bands specifies which dataset bands should be read/written. By default all dataset bands
-// are read/written.
-//
-// Note: bnds is 0-indexed so as to be consistent with Dataset.Bands(), whereas in GDAL terminology,
-// bands are 1-indexed. i.e. for a 3 band dataset you should pass Bands(0,1,2) and not Bands(1,2,3).
-func Bands(bnds ...int) interface {
-	DatasetIOOption
-	BuildOverviewsOption
-	RasterizeGeometryOption
-	BuildVRTOption
-} {
-	ib := make([]int, len(bnds))
-	for i := range bnds {
-		ib[i] = bnds[i] + 1
-	}
-	return bandOpt{ib}
-}
-
-func (bo bandOpt) setDatasetIOOpt(ro *datasetIOOpt) {
-	ro.bands = bo.bnds
-}
-func (bo bandOpt) setBuildOverviewsOpt(ovr *buildOvrOpts) {
-	ovr.bands = bo.bnds
-}
-func (bo bandOpt) setRasterizeGeometryOpt(o *rasterizeGeometryOpt) {
-	o.bands = bo.bnds
-}
-func (bo bandOpt) setBuildVRTOpt(bvo *buildVRTOpts) {
-	bvo.bands = bo.bnds
-}
-
-type bandSpacingOpt struct {
-	sp int
-}
-type pixelSpacingOpt struct {
-	sp int
-}
-type lineSpacingOpt struct {
-	sp int
-}
-
-func (so bandSpacingOpt) setDatasetIOOpt(ro *datasetIOOpt) {
-	ro.bandSpacing = so.sp
-}
-func (so pixelSpacingOpt) setDatasetIOOpt(ro *datasetIOOpt) {
-	ro.pixelSpacing = so.sp
-}
-func (so lineSpacingOpt) setDatasetIOOpt(ro *datasetIOOpt) {
-	ro.lineSpacing = so.sp
-}
-func (so lineSpacingOpt) setBandIOOpt(bo *bandIOOpt) {
-	bo.lineSpacing = so.sp
-}
-func (so pixelSpacingOpt) setBandIOOpt(bo *bandIOOpt) {
-	bo.pixelSpacing = so.sp
-}
-
-// BandSpacing sets the number of bytes from one pixel to the next band of the same pixel. If not
-// provided, it will be calculated from the pixel type
-func BandSpacing(stride int) interface {
-	DatasetIOOption
-} {
-	return bandSpacingOpt{stride}
-}
-
-// PixelSpacing sets the number of bytes from one pixel to the next pixel in the same row. If not
-// provided, it will be calculated from the number of bands and pixel type
-func PixelSpacing(stride int) interface {
-	DatasetIOOption
-	BandIOOption
-} {
-	return pixelSpacingOpt{stride}
-}
-
-// LineSpacing sets the number of bytes from one pixel to the pixel of the same band one row below. If not
-// provided, it will be calculated from the number of bands, pixel type and image width
-func LineSpacing(stride int) interface {
-	DatasetIOOption
-	BandIOOption
-} {
-	return lineSpacingOpt{stride}
-}
-
-type windowOpt struct {
-	sx, sy int
-}
-
-// Window specifies the size of the dataset window to read/write. By default use the
-// size of the input/output buffer (i.e. no resampling)
-func Window(sx, sy int) interface {
-	DatasetIOOption
-	BandIOOption
-} {
-	return windowOpt{sx, sy}
-}
-
-func (wo windowOpt) setDatasetIOOpt(ro *datasetIOOpt) {
-	ro.dsWidth = wo.sx
-	ro.dsHeight = wo.sy
-}
-func (wo windowOpt) setBandIOOpt(ro *bandIOOpt) {
-	ro.dsWidth = wo.sx
-	ro.dsHeight = wo.sy
-}
-
-type bandInterleaveOp struct{}
-
-// BandInterleaved makes Read return a band interleaved buffer instead of a pixel interleaved one.
-//
-// For example, pixels of a three band RGB image will be returned in order
-// r1r2r3...rn, g1g2g3...gn, b1b2b3...bn instead of the default
-// r1g1b1, r2g2b2, r3g3b3, ... rnbngn
-//
-// BandInterleaved should not be used in conjunction with BandSpacing, LineSpacing, or PixelSpacing
-func BandInterleaved() interface {
-	DatasetIOOption
-} {
-	return bandInterleaveOp{}
-}
-
-func (bio bandInterleaveOp) setDatasetIOOpt(ro *datasetIOOpt) {
-	ro.bandInterleave = true
-}
-
-type creationOpts struct {
-	creation []string
-}
-
-// CreationOption are options to pass to a driver when creating a dataset, to be
-// passed in the form KEY=VALUE
-//
-// Examples are: BLOCKXSIZE=256, COMPRESS=LZW, NUM_THREADS=8, etc...
-func CreationOption(opts ...string) interface {
-	DatasetCreateOption
-	DatasetWarpOption
-	DatasetTranslateOption
-	DatasetVectorTranslateOption
-	RasterizeOption
-} {
-	return creationOpts{opts}
-}
-
-func (co creationOpts) setDatasetCreateOpt(dc *dsCreateOpts) {
-	dc.creation = append(dc.creation, co.creation...)
-}
-func (co creationOpts) setDatasetWarpOpt(dc *dsWarpOpts) {
-	dc.creation = append(dc.creation, co.creation...)
-}
-func (co creationOpts) setDatasetTranslateOpt(dc *dsTranslateOpts) {
-	dc.creation = append(dc.creation, co.creation...)
-}
-func (co creationOpts) setDatasetVectorTranslateOpt(dc *dsVectorTranslateOpts) {
-	dc.creation = append(dc.creation, co.creation...)
-}
-func (co creationOpts) setRasterizeOpt(o *rasterizeOpts) {
-	o.create = append(o.create, co.creation...)
-}
-
-type configOpts struct {
-	config []string
-}
-
-// ConfigOption sets a configuration option for a gdal library call. See the
-// specific gdal function doc page and specific driver docs for allowed values.
-//
-// Notable options are GDAL_NUM_THREADS=8
-func ConfigOption(cfgs ...string) interface {
-	BuildOverviewsOption
-	DatasetCreateOption
-	DatasetWarpOption
-	DatasetWarpIntoOption
-	DatasetTranslateOption
-	DatasetCreateMaskOption
-	DatasetVectorTranslateOption
-	BandCreateMaskOption
-	OpenOption
-	RasterizeOption
-	DatasetIOOption
-	BandIOOption
-	BuildVRTOption
-	errorAndLoggingOption
-} {
-	return configOpts{cfgs}
-}
-
-func (co configOpts) setBuildOverviewsOpt(bo *buildOvrOpts) {
-	bo.config = append(bo.config, co.config...)
-}
-func (co configOpts) setDatasetCreateOpt(dc *dsCreateOpts) {
-	dc.config = append(dc.config, co.config...)
-}
-func (co configOpts) setDatasetWarpOpt(dc *dsWarpOpts) {
-	dc.config = append(dc.config, co.config...)
-}
-func (co configOpts) setDatasetWarpIntoOpt(dc *dsWarpIntoOpts) {
-	dc.config = append(dc.config, co.config...)
-}
-func (co configOpts) setDatasetTranslateOpt(dc *dsTranslateOpts) {
-	dc.config = append(dc.config, co.config...)
-}
-func (co configOpts) setDatasetVectorTranslateOpt(dc *dsVectorTranslateOpts) {
-	dc.config = append(dc.config, co.config...)
-}
-func (co configOpts) setDatasetCreateMaskOpt(dcm *dsCreateMaskOpts) {
-	dcm.config = append(dcm.config, co.config...)
-}
-func (co configOpts) setBandCreateMaskOpt(bcm *bandCreateMaskOpts) {
-	bcm.config = append(bcm.config, co.config...)
-}
-func (co configOpts) setOpenOption(oo *openOptions) {
-	oo.config = append(oo.config, co.config...)
-}
-func (co configOpts) setRasterizeOpt(oo *rasterizeOpts) {
-	oo.config = append(oo.config, co.config...)
-}
-func (co configOpts) setDatasetIOOpt(oo *datasetIOOpt) {
-	oo.config = append(oo.config, co.config...)
-}
-func (co configOpts) setBandIOOpt(oo *bandIOOpt) {
-	oo.config = append(oo.config, co.config...)
-}
-func (co configOpts) setBuildVRTOpt(bvo *buildVRTOpts) {
-	bvo.config = append(bvo.config, co.config...)
-}
-func (co configOpts) setErrorAndLoggingOpt(elo *errorAndLoggingOpts) {
-	elo.config = append(elo.config, co.config...)
-}
-
-type minSizeOpt struct {
-	s int
-}
-
-// MinSize makes BuildOverviews automatically compute the overview levels
-// until the smallest overview size is less than s.
-//
-// Should not be used together with Levels()
-func MinSize(s int) interface {
-	BuildOverviewsOption
-} {
-	return minSizeOpt{s}
-}
-
-func (ms minSizeOpt) setBuildOverviewsOpt(bo *buildOvrOpts) {
-	bo.minSize = ms.s
-}
-
-type resamplingOpt struct {
-	m ResamplingAlg
-}
-
-//Resampling defines the resampling algorithm to use.
-//If unset will usually default to NEAREST. See gdal docs for which algorithms are
-//available.
-func Resampling(alg ResamplingAlg) interface {
-	BuildOverviewsOption
-	DatasetIOOption
-	BandIOOption
-	BuildVRTOption
-} {
-	return resamplingOpt{alg}
-}
-func (ro resamplingOpt) setBuildOverviewsOpt(bo *buildOvrOpts) {
-	bo.resampling = ro.m
-}
-func (ro resamplingOpt) setDatasetIOOpt(io *datasetIOOpt) {
-	io.resampling = ro.m
-}
-func (ro resamplingOpt) setBandIOOpt(io *bandIOOpt) {
-	io.resampling = ro.m
-}
-func (ro resamplingOpt) setBuildVRTOpt(bvo *buildVRTOpts) {
-	bvo.resampling = ro.m
-}
-
-type levelsOpt struct {
-	lvl []int
-}
-
-// Levels set the overview levels to be computed. This is usually:
-//  Levels(2,4,8,16,32)
-func Levels(levels ...int) interface {
-	BuildOverviewsOption
-} {
-	return levelsOpt{levels}
-}
-func (lo levelsOpt) setBuildOverviewsOpt(bo *buildOvrOpts) {
-	slevels := make([]int, len(lo.lvl))
-	copy(slevels, lo.lvl)
-	sort.Slice(slevels, func(i, j int) bool {
-		return slevels[i] < slevels[j]
-	})
-	bo.levels = slevels
-}
-
-type maskBandOpt struct {
-	band *Band
-}
-
-func (mbo maskBandOpt) setPolygonizeOpt(o *polygonizeOpt) {
-	o.mask = mbo.band
-}
-
-// Mask makes Polygonize use the given band as a nodata mask
-// instead of using the source band's nodata mask
-func Mask(band Band) interface {
-	PolygonizeOption
-} {
-	return maskBandOpt{&band}
-}
-
-// NoMask makes Polygonize ignore band nodata mask
-func NoMask() interface {
-	PolygonizeOption
-} {
-	return maskBandOpt{}
-}
-
-type polyPixField struct {
-	fld int
-}
-
-func (ppf polyPixField) setPolygonizeOpt(o *polygonizeOpt) {
-	o.pixFieldIndex = ppf.fld
-}
-
-// PixelValueFieldIndex makes Polygonize write the polygon's pixel
-// value into the layer's fld'th field
-func PixelValueFieldIndex(fld int) interface {
-	PolygonizeOption
-} {
-	return polyPixField{fld}
-}
-
-type eightConnected struct{}
-
-func (ec eightConnected) setPolygonizeOpt(o *polygonizeOpt) {
-	o.options = append(o.options, "8CONNECTED=YES")
-}
-
-//EightConnected is an option that switches pixel connectivity from 4 to 8
-func EightConnected() interface {
-	PolygonizeOption
-} {
-	return eightConnected{}
-}
-
-type floatValues struct {
-	v []float64
-}
-
-func (v floatValues) setRasterizeGeometryOpt(o *rasterizeGeometryOpt) {
-	o.values = v.v
-}
-
-// Values sets the value(s) that must be rasterized in the dataset bands.
-// vals must either be a single value that will be applied to all bands, or
-// exactly match the number of requested bands
-func Values(vals ...float64) interface {
-	RasterizeGeometryOption
-} {
-	return floatValues{vals}
-}
-
-func (sr *SpatialRef) setBoundsOpt(o *boundsOpt) {
-	o.sr = sr
-}
-
 //SpatialRef is a wrapper around OGRSpatialReferenceH
 type SpatialRef struct {
 	handle  C.OGRSpatialReferenceH
 	isOwned bool
-}
-
-type srWKTOpts struct{}
-
-//WKTExportOption is an option that can be passed to SpatialRef.WKT()
-//
-// Available WKTExportOptions are:
-//
-// • TODO
-type WKTExportOption interface {
-	setWKTExportOpts(sro *srWKTOpts)
 }
 
 //WKT returns spatialrefernece as WKT
@@ -2767,17 +1689,6 @@ func (sr *SpatialRef) IsSame(other *SpatialRef) bool {
 type Transform struct {
 	handle C.OGRCoordinateTransformationH
 	dst    C.OGRSpatialReferenceH //TODO: refcounting/freeing on this?
-}
-
-type trnOpts struct{}
-
-// TransformOption is an option that can be passed to NewTransform
-//
-// Available TransformOptions are:
-//
-// • TODO
-type TransformOption interface {
-	setTransformOpt(o *trnOpts)
 }
 
 // NewTransform creates a transformation object from src to dst
@@ -2926,72 +1837,6 @@ func (sr *SpatialRef) AutoIdentifyEPSG() error {
 	return nil
 }
 
-type boundsOpt struct {
-	sr *SpatialRef
-}
-
-// BoundsOption is an option that can be passed to Dataset.Bounds or Geometry.Bounds
-//
-// Available options are:
-//
-// • *SpatialRef
-type BoundsOption interface {
-	setBoundsOpt(o *boundsOpt)
-}
-
-func reprojectBounds(bnds [4]float64, src, dst *SpatialRef) ([4]float64, error) {
-	var ret [4]float64
-	trn, err := NewTransform(src, dst)
-	if err != nil {
-		return ret, fmt.Errorf("create coordinate transform: %w", err)
-	}
-	defer trn.Close()
-	x := []float64{bnds[0], bnds[0], bnds[2], bnds[2]}
-	y := []float64{bnds[1], bnds[3], bnds[3], bnds[1]}
-	err = trn.TransformEx(x, y, nil, nil)
-	if err != nil {
-		return ret, fmt.Errorf("reproject bounds: %w", err)
-	}
-	ret[0] = x[0]
-	ret[1] = y[0]
-	ret[2] = x[0]
-	ret[3] = y[0]
-	for i := 1; i < 4; i++ {
-		if x[i] < ret[0] {
-			ret[0] = x[i]
-		}
-		if x[i] > ret[2] {
-			ret[2] = x[i]
-		}
-		if y[i] < ret[1] {
-			ret[1] = y[i]
-		}
-		if y[i] > ret[3] {
-			ret[3] = y[i]
-		}
-	}
-	return ret, nil
-}
-
-type rasterizeOpts struct {
-	create []string
-	config []string
-	driver DriverName
-}
-
-// RasterizeOption is an option that can be passed to Rasterize()
-//
-// Available RasterizeOptions are:
-//
-// • CreationOption
-//
-// • ConfigOption
-//
-// • DriverName
-type RasterizeOption interface {
-	setRasterizeOpt(ro *rasterizeOpts)
-}
-
 // Rasterize wraps GDALRasterize()
 func (ds *Dataset) Rasterize(dstDS string, switches []string, opts ...RasterizeOption) (*Dataset, error) {
 	gopts := rasterizeOpts{}
@@ -3023,32 +1868,6 @@ func (ds *Dataset) Rasterize(dstDS string, switches []string, opts ...RasterizeO
 		return nil, errors.New(C.GoString(errmsg))
 	}
 	return &Dataset{majorObject{C.GDALMajorObjectH(hndl)}}, nil
-}
-
-type rasterizeGeometryOpt struct {
-	bands      []int
-	values     []float64
-	allTouched C.int
-}
-
-// RasterizeGeometryOption is an option that can be passed tp Dataset.RasterizeGeometry()
-type RasterizeGeometryOption interface {
-	setRasterizeGeometryOpt(o *rasterizeGeometryOpt)
-}
-
-type allTouchedOpt struct{}
-
-func (at allTouchedOpt) setRasterizeGeometryOpt(o *rasterizeGeometryOpt) {
-	o.allTouched = C.int(1)
-}
-
-// AllTouched is an option that can be passed to Dataset.RasterizeGeometries()
-// where all pixels touched by lines or polygons will be updated, not just those on the line
-// render path, or whose center point is within the polygon.
-func AllTouched() interface {
-	RasterizeGeometryOption
-} {
-	return allTouchedOpt{}
 }
 
 // RasterizeGeometry "burns" the provided geometry onto ds.
@@ -3090,7 +1909,7 @@ func (ds *Dataset) RasterizeGeometry(g *Geometry, opts ...RasterizeGeometryOptio
 		return fmt.Errorf("must pass in same number of values as bands")
 	}
 	errmsg := C.godalRasterizeGeometry(ds.handle(), g.handle,
-		cIntArray(opt.bands), C.int(len(opt.bands)), cDoubleArray(opt.values), opt.allTouched)
+		cIntArray(opt.bands), C.int(len(opt.bands)), cDoubleArray(opt.values), C.int(opt.allTouched))
 	if errmsg != nil {
 		defer C.free(unsafe.Pointer(errmsg))
 		return errors.New(C.GoString(errmsg))
@@ -3176,23 +1995,6 @@ func (fd *FieldDefinition) createHandle() C.OGRFieldDefnH {
 	defer C.free(cfname)
 	cfd := C.OGR_Fld_Create((*C.char)(cfname), C.OGRFieldType(fd.ftype))
 	return cfd
-}
-
-type dsVectorTranslateOpts struct {
-	config   []string
-	creation []string
-	driver   DriverName
-}
-
-// DatasetVectorTranslateOption is an option that can be passed to Dataset.Warp()
-//
-// Available Options are:
-//
-// • CreationOption
-// • ConfigOption
-// • DriverName
-type DatasetVectorTranslateOption interface {
-	setDatasetVectorTranslateOpt(dwo *dsVectorTranslateOpts)
 }
 
 // VectorTranslate runs the library version of ogr2ogr
@@ -3527,17 +2329,6 @@ func (layer Layer) NextFeature() *Feature {
 	return &Feature{hndl}
 }
 
-type newFeatureOpt struct{}
-
-//NewFeatureOption is an option that can be passed to Layer.NewFeature
-//
-// Available options are:
-//
-// • none yet
-type NewFeatureOption interface {
-	setNewFeatureOpt(nfo *newFeatureOpt)
-}
-
 // NewFeature creates a feature on Layer
 func (layer Layer) NewFeature(geom *Geometry, opts ...NewFeatureOption) (*Feature, error) {
 	nfo := newFeatureOpt{}
@@ -3575,15 +2366,6 @@ func (layer Layer) DeleteFeature(feat *Feature) error {
 		return errors.New(C.GoString(errmsg))
 	}
 	return nil
-}
-
-type createLayerOpts struct {
-	fields []*FieldDefinition
-}
-
-// CreateLayerOption is an option that can be passed to Dataset.CreateLayer()
-type CreateLayerOption interface {
-	setCreateLayerOpt(clo *createLayerOpts)
 }
 
 // CreateLayer creates a new vector layer
@@ -3717,29 +2499,6 @@ func (g *Geometry) Transform(trn *Transform) error {
 	return nil
 }
 
-type geojsonOpt struct {
-	precision C.int
-}
-
-//GeoJSONOption is an option that can be passed to Geometry.GeoJSON
-type GeoJSONOption interface {
-	setGeojsonOpt(gjo *geojsonOpt)
-}
-
-type significantDigits int
-
-func (sd significantDigits) setGeojsonOpt(o *geojsonOpt) {
-	o.precision = C.int(sd)
-}
-
-// SignificantDigits sets the number of significant digits after the decimal separator should
-// be kept for geojson output
-func SignificantDigits(n int) interface {
-	GeoJSONOption
-} {
-	return significantDigits(n)
-}
-
 // GeoJSON returns the geometry in geojson format. The geometry is expected to be in epsg:4326
 // projection per RFCxxx
 //
@@ -3754,7 +2513,7 @@ func (g *Geometry) GeoJSON(opts ...GeoJSONOption) (string, error) {
 		opt.setGeojsonOpt(&gjo)
 	}
 	var errmsg *C.char
-	gjdata := C.godalExportGeometryGeoJSON(g.handle, gjo.precision, (**C.char)(unsafe.Pointer(&errmsg)))
+	gjdata := C.godalExportGeometryGeoJSON(g.handle, C.int(gjo.precision), (**C.char)(unsafe.Pointer(&errmsg)))
 	if errmsg != nil {
 		defer C.free(unsafe.Pointer(errmsg))
 		return "", errors.New(C.GoString(errmsg))
@@ -4030,28 +2789,6 @@ func RegisterVSIHandler(prefix string, keyReader VSIKeyReader, opts ...VSIHandle
 	}
 	handlers[prefix] = keyReader
 	return nil
-}
-
-type buildVRTOpts struct {
-	config      []string
-	openOptions []string
-	bands       []int
-	resampling  ResamplingAlg
-}
-
-// BuildVRTOption is an option that can be passed to BuildVRT
-//
-// Available BuildVRTOptions are:
-//
-// • ConfigOption
-//
-// • DriverOpenOption
-//
-// • Bands
-//
-// • Resampling
-type BuildVRTOption interface {
-	setBuildVRTOpt(bvo *buildVRTOpts)
 }
 
 //BuildVRT runs the GDALBuildVRT function and creates a VRT dataset from a list of datasets
