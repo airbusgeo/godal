@@ -38,6 +38,23 @@ func init() {
 	RegisterInternalDrivers()
 }
 
+type errChecker struct {
+	errs int
+}
+
+func (e *errChecker) ErrorHandler(ec ErrorCategory, code int, message string) error {
+
+	if ec >= CE_Warning {
+		e.errs++
+		return errors.New(message)
+	}
+	return nil
+}
+
+func eh() *errChecker {
+	return &errChecker{}
+}
+
 func tempfile() string {
 	f, err := ioutil.TempFile("", "")
 	if err != nil {
@@ -112,6 +129,11 @@ func TestColorTable(t *testing.T) {
 	}
 	err := bnd.SetColorTable(ct)
 	assert.NoError(t, err)
+	ehc := eh()
+	err = bnd.SetColorTable(ct, ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
+	assert.Equal(t, 0, ehc.errs)
+
 	assert.Equal(t, CIPalette, bnd.ColorInterp())
 	ct2 := bnd.ColorTable()
 	assert.Equal(t, CMYKPalette, ct2.PaletteInterp)
@@ -130,24 +152,34 @@ func TestColorTable(t *testing.T) {
 	bnd = ds.Bands()[0]
 	err = bnd.SetColorTable(ct)
 	assert.Error(t, err) //read-only
+
+	ehc = eh()
+	err = bnd.SetColorTable(ct, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+	assert.Equal(t, 1, ehc.errs)
 }
 func TestCreate(t *testing.T) {
 	tmpname := tempfile()
 	defer os.Remove(tmpname)
 
 	_, err := Create(GTiff, tmpname, 1, Byte, 20, 20, CreationOption("INVALID_OPT=BAR"))
-	if err == nil {
-		t.Error("invalid copt not raised")
-	}
+	assert.Error(t, err)
+
+	ehc := eh()
+	_, err = Create(GTiff, tmpname, 1, Byte, 20, 20, CreationOption("INVALID_OPT=BAR"), ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+
 	_, err = Create(GTiff, "/this/path/does/not/exist", 1, Byte, 10, 10)
-	if err == nil {
-		t.Error("error not caught")
-	}
+	assert.Error(t, err)
 
 	ds, err := Create(GTiff, tmpname, 1, Byte, 20, 20)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
+	ds.Close()
+
+	ehc = eh()
+	ds, err = Create(GTiff, tmpname, 1, Byte, 20, 20, ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
+
 	st := ds.Structure()
 	bnds := ds.Bands()
 	if st.SizeX != 20 || st.SizeY != 20 || len(bnds) != 1 || st.NBands != 1 {
@@ -158,28 +190,28 @@ func TestCreate(t *testing.T) {
 		t.Error(ci.Name())
 	}
 	err = bnds[0].SetColorInterp(CIRed)
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
+	ehc = eh()
+	err = bnds[0].SetColorInterp(CIRed, ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
+
 	ci = bnds[0].ColorInterp()
 	if ci != CIRed {
 		t.Error(ci.Name())
 	}
 	err = ds.Close()
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
+
 	st1, _ := os.Stat(tmpname)
 	tmpname2 := tempfile()
 	defer os.Remove(tmpname2)
 	ds, err = Create(GTiff, tmpname2, 1, Byte, 20, 20, CreationOption("TILED=YES", "BLOCKXSIZE=128", "BLOCKYSIZE=128"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = ds.Close()
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
+
+	ehc = eh()
+	err = ds.Close(ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
+
 	st2, _ := os.Stat(tmpname2)
 
 	if st1.Size() == st2.Size() {
@@ -236,6 +268,9 @@ func TestVectorCreate(t *testing.T) {
 	_, err := Create(GeoJSON, tf, 1, Byte, 512, 512)
 	assert.Error(t, err)
 	_, err = CreateVector(GTiff, "")
+	assert.Error(t, err)
+	ehc := eh()
+	_, err = CreateVector(GTiff, "", ErrLogger(ehc.ErrorHandler))
 	assert.Error(t, err)
 	_, err = Create("foobar", tf, 1, Byte, 512, 512)
 	assert.Error(t, err)
@@ -325,6 +360,9 @@ func TestConfigOptions(t *testing.T) {
 
 	_, err = ds.Warp(tiffile2, nil, ConfigOption("GDAL_NUM_THREADS=-2"))
 	assert.Error(t, err)
+	ehc := eh()
+	_, err = ds.Warp(tiffile2, nil, ConfigOption("GDAL_NUM_THREADS=-2"), ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
 
 	ds.Close()
 	//no geotransform if worldfile is ignored
@@ -347,6 +385,10 @@ func TestHistogram(t *testing.T) {
 
 	hist, err := bnd.Histogram()
 	assert.NoError(t, err)
+	ehc := eh()
+	hist, err = bnd.Histogram(ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
+
 	ll := hist.Len()
 	assert.Equal(t, 256, ll)
 	for i := 0; i < ll; i++ {
@@ -377,11 +419,20 @@ func TestHistogram(t *testing.T) {
 	ebnd := Band{}
 	_, err = ebnd.Histogram()
 	assert.Error(t, err)
+
+	ehc = eh()
+	_, err = ebnd.Histogram(ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+
 }
 
 func TestSize(t *testing.T) {
-	ds, err := Open("testdata/test.tif")
-	srm, _ := NewSpatialRefFromEPSG(3857)
+	ds, _ := Open("testdata/test.tif")
+	srm, err := NewSpatialRefFromEPSG(3857)
+	require.NoError(t, err)
+	srm.Close()
+	ehc := eh()
+	srm, err = NewSpatialRefFromEPSG(3857, ErrLogger(ehc.ErrorHandler))
 	require.NoError(t, err)
 	st := ds.Structure()
 	assert.Equal(t, 10, st.SizeX)
@@ -389,6 +440,11 @@ func TestSize(t *testing.T) {
 
 	bounds, err := ds.Bounds()
 	assert.NoError(t, err)
+	/*
+		ehc = eh()
+		bounds, err = ds.Bounds(ErrLogger(ehc.ErrorHandler))
+		assert.NoError(t, err)
+	*/
 	assert.Equal(t, [4]float64{45, 25, 55, 35}, bounds)
 	bounds, err = ds.Bounds(srm)
 	assert.NoError(t, err)
@@ -436,10 +492,16 @@ func TestNoData(t *testing.T) {
 	bands := ds.Bands()
 	err = bands[1].SetNoData(100)
 	assert.NoError(t, err)
+	ehc := eh()
+	err = bands[1].SetNoData(100, ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
 	nd, ok := bands[1].NoData()
 	assert.Equal(t, 100.0, nd)
 	assert.Equal(t, true, ok)
 	err = bands[1].ClearNoData()
+	assert.NoError(t, err)
+	ehc = eh()
+	err = bands[1].ClearNoData(ErrLogger(ehc.ErrorHandler))
 	assert.NoError(t, err)
 	_, ok = bands[1].NoData()
 	assert.Equal(t, false, ok)
@@ -562,17 +624,22 @@ func TestReadOnlyDataset(t *testing.T) {
 	}
 	*/
 	_, err = ds.CreateMaskBand(0x02, ConfigOption("GDAL_TIFF_INTERNAL_MASK=YES"))
-	if err == nil {
-		t.Error("create mask")
-	}
+	assert.Error(t, err)
+	ehc := eh()
+	_, err = ds.CreateMaskBand(0x02, ConfigOption("GDAL_TIFF_INTERNAL_MASK=YES"), ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+
 	_, err = ds.Bands()[0].CreateMask(0x02, ConfigOption("GDAL_TIFF_INTERNAL_MASK=YES"))
-	if err == nil {
-		t.Error("create mask")
-	}
+	assert.Error(t, err)
+	ehc = eh()
+	_, err = ds.Bands()[0].CreateMask(0x02, ConfigOption("GDAL_TIFF_INTERNAL_MASK=YES"), ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+
 	err = ds.Bands()[0].Fill(5, 5)
-	if err == nil {
-		t.Error("fill ro")
-	}
+	assert.Error(t, err)
+	ehc = eh()
+	err = ds.Bands()[0].Fill(5, 5, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
 
 }
 func TestDatasetRead(t *testing.T) {
@@ -584,9 +651,7 @@ func TestDatasetRead(t *testing.T) {
 	bnds := ds.Bands()
 	for i := range bnds {
 		err = bnds[i].Fill(float64(10*i), 0)
-		if err != nil {
-			t.Error(err)
-		}
+		assert.NoError(t, err)
 	}
 
 	buf := make([]byte, 300)
@@ -670,22 +735,23 @@ func TestBandRead(t *testing.T) {
 		}
 	}
 	err = bnd.Write(0, 0, buf, 10, 10)
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
+	ehc := eh()
+	err = bnd.Write(0, 0, buf, 10, 10, ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
 
 	err = bnd.Read(95, 95, buf, 10, 10)
-	if err == nil {
-		t.Error("error not raised")
-	}
+	assert.Error(t, err)
+	ehc = eh()
+	err = bnd.Read(95, 95, buf, 10, 10, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+
 	err = bnd.Read(100, 100, buf, 10, 10)
-	if err == nil {
-		t.Error("error not raised")
-	}
+	assert.Error(t, err)
+
 	err = bnd.Read(0, 0, buf, 10, 10)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
+
 	if buf[0] != 0 || buf[99] != 9 {
 		t.Errorf("vals: %v", buf)
 	}
@@ -912,13 +978,13 @@ func TestMetadata(t *testing.T) {
 		t.Error(md1)
 	}
 	err := ds.SetMetadata("foo", "bar")
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
+	ehc := eh()
+	err = ds.SetMetadata("foo", "bar", ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
 	err = ds.SetMetadata("foo2", "bar2", Domain("baz"))
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
+
 	md1 = ds.Metadata("foo")
 	if md1 != "bar" {
 		t.Error(md1)
@@ -1211,10 +1277,12 @@ func TestRegister(t *testing.T) {
 func TestTransform(t *testing.T) {
 	sr1, _ := NewSpatialRefFromEPSG(4326)
 	sr2, _ := NewSpatialRefFromEPSG(3857)
-	ct, err := NewTransform(sr1, sr2)
-	if err != nil {
-		t.Fatal(err)
-	}
+	_, err := NewTransform(sr1, sr2)
+	assert.NoError(t, err)
+	ehc := eh()
+	ct, err := NewTransform(sr1, sr2, ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
+
 	x := []float64{0, 1}
 	y := []float64{0, 1}
 	err = ct.TransformEx(x, y, nil, nil)
@@ -1290,20 +1358,27 @@ func TestProjection(t *testing.T) {
 	}
 	epsg4326 := `GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AXIS["Latitude",NORTH],AXIS["Longitude",EAST],AUTHORITY["EPSG","4326"]]`
 
-	pj, _ := ds.SpatialRef().WKT()
+	_, err = ds.SpatialRef().WKT()
+	assert.NoError(t, err)
+	ehc := eh()
+	pj, err := ds.SpatialRef().WKT(ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
 
 	if pj != epsg4326 {
 		t.Error(pj)
 	}
 
 	_, err = NewSpatialRefFromProj4("invalid string")
-	if err == nil {
-		t.Error("invalid proj4 not raised")
-	}
-	sr, err = NewSpatialRefFromProj4("+proj=lonlat")
-	if err != nil {
-		t.Error(err)
-	}
+	assert.Error(t, err)
+	ehc = eh()
+	_, err = NewSpatialRefFromProj4("invalid string", ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+	_, err = NewSpatialRefFromProj4("+proj=lonlat")
+	assert.NoError(t, err)
+	ehc = eh()
+	sr, err = NewSpatialRefFromProj4("+proj=lonlat", ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
+
 	defer sr.Close()
 	_ = ds.SetSpatialRef(sr)
 
@@ -1318,10 +1393,13 @@ func TestProjection(t *testing.T) {
 	if err == nil {
 		t.Error("invalid wkt not raised")
 	}
-	sr, err = NewSpatialRefFromWKT(epsg4326)
-	if err != nil {
-		t.Error(err)
-	}
+
+	_, err = NewSpatialRefFromWKT(epsg4326)
+	assert.NoError(t, err)
+	ehc = eh()
+	sr, err = NewSpatialRefFromWKT(epsg4326, ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
+
 	_ = ds.SetSpatialRef(sr)
 	pj, _ = ds.SpatialRef().WKT()
 
@@ -1335,22 +1413,28 @@ func TestProjection(t *testing.T) {
 	assert.NotPanics(t, sr.Close, "2nd close must not panic")
 
 	err = ds.SetProjection("invalid wkt")
-	if err == nil {
-		t.Error("invalid wkt not raised")
-	}
+	assert.Error(t, err)
 	err = ds.SetProjection(epsg4326)
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
+
+	ehc = eh()
+	err = ds.SetProjection("invalid wkt", ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+	ehc = eh()
+	err = ds.SetProjection(epsg4326, ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
+
 	pj = ds.Projection()
 	if pj != epsg4326 {
 		t.Error(pj)
 	}
 
 	err = ds.SetSpatialRef(nil)
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
+	ehc = eh()
+	err = ds.SetSpatialRef(nil, ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
+
 	pj = ds.Projection()
 	if pj != "" {
 		t.Errorf("proj not empty: %s", pj)
@@ -1359,6 +1443,9 @@ func TestProjection(t *testing.T) {
 	//hack to make setspatialref return an error for coverage
 	ds.Close()
 	err = ds.SetSpatialRef(nil)
+	assert.Error(t, err)
+	ehc = eh()
+	err = ds.SetSpatialRef(nil, ErrLogger(ehc.ErrorHandler))
 	assert.Error(t, err)
 }
 
@@ -1439,16 +1526,25 @@ func TestGeoTransform(t *testing.T) {
 	defer ds.Close()
 	_, err = ds.GeoTransform()
 	assert.Error(t, err)
+	ehc := eh()
+	_, err = ds.GeoTransform(ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
 	_, err = ds.Bounds()
 	assert.Error(t, err)
 	ngt := [6]float64{0, 2, 1, 0, 1, 1}
 
 	err = ds.SetGeoTransform(ngt)
 	assert.NoError(t, err)
+	ehc = eh()
+	err = ds.SetGeoTransform(ngt, ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
 
 	gt, err := ds.GeoTransform()
 	assert.NoError(t, err)
 	assert.Equal(t, gt, ngt)
+	ehc = eh()
+	_, err = ds.GeoTransform(ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
 }
 
 func TestGeometryTransform(t *testing.T) {
@@ -1460,15 +1556,27 @@ func TestGeometryTransform(t *testing.T) {
 	err := gp.Reproject(srm)
 	assert.NoError(t, err)
 	assert.True(t, gp.SpatialRef().IsSame(srm))
+	gp.Close()
+
+	ehc := eh()
+	gp, _ = NewGeometryFromWKT("POINT (10 10)", sr)
+	err = gp.Reproject(srm, ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
+
 	nwkt, _ := gp.WKT()
 	assert.NotEqual(t, "POINT (10 10)", nwkt)
-
 	gp.SetSpatialRef(sr)
 	assert.True(t, gp.SpatialRef().IsSame(sr))
 
 	gp.Close()
 
 	gp, _ = NewGeometryFromWKT("POINT (10 90)", sr)
+	err = gp.Reproject(srm)
+	assert.Error(t, err)
+	gp.Close()
+
+	ehc = eh()
+	gp, _ = NewGeometryFromWKT("POINT (10 90)", sr, ErrLogger(ehc.ErrorHandler))
 	err = gp.Reproject(srm)
 	assert.Error(t, err)
 	gp.Close()
@@ -1483,9 +1591,22 @@ func TestGeometryTransform(t *testing.T) {
 	assert.NotEqual(t, "POINT (10 10)", nwkt)
 	gp.Close()
 
+	ehc = eh()
+	gp, _ = NewGeometryFromWKT("POINT (10 10)", nil)
+	err = gp.Transform(trn, ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
+	gp.Close()
+
 	gp, _ = NewGeometryFromWKT("POINT (10 90)", sr)
 	err = gp.Transform(trn)
 	assert.Error(t, err)
+	gp.Close()
+
+	ehc = eh()
+	gp, _ = NewGeometryFromWKT("POINT (10 90)", sr)
+	err = gp.Transform(trn, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+	gp.Close()
 }
 
 func TestProjBounds(t *testing.T) {
@@ -1516,9 +1637,11 @@ func TestTranslate(t *testing.T) {
 		t.Error("invalid switch not detected")
 	}
 	_, err = ds.Translate(tmpname2, nil, CreationOption("BAR=BAZ"))
-	if err == nil {
-		t.Error("invalid creation option not detected")
-	}
+	assert.Error(t, err, "invalid creation option not detected")
+	ehc := eh()
+	_, err = ds.Translate(tmpname2, nil, CreationOption("BAR=BAZ"), ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err, "invalid creation option not detected")
+
 	ds2, err := ds.Translate(tmpname2, []string{"-outsize", "200%", "200%"}, CreationOption("TILED=YES", "BLOCKXSIZE=32", "BLOCKYSIZE=16"), GTiff)
 	if err != nil {
 		t.Fatal(err)
@@ -1645,10 +1768,15 @@ func TestDatasetWarpInto(t *testing.T) {
 	// Warp existing dataset with multiple input dataset
 	err := outputDataset.WarpInto([]*Dataset{inputDataset}, []string{"-co", "TILED=YES"})
 	assert.Error(t, err, "creation option option should have raised an error")
+	ehc := eh()
+	err = outputDataset.WarpInto([]*Dataset{inputDataset}, []string{"-co", "TILED=YES"}, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err, "creation option option should have raised an error")
 
 	if err = outputDataset.WarpInto([]*Dataset{inputDataset}, []string{}); err != nil {
 		t.Fatal(err)
 	}
+	ehc = eh()
+	assert.NoError(t, outputDataset.WarpInto([]*Dataset{inputDataset}, []string{}, ErrLogger(ehc.ErrorHandler)))
 
 	data := make([]uint8, 1)
 	_ = outputDataset.Read(0, 0, data, 1, 1)
@@ -1687,13 +1815,17 @@ func TestBuildOverviews(t *testing.T) {
 		t.Errorf("expected 3 overviews")
 	}
 	err = ds.ClearOverviews()
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
+	ehc := eh()
+	err = ds.ClearOverviews(ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
+
 	err = ds.BuildOverviews(MinSize(200))
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
+	ehc = eh()
+	err = ds.BuildOverviews(MinSize(200), ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
+
 	ovrs := ds.Bands()[0].Overviews()
 	l200 := false
 	for _, ovr := range ovrs {
@@ -1863,9 +1995,11 @@ func TestPolygonize(t *testing.T) {
 	bnd := rds.Bands()[0]
 	_ = bnd.Write(0, 0, data, 8, 8)
 	err = bnd.Polygonize(pl4, PixelValueFieldIndex(5))
-	if err == nil {
-		t.Error("invalid field not raised")
-	}
+	assert.Error(t, err, "invalid field not raised")
+	ehc := eh()
+	err = bnd.Polygonize(pl4, PixelValueFieldIndex(5), ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err, "invalid field not raised")
+
 	err = bnd.Polygonize(pl4)
 	if err != nil {
 		t.Error(err)
@@ -1956,9 +2090,11 @@ func TestRasterize(t *testing.T) {
 	inv, _ := Open("testdata/test.geojson", VectorOnly())
 
 	_, err := inv.Rasterize(tf, []string{"-of", "bogus"})
-	if err == nil {
-		t.Error("error not raised")
-	}
+	assert.Error(t, err)
+	ehc := eh()
+	_, err = inv.Rasterize(tf, []string{"-of", "bogus"}, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+
 	rds, err := inv.Rasterize(tf, []string{
 		"-te", "99", "-1", "102", "2",
 		"-ts", "9", "9",
@@ -2043,6 +2179,9 @@ func TestRasterizeGeometries(t *testing.T) {
 	assert.Error(t, err)
 	err = mds.RasterizeGeometry(ff, Bands(0, 2, 3), Values(1, 2, 3))
 	assert.Error(t, err)
+	ehc := eh()
+	err = mds.RasterizeGeometry(ff, Bands(0, 2, 3), Values(1, 2, 3), ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
 
 }
 
@@ -2082,17 +2221,20 @@ func TestVectorTranslate(t *testing.T) {
 	}
 
 	_, err = ds.VectorTranslate("foobar", []string{"-f", "bogusdriver"})
-	if err == nil {
-		t.Error("err not raised")
-	}
+	assert.Error(t, err)
+	ehc := eh()
+	_, err = ds.VectorTranslate("foobar", []string{"-f", "bogusdriver"}, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
 }
 
 func TestVectorLayer(t *testing.T) {
 	rds, _ := Create(Memory, "", 3, Byte, 10, 10)
 	_, err := rds.CreateLayer("ff", nil, GTPolygon)
-	if err == nil {
-		t.Error("error not raised")
-	}
+	assert.Error(t, err)
+	ehc := eh()
+	_, err = rds.CreateLayer("ff", nil, GTPolygon, ErrLogger(ehc.ErrorHandler))
+
+	assert.Error(t, err)
 	lyrs := rds.Layers()
 	if len(lyrs) > 0 {
 		t.Error("raster ds has vector layers")
@@ -2107,10 +2249,18 @@ func TestVectorLayer(t *testing.T) {
 	assert.Nil(t, ds.Bands())
 	assert.Error(t, ds.BuildOverviews())
 	assert.Error(t, ds.ClearOverviews())
+	ehc = eh()
+	assert.Error(t, ds.ClearOverviews(ErrLogger(ehc.ErrorHandler)))
 	assert.Error(t, ds.SetNoData(0))
+	ehc = eh()
+	assert.Error(t, ds.SetNoData(0, ErrLogger(ehc.ErrorHandler)))
 	buf := make([]byte, 10)
+	ehc = eh()
 	assert.Error(t, ds.Read(0, 0, buf, 3, 3))
+	assert.Error(t, ds.Read(0, 0, buf, 3, 3, ErrLogger(ehc.ErrorHandler)))
+	ehc = eh()
 	assert.Error(t, ds.Write(0, 0, buf, 3, 3))
+	assert.Error(t, ds.Write(0, 0, buf, 3, 3, ErrLogger(ehc.ErrorHandler)))
 
 	dds, err := ds.VectorTranslate("", []string{"-of", "MEMORY"})
 	if err != nil {
@@ -2119,10 +2269,19 @@ func TestVectorLayer(t *testing.T) {
 
 	_, err = (&Geometry{}).Buffer(10, 1)
 	assert.Error(t, err)
+	ehc = eh()
+	_, err = (&Geometry{}).Buffer(10, 1, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
 	_, err = (&Geometry{}).Simplify(1)
+	assert.Error(t, err)
+	ehc = eh()
+	_, err = (&Geometry{}).Simplify(1, ErrLogger(ehc.ErrorHandler))
 	assert.Error(t, err)
 
 	err = (&Feature{}).SetGeometry(&Geometry{})
+	assert.Error(t, err)
+	ehc = eh()
+	err = (&Feature{}).SetGeometry(&Geometry{}, ErrLogger(ehc.ErrorHandler))
 	assert.Error(t, err)
 
 	sr4326, _ := NewSpatialRefFromEPSG(4326)
@@ -2134,9 +2293,15 @@ func TestVectorLayer(t *testing.T) {
 	assert.True(t, sr4326.IsSame(l2.SpatialRef()))
 	l := dds.Layers()[0]
 	l.ResetReading()
-	cnt, err := l.FeatureCount()
+	_, err = l.FeatureCount()
 	assert.NoError(t, err)
 	_, err = Layer{}.FeatureCount()
+	assert.Error(t, err)
+	ehc = eh()
+	cnt, err := l.FeatureCount(ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
+	ehc = eh()
+	_, err = Layer{}.FeatureCount(ErrLogger(ehc.ErrorHandler))
 	assert.Error(t, err)
 	i := 0
 	for {
@@ -2172,9 +2337,10 @@ func TestVectorLayer(t *testing.T) {
 		em.Close()
 		sg.Close()
 		err = l.UpdateFeature(ff)
-		if err != nil {
-			t.Error(err)
-		}
+		assert.NoError(t, err)
+		ehc = eh()
+		err = l.UpdateFeature(ff, ErrLogger(ehc.ErrorHandler))
+		assert.NoError(t, err)
 		ff.Close()
 		assert.NotPanics(t, ff.Close, "second close must not panic")
 	}
@@ -2198,7 +2364,13 @@ func TestLayerModifyFeatures(t *testing.T) {
 		}
 		err := l.DeleteFeature(ff)
 		assert.Error(t, err) //read-only, must fail
+		ehc := eh()
+		err = l.DeleteFeature(ff, ErrLogger(ehc.ErrorHandler))
+		assert.Error(t, err) //read-only, must fail
 		err = l.UpdateFeature(ff)
+		assert.Error(t, err) //read-only, must fail
+		ehc = eh()
+		err = l.UpdateFeature(ff, ErrLogger(ehc.ErrorHandler))
 		assert.Error(t, err) //read-only, must fail
 	}
 	dsm, _ := ds.VectorTranslate("", []string{"-of", "Memory"})
@@ -2220,24 +2392,43 @@ func TestLayerModifyFeatures(t *testing.T) {
 func TestNewGeometry(t *testing.T) {
 	_, err := NewGeometryFromWKT("babsaba", &SpatialRef{})
 	assert.Error(t, err)
+	ehc := eh()
+	_, err = NewGeometryFromWKT("babsaba", &SpatialRef{}, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
 
 	gp, err := NewGeometryFromWKT("POINT (30 10)", nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, gp)
+	ehc = eh()
+	gp, err = NewGeometryFromWKT("POINT (30 10)", nil, ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
 
 	wkt, err := gp.WKT()
 	assert.NoError(t, err)
 	assert.Equal(t, "POINT (30 10)", wkt)
+	ehc = eh()
+	_, err = gp.WKT(ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
 
 	wkb, err := gp.WKB()
 	assert.NoError(t, err)
 	assert.NotEmpty(t, wkb)
+	ehc = eh()
+	_, err = gp.WKB(ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
 
 	gp.Close()
 
 	_, err = NewGeometryFromWKB(wkb[0:10], &SpatialRef{})
 	assert.Error(t, err)
+	ehc = eh()
+	_, err = NewGeometryFromWKB(wkb[0:10], &SpatialRef{}, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
 	gp, err = NewGeometryFromWKB(wkb, nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, gp)
+	ehc = eh()
+	gp, err = NewGeometryFromWKB(wkb, nil, ErrLogger(ehc.ErrorHandler))
 	assert.NoError(t, err)
 	assert.NotNil(t, gp)
 
@@ -2265,6 +2456,9 @@ func TestGeomToGeoJSON(t *testing.T) {
 	assert.Equal(t, `{ "type": "Point", "coordinates": [ 10.123, 10.0 ] }`, gj)
 
 	_, err = (&Geometry{}).GeoJSON()
+	assert.Error(t, err)
+	ehc := eh()
+	_, err = (&Geometry{}).GeoJSON(ErrLogger(ehc.ErrorHandler))
 	assert.Error(t, err)
 
 }
@@ -2294,6 +2488,9 @@ func TestFeatureAttributes(t *testing.T) {
 	//curve, err := NewGeometryFromWKT("CURVEPOLYGON(COMPOUNDCURVE(CIRCULARSTRING (0 0,1 1,2 0),(2 0,0 0)))", nil)
 	//assert.NoError(t, err)
 	_, err := (&Layer{}).NewFeature(&Geometry{})
+	assert.Error(t, err)
+	ehc := eh()
+	_, err = (&Layer{}).NewFeature(&Geometry{}, ErrLogger(ehc.ErrorHandler))
 	assert.Error(t, err)
 
 	i := 0
@@ -2412,6 +2609,10 @@ func TestVSIFile(t *testing.T) {
 
 	vf, err := VSIOpen(fname)
 	assert.NoError(t, err)
+	vf.Close()
+	ehc := eh()
+	vf, err = VSIOpen(fname, ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
 
 	mbytes, err := ioutil.ReadAll(vf)
 	assert.NoError(t, err)
@@ -2427,7 +2628,14 @@ func TestVSIFile(t *testing.T) {
 
 	_, err = VSIOpen(fname)
 	assert.Error(t, err)
+	ehc = eh()
+	_, err = VSIOpen(fname, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+
 	err = VSIUnlink(fname)
+	assert.Error(t, err)
+	ehc = eh()
+	err = VSIUnlink(fname, ErrLogger(ehc.ErrorHandler))
 	assert.Error(t, err)
 }
 
@@ -2480,6 +2688,9 @@ func TestVSIPlugin(t *testing.T) {
 	err := RegisterVSIHandler("testmem://", vpa)
 	assert.NoError(t, err)
 	err = RegisterVSIHandler("testmem://", vpa)
+	assert.Error(t, err)
+	ehc := eh()
+	err = RegisterVSIHandler("testmem://", vpa, ErrLogger(ehc.ErrorHandler))
 	assert.Error(t, err)
 	err = RegisterVSIHandler("/vsimem/", vpa)
 	assert.Error(t, err)
@@ -2632,6 +2843,12 @@ func TestVSIErrors(t *testing.T) {
 
 func TestBuildVRT(t *testing.T) {
 	ds, err := BuildVRT("/vsimem/vrt1.vrt", []string{"testdata/test.tif"}, nil)
+	assert.NoError(t, err)
+	ds.Close()
+	VSIUnlink("/vsimem/vrt1.vrt")
+
+	ehc := eh()
+	ds, err = BuildVRT("/vsimem/vrt1.vrt", []string{"testdata/test.tif"}, nil, ErrLogger(ehc.ErrorHandler))
 	assert.NoError(t, err)
 	defer func() { _ = VSIUnlink("/vsimem/vrt1.vrt") }()
 
