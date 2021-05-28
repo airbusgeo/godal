@@ -36,67 +36,7 @@ extern "C" {
 	extern int goErrorHandler(int loggerID, CPLErr lvl, int code, const char *msg);
 }
 
-char *cplErrToString(CPLErr err) {
-	const char *msg = "cpl error %d";
-	char *str = (char *)malloc(strlen(msg) + 10);
-	snprintf(str, strlen(msg) + 10, msg, err);
-	return str;
-}
-char *ogrErrToString(OGRErr err) {
-	const char *msg = "ogr error %d";
-	char *str = (char *)malloc(strlen(msg) + 10);
-	snprintf(str, strlen(msg) + 10, msg, err);
-	return str;
-}
-
-static void godalUnwrap(char **options) {
-	CPLPopErrorHandler();
-	if(options!=nullptr) {
-		for(char* option=*options; option; option=*(++options)) {
-			char *idx = strchr(option,'=');
-			if(idx) {
-				*idx='\0';
-				CPLSetThreadLocalConfigOption(option,nullptr);
-				*idx='=';
-			}
-		}
-	}
-}
-
 static void godalErrorHandler(CPLErr e, CPLErrorNum n, const char* msg) {
-	//let's be strict and treat all warnings as errors
-	if (e < CE_Warning) {
-		fprintf(stderr,"GDAL INFO: %s\n",msg);
-		return;
-	}
-	char **hmsg = (char**)CPLGetErrorHandlerUserData();
-	assert(hmsg!=nullptr);
-	if(*hmsg==nullptr) {
-		*hmsg = (char*)malloc(strlen(msg)+1);
-		strcpy(*hmsg,msg);
-	} else {
-		*hmsg = (char*)realloc(*hmsg,strlen(*hmsg)+strlen(msg)+3);
-		strcat(*hmsg,"\n");
-		strcat(*hmsg,msg);
-	}
-}
-
-static void godalWrap(char **hmsg, char **options) {
-	*hmsg=nullptr;
-	CPLPushErrorHandlerEx(&godalErrorHandler,hmsg);
-	if(options!=nullptr) {
-		for(char* option=*options; option; option=*(++options)) {
-			char *idx = strchr(option,'=');
-			if(idx) {
-				*idx='\0';
-				CPLSetThreadLocalConfigOption(option,idx+1);
-				*idx='=';
-			}
-		}
-	}
-}
-
-static void godalErrorHandler2(CPLErr e, CPLErrorNum n, const char* msg) {
 	cctx *ctx = (cctx*)CPLGetErrorHandlerUserData();
 	assert(ctx!=nullptr);
 	if (ctx->handlerIdx !=0) {
@@ -125,8 +65,8 @@ static void godalErrorHandler2(CPLErr e, CPLErrorNum n, const char* msg) {
 	}
 }
 
-static void godalWrap2(cctx *ctx) {
-	CPLPushErrorHandlerEx(&godalErrorHandler2,ctx);
+static void godalWrap(cctx *ctx) {
+	CPLPushErrorHandlerEx(&godalErrorHandler,ctx);
 	if(ctx->configOptions!=nullptr) {
 		char **options = ctx->configOptions;
 		for(char* option=*options; option; option=*(++options)) {
@@ -140,7 +80,7 @@ static void godalWrap2(cctx *ctx) {
 	}
 }
 
-static void godalUnwrap2() {
+static void godalUnwrap() {
 	cctx *ctx = (cctx*)CPLGetErrorHandlerUserData();
 	CPLPopErrorHandler();
 	if(ctx->configOptions!=nullptr) {
@@ -156,55 +96,62 @@ static void godalUnwrap2() {
 	}
 }
 
+inline int failed(cctx *ctx) {
+	if (ctx->errMessage!=nullptr || ctx->failed!=0) {
+		return 1;
+	}
+	return 0;
+}
+
 inline void forceError(cctx *ctx) {
 	if (ctx->errMessage == nullptr && ctx->failed==0) {
 		CPLError(CE_Failure, CPLE_AppDefined, "unknown error");
 	}
 }
-
-char *godalSetMetadataItem(GDALMajorObjectH mo, char *ckey, char *cval, char *cdom) {
-	char *error=nullptr;
-	godalWrap(&error,nullptr);
-	CPLErr ret = GDALSetMetadataItem(mo,ckey,cval,cdom);
-	godalUnwrap(nullptr);
-	if(error!=nullptr) {
-		return error;
+inline void forceCPLError(cctx *ctx, CPLErr err) {
+	if (ctx->errMessage == nullptr && ctx->failed==0) {
+		CPLError(CE_Failure, CPLE_AppDefined, "unknown cpl error %d", err);
 	}
-	if(ret!=0) {
-		return cplErrToString(ret);
+}
+inline void forceOGRError(cctx *ctx, OGRErr err) {
+	if (ctx->errMessage == nullptr && ctx->failed==0) {
+		CPLError(CE_Failure, CPLE_AppDefined, "unknown ogr error %d", err);
 	}
-	return nullptr;
 }
 
-char *godalSetRasterColorInterpretation(GDALRasterBandH bnd, GDALColorInterp ci) {
-	char *error=nullptr;
-	godalWrap(&error,nullptr);
-	CPLErr ret = GDALSetRasterColorInterpretation(bnd,ci);
-	godalUnwrap(nullptr);
-	if(error!=nullptr) {
-		return error;
-	}
+void godalSetMetadataItem(cctx *ctx, GDALMajorObjectH mo, char *ckey, char *cval, char *cdom) {
+	godalWrap(ctx);
+	CPLErr ret = GDALSetMetadataItem(mo,ckey,cval,cdom);
 	if(ret!=0) {
-		return cplErrToString(ret);
+		forceCPLError(ctx, ret);
 	}
-	return nullptr;
+	godalUnwrap();
+}
+
+void godalSetRasterColorInterpretation(cctx *ctx, GDALRasterBandH bnd, GDALColorInterp ci) {
+	godalWrap(ctx);
+	CPLErr ret = GDALSetRasterColorInterpretation(bnd,ci);
+	if(ret!=0) {
+		forceCPLError(ctx, ret);
+	}
+	godalUnwrap();
 }
 
 GDALDatasetH godalOpen(cctx *ctx, const char *name, unsigned int nOpenFlags, const char *const *papszAllowedDrivers,
 					const char *const *papszOpenOptions, const char *const *papszSiblingFiles) {
-	godalWrap2(ctx);
+	godalWrap(ctx);
 	GDALDatasetH ret = GDALOpenEx(name,nOpenFlags,papszAllowedDrivers,papszOpenOptions,papszSiblingFiles);
 	if (ret == nullptr) {
 		forceError(ctx);
 	}
-	godalUnwrap2();
+	godalUnwrap();
 	return ret;
 }
 
-void godalClose(GDALDatasetH ds, char **error) {
-	godalWrap(error,nullptr);
+void godalClose(cctx *ctx, GDALDatasetH ds) {
+	godalWrap(ctx);
 	GDALClose(ds);
-	godalUnwrap(nullptr);
+	godalUnwrap();
 }
 
 typedef void (*fn_def)(void);
@@ -233,146 +180,120 @@ int godalRegisterDriver(const char *fnname) {
 	return -1;
 }
 
-GDALDatasetH godalCreate(GDALDriverH drv, const char* name, int width, int height, int nbands,
-							GDALDataType dtype, char **options, char **error, char **config) {
-	godalWrap(error, config);
+GDALDatasetH godalCreate(cctx *ctx, GDALDriverH drv, const char* name, int width, int height, int nbands,
+							GDALDataType dtype, char **options) {
+	godalWrap(ctx);
 	GDALDatasetH ret = GDALCreate(drv,name,width,height,nbands,dtype,options);
-	godalUnwrap(config);
-	if (ret==nullptr && *error==nullptr) {
-		*error=strdup("failed to create: unknown error");
+	if (ret==nullptr) {
+		forceError(ctx);
 	}
+	godalUnwrap();
 	return ret;
 }
 
-char *godalDatasetSetSpatialRef(GDALDatasetH ds, OGRSpatialReferenceH sr) {
-	char *error=nullptr;
-	godalWrap(&error,nullptr);
+void godalDatasetSetSpatialRef(cctx *ctx, GDALDatasetH ds, OGRSpatialReferenceH sr) {
+	godalWrap(ctx);
 	CPLErr ret = GDALSetSpatialRef(ds,sr);
-	godalUnwrap(nullptr);
-	if(error!=nullptr) {
-		return error;
+	if (ret!=0) {
+		forceCPLError(ctx,ret);
 	}
-	if(ret!=0) {
-		return cplErrToString(ret);
-	}
-	return nullptr;
+	godalUnwrap();
 }
 
-char *godalSetProjection(GDALDatasetH ds, char *wkt) {
-	char *error=nullptr;
-	godalWrap(&error,nullptr);
+void godalSetProjection(cctx *ctx, GDALDatasetH ds, char *wkt) {
+	godalWrap(ctx);
 	CPLErr ret = GDALSetProjection(ds,wkt);
-	godalUnwrap(nullptr);
-	if(error!=nullptr) {
-		return error;
+	if (ret!=0) {
+		forceCPLError(ctx,ret);
 	}
-	if(ret!=0) {
-		return cplErrToString(ret);
-	}
-	return nullptr;
+	godalUnwrap();
 }
 
-char *godalExportToWKT(OGRSpatialReferenceH sr, char **error) {
-	godalWrap(error,nullptr);
+char *godalExportToWKT(cctx *ctx, OGRSpatialReferenceH sr) {
+	godalWrap(ctx);
 	char *wkt = nullptr;
 	OGRErr gret = OSRExportToWkt(sr, &wkt);
-	godalUnwrap(nullptr);
-	if (*error!=nullptr) {
-		return nullptr;
+	if (gret!=0) {
+		forceOGRError(ctx,gret);
 	}
-	if (gret != 0) {
-		*error=ogrErrToString(gret);
-		return nullptr;
-	}
+	godalUnwrap();
 	return wkt;
 }
 
-OGRSpatialReferenceH godalCreateWKTSpatialRef(char *wkt, char **error){
-	godalWrap(error,nullptr);
+OGRSpatialReferenceH godalCreateWKTSpatialRef(cctx *ctx, char *wkt){
+	godalWrap(ctx);
 	OGRSpatialReferenceH sr = OSRNewSpatialReference(nullptr);
 	OSRSetAxisMappingStrategy(sr, OAMS_TRADITIONAL_GIS_ORDER);
 	OGRErr gret = OSRImportFromWkt(sr, &wkt);
-	godalUnwrap(nullptr);
-	if (*error!=nullptr) {
-		return nullptr;
+	if(gret!=0) {
+		forceOGRError(ctx,gret);
 	}
-	if (gret != 0) {
-		*error=ogrErrToString(gret);
+	godalUnwrap();
+	if( failed(ctx) ) {
+		OSRDestroySpatialReference(sr);
 		return nullptr;
 	}
 	return sr;
 }
-OGRSpatialReferenceH godalCreateProj4SpatialRef(char *proj, char **error) {
-	godalWrap(error,nullptr);
+
+OGRSpatialReferenceH godalCreateProj4SpatialRef(cctx *ctx, char *proj) {
+	godalWrap(ctx);
 	OGRSpatialReferenceH sr = OSRNewSpatialReference(nullptr);
 	OSRSetAxisMappingStrategy(sr, OAMS_TRADITIONAL_GIS_ORDER);
 	OGRErr gret = OSRImportFromProj4(sr, proj);
-	godalUnwrap(nullptr);
-	if (*error!=nullptr) {
-		return nullptr;
+	if(gret!=0) {
+		forceOGRError(ctx,gret);
 	}
-	if (gret != 0) {
-		*error=ogrErrToString(gret);
+	godalUnwrap();
+	if( failed(ctx) ) {
+		OSRDestroySpatialReference(sr);
 		return nullptr;
 	}
 	return sr;
 }
 
-OGRSpatialReferenceH godalCreateEPSGSpatialRef(int epsgCode, char **error) {
-	godalWrap(error,nullptr);
+OGRSpatialReferenceH godalCreateEPSGSpatialRef(cctx *ctx, int epsgCode) {
+	godalWrap(ctx);
 	OGRSpatialReferenceH sr = OSRNewSpatialReference(nullptr);
 	OSRSetAxisMappingStrategy(sr, OAMS_TRADITIONAL_GIS_ORDER);
 	OGRErr gret = OSRImportFromEPSG(sr, epsgCode);
-	godalUnwrap(nullptr);
-	if (*error!=nullptr) {
-		return nullptr;
+	if(gret!=0) {
+		forceOGRError(ctx,gret);
 	}
-	if (gret != 0) {
-		*error=ogrErrToString(gret);
+	godalUnwrap();
+	if( failed(ctx) ) {
+		OSRDestroySpatialReference(sr);
 		return nullptr;
 	}
 	return sr;
 }
 
-OGRCoordinateTransformationH godalNewCoordinateTransformation( OGRSpatialReferenceH src, OGRSpatialReferenceH dst, char **error) {
-	godalWrap(error,nullptr);
+OGRCoordinateTransformationH godalNewCoordinateTransformation(cctx *ctx, OGRSpatialReferenceH src, OGRSpatialReferenceH dst) {
+	godalWrap(ctx);
 	OGRCoordinateTransformationH tr = OCTNewCoordinateTransformation(src,dst);
-	godalUnwrap(nullptr);
-	if (*error!=nullptr) {
-		return nullptr;
+	if ( tr == nullptr ) {
+		forceError(ctx);
 	}
-	if (tr == nullptr) {
-		*error=strdup("unknown error");
-		return nullptr;
-	}
+	godalUnwrap();
 	return tr;
 }
 
-char *godalSetGeoTransform(GDALDatasetH ds, double *gt){
-	char *error=nullptr;
-	godalWrap(&error,nullptr);
+void godalSetGeoTransform(cctx *ctx, GDALDatasetH ds, double *gt){
+	godalWrap(ctx);
 	CPLErr ret = GDALSetGeoTransform(ds,gt);
-	godalUnwrap(nullptr);
-	if(error!=nullptr) {
-		return error;
+	if( ret != 0 ) {
+		forceCPLError(ctx,ret);
 	}
-	if(ret!=0) {
-		return cplErrToString(ret);
-	}
-	return nullptr;
+	godalUnwrap();
 }
-char *godalGetGeoTransform(GDALDatasetH ds, double *gt){
-	char *error=nullptr;
-	godalWrap(&error,nullptr);
+
+void godalGetGeoTransform(cctx *ctx, GDALDatasetH ds, double *gt){
+	godalWrap(ctx);
 	CPLErr ret = GDALGetGeoTransform(ds,gt);
-	godalUnwrap(nullptr);
-	if(error!=nullptr) {
-		return error;
+	if( ret != 0 ) {
+		forceCPLError(ctx,ret);
 	}
-	if(ret!=0) {
-		return cplErrToString(ret);
-	}
-	return nullptr;
+	godalUnwrap();
 }
 
 void godalRasterSize(GDALDatasetH ds, int *xsize, int *ysize) {
@@ -418,217 +339,169 @@ OGRLayerH* godalVectorLayers(GDALDatasetH ds) {
 	return ret;
 }
 
-char* godalSetDatasetNoDataValue(GDALDatasetH ds, double nd) {
-	//First set nodata on all bands without checking for errors
-	char *error=nullptr;
+void godalSetDatasetNoDataValue(cctx *ctx, GDALDatasetH ds, double nd) {
+	godalWrap(ctx);
 	int count = GDALGetRasterCount(ds);
 	if(count==0) {
-		return strdup("cannot set nodata on dataset with no bands");
+		CPLError(CE_Failure, CPLE_AppDefined, "cannot set nodata value on dataset with no raster bands");
+		godalUnwrap();
+		return;
 	}
-	godalWrap(&error,nullptr);
+	CPLErr ret = CE_None;
 	for(int i=1; i<=count;i++) {
-		GDALSetRasterNoDataValue(GDALGetRasterBand(ds,i),nd);
-	}
-	godalUnwrap(nullptr);
-	free(error);
-
-	//second pass where we actually check for errors
-	error=nullptr;
-	godalWrap(&error,nullptr);
-	CPLErr ret=CPLErr(0);
-	for(int i=1; i<=count;i++) {
-		CPLErr rr = GDALSetRasterNoDataValue(GDALGetRasterBand(ds,i),nd);
-		if (ret == 0) {
-			ret =rr;
+		CPLErr br = GDALSetRasterNoDataValue(GDALGetRasterBand(ds,i),nd);
+		if(br!=0 && ret==0) {
+			ret = br;
 		}
 	}
-	godalUnwrap(nullptr);
-	if(error!=nullptr) {
-		return error;
+	if ( ret != 0 ) {
+		forceCPLError(ctx,ret);
 	}
-	if(ret!=0) {
-		return cplErrToString(ret);
-	}
-	return nullptr;
+	godalUnwrap();
 }
-char* godalSetRasterNoDataValue(GDALRasterBandH bnd, double nd) {
-	char *error=nullptr;
-	godalWrap(&error,nullptr);
+
+void godalSetRasterNoDataValue(cctx *ctx, GDALRasterBandH bnd, double nd) {
+	godalWrap(ctx);
 	CPLErr ret = GDALSetRasterNoDataValue(bnd,nd);
-	godalUnwrap(nullptr);
-	if(error!=nullptr) {
-		return error;
+	if(ret!=0){
+		forceCPLError(ctx,ret);
 	}
-	if(ret!=0) {
-		return cplErrToString(ret);
-	}
-	return nullptr;
+	godalUnwrap();
 }
 
-char* godalDeleteRasterNoDataValue(GDALRasterBandH bnd) {
-	char *error=nullptr;
-	godalWrap(&error,nullptr);
+void godalDeleteRasterNoDataValue(cctx *ctx, GDALRasterBandH bnd) {
+	godalWrap(ctx);
 	CPLErr ret = GDALDeleteRasterNoDataValue(bnd);
-	godalUnwrap(nullptr);
-	if(error!=nullptr) {
-		return error;
+	if(ret!=0){
+		forceCPLError(ctx,ret);
 	}
-	if(ret!=0) {
-		return cplErrToString(ret);
-	}
-	return nullptr;
+	godalUnwrap();
 }
 
-GDALRasterBandH godalCreateMaskBand(GDALRasterBandH bnd, int flags, char **error, char **config) {
-	godalWrap(error,config);
+GDALRasterBandH godalCreateMaskBand(cctx *ctx, GDALRasterBandH bnd, int flags) {
+	godalWrap(ctx);
 	CPLErr ret = GDALCreateMaskBand(bnd, flags);
-	godalUnwrap(config);
-	if(*error!=nullptr) {
-		return nullptr;
-	}
 	if(ret!=0) {
-		*error = cplErrToString(ret);
+		forceCPLError(ctx,ret);
+		godalUnwrap();
 		return nullptr;
 	}
 	GDALRasterBandH mbnd = GDALGetMaskBand(bnd);
 	if( mbnd == nullptr ) {
-		*error = strdup("unknown error");
+		forceError(ctx);
 	}
+	godalUnwrap();
 	return mbnd;
 }
-GDALRasterBandH godalCreateDatasetMaskBand(GDALDatasetH ds, int flags, char **error, char **config) {
+GDALRasterBandH godalCreateDatasetMaskBand(cctx *ctx, GDALDatasetH ds, int flags) {
+	godalWrap(ctx);
 	if (GDALGetRasterCount(ds) == 0) {
-		*error = strdup("cannot create mask band on dataset with no bands");
+		CPLError(CE_Failure, CPLE_AppDefined, "cannot create mask band on dataset with no bands");
+		godalUnwrap();
 		return nullptr;
 	}
-	godalWrap(error,config);
 	CPLErr ret = GDALCreateDatasetMaskBand(ds, flags);
-	godalUnwrap(config);
-	if(*error!=nullptr) {
-		return nullptr;
-	}
 	if(ret!=0) {
-		*error = cplErrToString(ret);
+		forceCPLError(ctx, ret);
+		godalUnwrap();
 		return nullptr;
 	}
 	GDALRasterBandH mbnd = GDALGetMaskBand(GDALGetRasterBand(ds,1));
 	if( mbnd == nullptr ) {
-		*error = strdup("unknown error");
+		forceError(ctx);
 	}
+	godalUnwrap();
 	return mbnd;
 }
 
-GDALDatasetH godalTranslate(char *dstName, GDALDatasetH ds, char **switches, char **error, char **config) {
-	godalWrap(error,config);
+GDALDatasetH godalTranslate(cctx *ctx, char *dstName, GDALDatasetH ds, char **switches) {
+	godalWrap(ctx);
 	GDALTranslateOptions *translateopts = GDALTranslateOptionsNew(switches,nullptr);
-	if(*error!=nullptr) {
-		godalUnwrap(config);
+	if(failed(ctx)) {
 		GDALTranslateOptionsFree(translateopts);
+		godalUnwrap();
 		return nullptr;
 	}
 	int usageErr=0;
 	GDALDatasetH ret = GDALTranslate(dstName, ds, translateopts, &usageErr);
 	GDALTranslateOptionsFree(translateopts);
-	godalUnwrap(config);
-	if(*error!=nullptr) {
-		return nullptr;
-	}
 	if(ret==nullptr || usageErr!=0) {
-		*error=strdup("translate: unknown error");
+		forceError(ctx);
 	}
+	godalUnwrap();
 	return ret;
 }
 
-GDALDatasetH godalDatasetWarp(char *dstName, int nSrcCount, GDALDatasetH *srcDS, char **switches, char **error, char **config) {
-	godalWrap(error,config);
+GDALDatasetH godalDatasetWarp(cctx *ctx, char *dstName, int nSrcCount, GDALDatasetH *srcDS, char **switches) {
+	godalWrap(ctx);
 	GDALWarpAppOptions *warpopts = GDALWarpAppOptionsNew(switches,nullptr);
-	if(*error!=nullptr) {
-		godalUnwrap(config);
+	if(failed(ctx)) {
 		GDALWarpAppOptionsFree(warpopts);
+		godalUnwrap();
 		return nullptr;
 	}
 	int usageErr=0;
 	GDALDatasetH ret = GDALWarp(dstName, nullptr, nSrcCount, srcDS, warpopts, &usageErr);
 	GDALWarpAppOptionsFree(warpopts);
-	godalUnwrap(config);
-	if(*error!=nullptr) {
-		return nullptr;
-	}
 	if(ret==nullptr || usageErr!=0) {
-		*error=strdup("warp: unknown error");
+		forceError(ctx);
 	}
+	godalUnwrap();
 	return ret;
 }
 
-char *godalDatasetWarpInto(GDALDatasetH dstDs,  int nSrcCount, GDALDatasetH *srcDS, char **switches, char **config) {
-	char *error = nullptr;
-	godalWrap(&error, nullptr);
+void godalDatasetWarpInto(cctx *ctx, GDALDatasetH dstDs,  int nSrcCount, GDALDatasetH *srcDS, char **switches) {
+	godalWrap(ctx);
 	GDALWarpAppOptions *warpopts = GDALWarpAppOptionsNew(switches,nullptr);
-	if(error!=nullptr) {
-		godalUnwrap(config);
+	if(failed(ctx)) {
 		GDALWarpAppOptionsFree(warpopts);
-		return error;
+		godalUnwrap();
+		return;
 	}
 	int usageErr=0;
 	GDALDatasetH ret = GDALWarp(nullptr, dstDs, nSrcCount, srcDS, warpopts, &usageErr);
 	GDALWarpAppOptionsFree(warpopts);
-	godalUnwrap(config);
-	if(error!=nullptr) {
-		return error;
-	}
 	if(ret==nullptr || usageErr!=0) {
-		error=strdup("warp: unknown error");
+		forceError(ctx);
 	}
-	return nullptr;
+	godalUnwrap();
 }
 
-GDALDatasetH godalDatasetVectorTranslate(char *dstName, GDALDatasetH ds, char **switches, char **error, char **config) {
-	godalWrap(error,config);
+GDALDatasetH godalDatasetVectorTranslate(cctx *ctx, char *dstName, GDALDatasetH ds, char **switches) {
+	godalWrap(ctx);
 	GDALVectorTranslateOptions *opts = GDALVectorTranslateOptionsNew(switches,nullptr);
-	if(*error!=nullptr) {
-		godalUnwrap(config);
+	if(failed(ctx)) {
 		GDALVectorTranslateOptionsFree(opts);
+		godalUnwrap();
 		return nullptr;
 	}
 	int usageErr=0;
 	GDALDatasetH ret = GDALVectorTranslate(dstName, nullptr, 1, &ds, opts, &usageErr);
 	GDALVectorTranslateOptionsFree(opts);
-	godalUnwrap(config);
-	if(*error!=nullptr) {
-		return nullptr;
-	}
 	if(ret==nullptr || usageErr!=0) {
-		*error=strdup("ogr2ogr: unknown error");
+		forceError(ctx);
 	}
+	godalUnwrap();
 	return ret;
 }
 
-char *godalClearOverviews(GDALDatasetH ds) {
-	char *error = nullptr;
-	godalWrap(&error, nullptr);
+void godalClearOverviews(cctx *ctx, GDALDatasetH ds) {
+	godalWrap(ctx);
 	CPLErr ret = GDALBuildOverviews(ds,"NEAREST",0,nullptr,0,nullptr,nullptr,nullptr);
-	godalUnwrap(nullptr);
-	if (error != nullptr) {
-		return error;
+	if(ret!=0){
+		forceCPLError(ctx,ret);
 	}
-	if (ret != 0) {
-		return cplErrToString(ret);
-	}
-	return nullptr;
+	godalUnwrap();
 }
-char *godalBuildOverviews(GDALDatasetH ds, const char *resampling, int nLevels, int *levels,
-						  int nBands, int *bands, char **config) {
-	char *error = nullptr;
-	godalWrap(&error, config);
+
+void godalBuildOverviews(cctx *ctx, GDALDatasetH ds, const char *resampling, int nLevels, int *levels,
+						  int nBands, int *bands) {
+	godalWrap(ctx);
 	CPLErr ret = GDALBuildOverviews(ds,resampling,nLevels,levels,nBands,bands,nullptr,nullptr);
-	godalUnwrap(config);
-	if (error != nullptr) {
-		return error;
+	if(ret!=0){
+		forceCPLError(ctx,ret);
 	}
-	if (ret != 0) {
-		return cplErrToString(ret);
-	}
-	return nullptr;
+	godalUnwrap();
 }
 
 void godalDatasetStructure(GDALDatasetH ds, int *sx, int *sy, int *bsx, int *bsy, int *bandCount, int *dtype) {
@@ -652,10 +525,9 @@ void godalBandStructure(GDALRasterBandH bnd, int *sx, int *sy, int *bsx, int *bs
 	GDALGetBlockSize(bnd, bsx, bsy);
 }
 
-char *godalBandRasterIO(GDALRasterBandH bnd, GDALRWFlag rw, int nDSXOff, int nDSYOff, int nDSXSize, int nDSYSize, void *pBuffer,
-		int nBXSize, int nBYSize, GDALDataType eBDataType, int nPixelSpace, int nLineSpace, GDALRIOResampleAlg alg, char **config) {
-	char *error = nullptr;
-	godalWrap(&error, config);
+void godalBandRasterIO(cctx *ctx, GDALRasterBandH bnd, GDALRWFlag rw, int nDSXOff, int nDSYOff, int nDSXSize, int nDSYSize, void *pBuffer,
+		int nBXSize, int nBYSize, GDALDataType eBDataType, int nPixelSpace, int nLineSpace, GDALRIOResampleAlg alg) {
+	godalWrap(ctx);
 	GDALRasterIOExtraArg exargs;
 	INIT_RASTERIO_EXTRA_ARG(exargs);
 	if (alg != GRIORA_NearestNeighbour) {
@@ -663,22 +535,16 @@ char *godalBandRasterIO(GDALRasterBandH bnd, GDALRWFlag rw, int nDSXOff, int nDS
 	}
 	CPLErr ret = GDALRasterIOEx(bnd, rw, nDSXOff, nDSYOff, nDSXSize, nDSYSize, pBuffer, nBXSize, nBYSize,
 									 eBDataType, nPixelSpace, nLineSpace, &exargs);
-	godalUnwrap(config);
-	if (error != nullptr)
-	{
-		return error;
+	if(ret!=0){
+		forceCPLError(ctx,ret);
 	}
-	if (ret != 0)
-	{
-		return cplErrToString(ret);
-	}
-	return nullptr;
+	godalUnwrap();
 }
-char *godalDatasetRasterIO(GDALDatasetH ds, GDALRWFlag rw, int nDSXOff, int nDSYOff, int nDSXSize, int nDSYSize, void *pBuffer,
+
+void godalDatasetRasterIO(cctx *ctx, GDALDatasetH ds, GDALRWFlag rw, int nDSXOff, int nDSYOff, int nDSXSize, int nDSYSize, void *pBuffer,
 		int nBXSize, int nBYSize, GDALDataType eBDataType, int nBandCount, int *panBandCount,
-		int nPixelSpace, int nLineSpace, int nBandSpace, GDALRIOResampleAlg alg, char **config) {
-	char *error = nullptr;
-	godalWrap(&error, config);
+		int nPixelSpace, int nLineSpace, int nBandSpace, GDALRIOResampleAlg alg) {
+	godalWrap(ctx);
 	GDALRasterIOExtraArg exargs;
 	INIT_RASTERIO_EXTRA_ARG(exargs);
 	if (alg != GRIORA_NearestNeighbour) {
@@ -686,183 +552,137 @@ char *godalDatasetRasterIO(GDALDatasetH ds, GDALRWFlag rw, int nDSXOff, int nDSY
 	}
 	CPLErr ret = GDALDatasetRasterIOEx(ds, rw, nDSXOff, nDSYOff, nDSXSize, nDSYSize, pBuffer, nBXSize, nBYSize,
 									 eBDataType, nBandCount, panBandCount, nPixelSpace, nLineSpace, nBandSpace, &exargs);
-	godalUnwrap(config);
-	if (error != nullptr) {
-		return error;
+	if(ret!=0){
+		forceCPLError(ctx,ret);
 	}
-	if (ret != 0) {
-		return cplErrToString(ret);
-	}
-	return nullptr;
+	godalUnwrap();
 }
 
-char *godalFillRaster(GDALRasterBandH bnd, double real, double imag) {
-	char *error = nullptr;
-	godalWrap(&error, nullptr);
+void godalFillRaster(cctx *ctx, GDALRasterBandH bnd, double real, double imag) {
+	godalWrap(ctx);
 	CPLErr ret = GDALFillRaster(bnd,real,imag);
-	godalUnwrap(nullptr);
-	if (error != nullptr) {
-		return error;
+	if(ret!=0){
+		forceCPLError(ctx,ret);
 	}
-	if (ret != 0) {
-		return cplErrToString(ret);
-	}
-	return nullptr;
+	godalUnwrap();
 
 }
 
-char *godalPolygonize(GDALRasterBandH in, GDALRasterBandH mask, OGRLayerH layer,int fieldIndex, char **opts) {
+void godalPolygonize(cctx *ctx, GDALRasterBandH in, GDALRasterBandH mask, OGRLayerH layer,int fieldIndex, char **opts) {
+	godalWrap(ctx);
 	if (fieldIndex >= OGR_FD_GetFieldCount(OGR_L_GetLayerDefn(layer))) {
-		return strdup("invalid fieldIndex");
+		CPLError(CE_Failure, CPLE_AppDefined, "invalid fieldIndex");
+		godalUnwrap();
+		return;
 	}
-	char *error = nullptr;
-	godalWrap(&error, nullptr);
 	CPLErr ret = GDALPolygonize(in,mask,layer,fieldIndex,opts,nullptr,nullptr);
-	godalUnwrap(nullptr);
-	if (error != nullptr) {
-		return error;
+	if(ret!=0){
+		forceCPLError(ctx,ret);
 	}
-	if (ret != 0) {
-		return cplErrToString(ret);
-	}
-	return nullptr;
+	godalUnwrap();
 }
 
-GDALDatasetH godalRasterize(char *dstName, GDALDatasetH ds, char **switches, char **error, char **config) {
-	godalWrap(error,config);
+GDALDatasetH godalRasterize(cctx *ctx, char *dstName, GDALDatasetH ds, char **switches) {
+	godalWrap(ctx);
 	GDALRasterizeOptions *ropts = GDALRasterizeOptionsNew(switches,nullptr);
-	if(*error!=nullptr) {
-		godalUnwrap(config);
+	if(failed(ctx)) {
 		GDALRasterizeOptionsFree(ropts);
+		godalUnwrap();
 		return nullptr;
 	}
 	int usageErr=0;
 	GDALDatasetH ret = GDALRasterize(dstName, nullptr, ds, ropts, &usageErr);
 	GDALRasterizeOptionsFree(ropts);
-	godalUnwrap(config);
-	if(*error!=nullptr) {
-		return nullptr;
-	}
 	if(ret==nullptr || usageErr!=0) {
-		*error=strdup("translate: unknown error");
+		forceError(ctx);
 	}
+	godalUnwrap();
 	return ret;
 }
 
-char *godalRasterizeGeometry(GDALDatasetH ds, OGRGeometryH geom, int *bands, int nBands, double *vals, int allTouched) {
-	char *error=nullptr;
+void godalRasterizeGeometry(cctx *ctx, GDALDatasetH ds, OGRGeometryH geom, int *bands, int nBands, double *vals, int allTouched) {
 	const char *opts[2] = { "ALL_TOUCHED=TRUE",nullptr };
 	char **copts=(char**)opts;
 	if (!allTouched) {
 		copts=nullptr;
 	}
-	godalWrap(&error,nullptr);
-	CPLErr gret = GDALRasterizeGeometries(ds,nBands,bands,1,&geom,nullptr,nullptr,vals,copts,nullptr,nullptr);
-	godalUnwrap(nullptr);
-	if(error!=nullptr) {
-		return error;
+	godalWrap(ctx);
+	CPLErr ret = GDALRasterizeGeometries(ds,nBands,bands,1,&geom,nullptr,nullptr,vals,copts,nullptr,nullptr);
+	if(ret!=0){
+		forceCPLError(ctx,ret);
 	}
-	if (gret != 0) {
-		return cplErrToString(gret);
-	}
-	return nullptr;
+	godalUnwrap();
 }
 
-char *godalLayerDeleteFeature(OGRLayerH layer, OGRFeatureH feat) {
+void godalLayerDeleteFeature(cctx *ctx, OGRLayerH layer, OGRFeatureH feat) {
+	godalWrap(ctx);
 	GIntBig fid = OGR_F_GetFID(feat);
 	if (fid == OGRNullFID) {
-		return strdup("cannot delete feature with no FID");
+		CPLError(CE_Failure, CPLE_AppDefined, "cannot delete feature with no FID");
+		godalUnwrap();
+		return;
 	}
-	char *error=nullptr;
-	godalWrap(&error,nullptr);
 	OGRErr gret = OGR_L_DeleteFeature(layer,fid);
-	godalUnwrap(nullptr);
-	if(error!=nullptr) {
-		return error;
+	if(gret!=0){
+		forceOGRError(ctx,gret);
 	}
-	if (gret != 0) {
-		return ogrErrToString(gret);
-	}
-	return nullptr;
+	godalUnwrap();
 }
 
-char *godalLayerSetFeature(OGRLayerH layer, OGRFeatureH feat) {
-	char *error=nullptr;
-	godalWrap(&error,nullptr);
+void godalLayerSetFeature(cctx *ctx, OGRLayerH layer, OGRFeatureH feat) {
+	godalWrap(ctx);
 	OGRErr gret = OGR_L_SetFeature(layer,feat);
-	godalUnwrap(nullptr);
-	if(error!=nullptr) {
-		return error;
+	if(gret!=0){
+		forceOGRError(ctx,gret);
 	}
-	if (gret != 0) {
-		return ogrErrToString(gret);
-	}
-	return nullptr;
+	godalUnwrap();
 }
-char *godalFeatureSetGeometry(OGRFeatureH feat, OGRGeometryH geom) {
-	char *error=nullptr;
-	godalWrap(&error,nullptr);
+
+void godalFeatureSetGeometry(cctx *ctx, OGRFeatureH feat, OGRGeometryH geom) {
+	godalWrap(ctx);
 	OGRErr gret = OGR_F_SetGeometry(feat,geom);
-	godalUnwrap(nullptr);
-	if(error!=nullptr) {
-		return error;
+	if(gret!=0){
+		forceOGRError(ctx,gret);
 	}
-	if (gret != 0) {
-		return ogrErrToString(gret);
-	}
-	return nullptr;
+	godalUnwrap();
 }
 
-OGRGeometryH godal_OGR_G_Simplify(OGRGeometryH in, double tolerance, char **error) {
-	godalWrap(error,nullptr);
+OGRGeometryH godal_OGR_G_Simplify(cctx *ctx, OGRGeometryH in, double tolerance) {
+	godalWrap(ctx);
 	OGRGeometryH ret = OGR_G_Simplify(in,tolerance);
-	godalUnwrap(nullptr);
-	if(*error!=nullptr) {
-		return nullptr;
-	}
 	if(ret==nullptr) {
-		*error=strdup("unknown error");
+		forceError(ctx);
 	}
+	godalUnwrap();
 	return ret;
 }
 
-OGRGeometryH godal_OGR_G_Buffer(OGRGeometryH in, double tolerance, int segments, char **error) {
-	godalWrap(error,nullptr);
+OGRGeometryH godal_OGR_G_Buffer(cctx *ctx, OGRGeometryH in, double tolerance, int segments) {
+	godalWrap(ctx);
 	OGRGeometryH ret = OGR_G_Buffer(in,tolerance,segments);
-	godalUnwrap(nullptr);
-	if(*error!=nullptr) {
-		return nullptr;
-	}
 	if(ret==nullptr) {
-		*error=strdup("unknown error");
+		forceError(ctx);
 	}
+	godalUnwrap();
 	return ret;
 }
 
-OGRLayerH godalCreateLayer(GDALDatasetH ds, char *name, OGRSpatialReferenceH sr, OGRwkbGeometryType gtype, char **error) {
-	godalWrap(error,nullptr);
+OGRLayerH godalCreateLayer(cctx *ctx, GDALDatasetH ds, char *name, OGRSpatialReferenceH sr, OGRwkbGeometryType gtype) {
+	godalWrap(ctx);
 	OGRLayerH ret = OGR_DS_CreateLayer(ds,name,sr,gtype,nullptr);
-	godalUnwrap(nullptr);
-	if(*error!=nullptr) {
-		return nullptr;
-	}
 	if(ret==nullptr) {
-		*error=strdup("OGR_DS_CreateLayer: unknown error");
+		forceError(ctx);
 	}
+	godalUnwrap();
 	return ret;
 }
 
 
-char *godalLayerFeatureCount(OGRLayerH layer, int *count) {
-	char *error=nullptr;
-	godalWrap(&error,nullptr);
+void godalLayerFeatureCount(cctx *ctx, OGRLayerH layer, int *count) {
+	godalWrap(ctx);
 	GIntBig gcount = OGR_L_GetFeatureCount(layer, 1);
-	godalUnwrap(nullptr);
-	if(error!=nullptr) {
-		return error;
-	}
 	*count=(int)gcount;
-	return nullptr;
+	godalUnwrap();
 }
 
 void godalGetColorTable(GDALRasterBandH bnd, GDALPaletteInterp *interp, int *nEntries, short **entries) {
@@ -885,9 +705,8 @@ void godalGetColorTable(GDALRasterBandH bnd, GDALPaletteInterp *interp, int *nEn
 	}
 }
 
-char* godalSetColorTable(GDALRasterBandH bnd, GDALPaletteInterp interp, int nEntries, short *entries) {
-	char *error=nullptr;
-	godalWrap(&error,nullptr);
+void godalSetColorTable(cctx *ctx, GDALRasterBandH bnd, GDALPaletteInterp interp, int nEntries, short *entries) {
+	godalWrap(ctx);
 	CPLErr gret;
 	if (nEntries == 0)
 	{
@@ -904,212 +723,187 @@ char* godalSetColorTable(GDALRasterBandH bnd, GDALPaletteInterp interp, int nEnt
 		gret = GDALSetRasterColorTable(bnd, ct);
 		GDALDestroyColorTable(ct);
 	}
-	godalUnwrap(nullptr);
-	if(error!=nullptr) {
-		return error;
-	}
 	if (gret != 0) {
-		return cplErrToString(gret);
+		forceOGRError(ctx,gret);
 	}
-	return nullptr;
+	godalUnwrap();
 }
 
-VSILFILE *godalVSIOpen(const char *name, char **error) {
-	godalWrap(error,nullptr);
+VSILFILE *godalVSIOpen(cctx *ctx, const char *name) {
+	godalWrap(ctx);
 	VSILFILE *fp = VSIFOpenExL(name,"r",1);
-	godalUnwrap(nullptr);
-	if (*error!=nullptr) {
-		if(fp!=nullptr) {
-			VSIFCloseL(fp);
-		}
-		return nullptr;
+	if(fp==nullptr) {
+		forceError(ctx);
 	}
-	if ( fp == nullptr ) {
-		*error=strdup("unknown error");
+	if(failed(ctx)&&fp!=nullptr) {
+		VSIFCloseL(fp);
+		fp=nullptr;
 	}
+	godalUnwrap();
 	return fp;
 }
 
-char* godalVSIUnlink(const char *fname) {
-	char *error=nullptr;
-	godalWrap(&error,nullptr);
+void godalVSIUnlink(cctx *ctx, const char *fname) {
+	godalWrap(ctx);
 	int ret = VSIUnlink(fname);
-	godalUnwrap(nullptr);
-	if(error==nullptr && ret!=0) {
-		error = strdup("unkown error");
+	if(ret!=0) {
+		forceError(ctx);
 	}
-	return error;
+	godalUnwrap();
 }
 
 char* godalVSIClose(VSILFILE *f) {
-	char *error=nullptr;
-	godalWrap(&error,nullptr);
+	cctx ctx{nullptr,0,0,nullptr};
+	godalWrap(&ctx);
 	int ret = VSIFCloseL(f);
-	godalUnwrap(nullptr);
-	if(error==nullptr && ret!=0) {
-		error = strdup("unkown error");
+	if(ret!=0) {
+		forceError(&ctx);
 	}
-	return error;
+	godalUnwrap();
+	return ctx.errMessage;
 }
 
-size_t godalVSIRead(VSILFILE *f, void *buf, int len, char **error) {
-	godalWrap(error,nullptr);
+size_t godalVSIRead(VSILFILE *f, void *buf, int len, char **errmsg) {
+	cctx ctx{nullptr,0,0,nullptr};
+	godalWrap(&ctx);
 	size_t read = VSIFReadL(buf,1,len,f);
-	godalUnwrap(nullptr);
+	godalUnwrap();
+	*errmsg=ctx.errMessage;
 	return read;
 }
 
-char *godalRasterHistogram(GDALRasterBandH bnd, double *min, double *max, int *buckets,
+void godalRasterHistogram(cctx *ctx, GDALRasterBandH bnd, double *min, double *max, int *buckets,
 						   unsigned long long **values, int bIncludeOutOfRange, int bApproxOK) {
-	char *error = nullptr;
-	godalWrap(&error,nullptr);
-	CPLErr ret;
+	godalWrap(ctx);
+	CPLErr ret = CE_None;
 	if (*buckets == 0) {
 		ret=GDALGetDefaultHistogramEx(bnd,min,max,buckets,values,1,nullptr,nullptr);
 	} else {
 		*values = (unsigned long long*) VSIMalloc(*buckets*sizeof(GUIntBig));
 		ret=GDALGetRasterHistogramEx(bnd,*min,*max,*buckets,*values,bIncludeOutOfRange,bApproxOK,nullptr,nullptr);
 	}
-	godalUnwrap(nullptr);
-	if(error!=nullptr) {
-		return error;
-	}
 	if (ret != 0) {
-		return cplErrToString(ret);
+		forceCPLError(ctx,ret);
 	}
-	return nullptr;
+	godalUnwrap();
 }
-OGRGeometryH godalNewGeometryFromWKT(char *wkt, OGRSpatialReferenceH sr, char **error) {
-	godalWrap(error,nullptr);
-	OGRGeometryH gptr;
+
+OGRGeometryH godalNewGeometryFromWKT(cctx *ctx, char *wkt, OGRSpatialReferenceH sr) {
+	godalWrap(ctx);
+	OGRGeometryH gptr = nullptr;
 	char **wktPtr = &wkt;
 	OGRErr gret = OGR_G_CreateFromWkt(wktPtr,sr,&gptr);
-	godalUnwrap(nullptr);
-	if (gret != OGRERR_NONE && *error==nullptr) {
-		*error = ogrErrToString(gret);
+	if (gret != OGRERR_NONE) {
+		forceOGRError(ctx,gret);
+	} else if(gptr==nullptr) {
+		forceError(ctx);
 	}
-	if (*error!=nullptr) {
-		if(gptr!=nullptr) {
-			OGR_G_DestroyGeometry(gptr);
-		}
-		return nullptr;
+	if(failed(ctx) && gptr!=nullptr) {
+		OGR_G_DestroyGeometry(gptr);
+		gptr=nullptr;
 	}
-	if ( gptr == nullptr ) {
-		*error=strdup("unknown error");
-	}
+	godalUnwrap();
 	return gptr;
 }
-OGRGeometryH godalNewGeometryFromWKB(void *wkb, int wkbLen, OGRSpatialReferenceH sr, char **error) {
-	godalWrap(error,nullptr);
-	OGRGeometryH gptr;
+
+OGRGeometryH godalNewGeometryFromWKB(cctx *ctx, void *wkb, int wkbLen, OGRSpatialReferenceH sr) {
+	godalWrap(ctx);
+	OGRGeometryH gptr=nullptr;
 	OGRErr gret = OGR_G_CreateFromWkb(wkb,sr,&gptr, wkbLen);
-	godalUnwrap(nullptr);
-	if (gret != OGRERR_NONE && *error==nullptr) {
-		*error = ogrErrToString(gret);
+	if (gret != OGRERR_NONE) {
+		forceOGRError(ctx,gret);
+	} else if(gptr==nullptr) {
+		forceError(ctx);
 	}
-	if (*error!=nullptr) {
-		if(gptr!=nullptr) {
-			OGR_G_DestroyGeometry(gptr);
-		}
-		return nullptr;
+	if(failed(ctx) && gptr!=nullptr) {
+		OGR_G_DestroyGeometry(gptr);
+		gptr=nullptr;
 	}
-	if ( gptr == nullptr ) {
-		*error=strdup("unknown error");
-	}
+	godalUnwrap();
 	return gptr;
 }
-char* godalExportGeometryWKT(OGRGeometryH in, char **error) {
-	godalWrap(error,nullptr);
+
+char* godalExportGeometryWKT(cctx *ctx, OGRGeometryH in) {
+	godalWrap(ctx);
 	char *wkt=nullptr;
 	OGRErr gret = OGR_G_ExportToWkt(in,&wkt);
-	godalUnwrap(nullptr);
-	if (gret != OGRERR_NONE && *error==nullptr) {
-		*error = ogrErrToString(gret);
+	if (gret != OGRERR_NONE) {
+		forceOGRError(ctx,gret);
+	} else if(wkt==nullptr) {
+		forceError(ctx);
 	}
-	if (*error!=nullptr) {
-		if(wkt!=nullptr) {
-			CPLFree(wkt);
-		}
-		return nullptr;
+	if(failed(ctx) && wkt!=nullptr) {
+		CPLFree(wkt);
+		wkt=nullptr;
 	}
-	if ( wkt == nullptr ) {
-		*error=strdup("unknown error");
-	}
+	godalUnwrap();
 	return wkt;
 }
 
-char* godalExportGeometryWKB(void **wkb, int *wkbLen, OGRGeometryH in) {
+void godalExportGeometryWKB(cctx *ctx, void **wkb, int *wkbLen, OGRGeometryH in) {
 	*wkbLen=OGR_G_WkbSize(in);
 	if (*wkbLen == 0) {
 		*wkb=nullptr;
-		return nullptr;
+		return;
 	}
+	godalWrap(ctx);
 	*wkb = malloc(*wkbLen);
-	char *error = nullptr;
-	godalWrap(&error,nullptr);
 	OGRErr gret = OGR_G_ExportToIsoWkb(in,wkbNDR,(unsigned char*)*wkb);
-	godalUnwrap(nullptr);
-	if(error!=nullptr) {
-		return error;
-	}
 	if (gret != 0) {
-		return ogrErrToString(gret);
+		forceOGRError(ctx,gret);
+		free(*wkb);
+		*wkb=nullptr;
 	}
-	return nullptr;
+	godalUnwrap();
 }
 
-char* godalExportGeometryGeoJSON(OGRGeometryH in, int precision, char **error) {
-	godalWrap(error,nullptr);
+char* godalExportGeometryGeoJSON(cctx *ctx, OGRGeometryH in, int precision) {
+	godalWrap(ctx);
 	char* opts[2];
 	char precOpt[64];
 	snprintf(precOpt,64,"COORDINATE_PRECISION=%d",precision);
 	opts[0]=precOpt;
 	opts[1]=nullptr;
 	char *gj = OGR_G_ExportToJsonEx(in,opts);
-	godalUnwrap(nullptr);
-	if (gj==nullptr && *error==nullptr) {
-		*error=strdup("unknown error");
+	if (gj==nullptr) {
+		forceError(ctx);
 	}
-	if (*error) {
+	if (failed(ctx) && gj!=nullptr) {
 		CPLFree(gj);
 		gj=nullptr;
 	}
+	godalUnwrap();
 	return gj;
 }
 
-char *godalGeometryTransformTo(OGRGeometryH geom, OGRSpatialReferenceH sr) {
-	char *error = nullptr;
-	godalWrap(&error,nullptr);
+void godalGeometryTransformTo(cctx *ctx, OGRGeometryH geom, OGRSpatialReferenceH sr) {
+	godalWrap(ctx);
 	OGRErr gret = OGR_G_TransformTo(geom,sr);
-	godalUnwrap(nullptr);
-	if(error!=nullptr) {
-		return error;
-	}
 	if (gret != 0) {
-		return ogrErrToString(gret);
+		forceOGRError(ctx,gret);
 	}
 	OGR_G_AssignSpatialReference(geom, sr);
-	return nullptr;
+	godalUnwrap();
 }
 
-char *godalGeometryTransform(OGRGeometryH geom, OGRCoordinateTransformationH trn, OGRSpatialReferenceH dst) {
-	char *error = nullptr;
-	godalWrap(&error,nullptr);
+void godalGeometryTransform(cctx *ctx, OGRGeometryH geom, OGRCoordinateTransformationH trn, OGRSpatialReferenceH dst) {
+	godalWrap(ctx);
 	OGRErr gret = OGR_G_Transform(geom,trn);
-	godalUnwrap(nullptr);
-	if(error!=nullptr) {
-		return error;
-	}
 	if (gret != 0) {
-		return ogrErrToString(gret);
+		forceOGRError(ctx,gret);
 	}
 	OGR_G_AssignSpatialReference(geom, dst);
-	return nullptr;
+	godalUnwrap();
 }
 
-OGRFeatureH godalLayerNewFeature(OGRLayerH layer, OGRGeometryH geom, char **error) {
-	godalWrap(error,nullptr);
+OGRFeatureH godalLayerNewFeature(cctx *ctx, OGRLayerH layer, OGRGeometryH geom) {
+	godalWrap(ctx);
 	OGRFeatureH hFeature = OGR_F_Create( OGR_L_GetLayerDefn( layer ) );
+	if(hFeature==nullptr) {
+		forceError(ctx);
+		godalUnwrap();
+		return nullptr;
+	}
 	OGRErr oe=OGRERR_NONE;
 	if (hFeature!=nullptr && geom!=nullptr) {
 		oe = OGR_F_SetGeometry(hFeature,geom);
@@ -1117,26 +911,23 @@ OGRFeatureH godalLayerNewFeature(OGRLayerH layer, OGRGeometryH geom, char **erro
 			oe = OGR_L_SetFeature(layer,hFeature);
 		}
 	}
-	godalUnwrap(nullptr);
-	if(*error == nullptr && oe!=OGRERR_NONE) {
-		*error=ogrErrToString(oe);
+	if(oe != OGRERR_NONE) {
+		forceOGRError(ctx,oe);
 	}
-	if (hFeature==nullptr && *error==nullptr) {
-		*error=strdup("unknown error");
-	}
-	if (*error!=nullptr && hFeature!=nullptr) {
+	if(failed(ctx) && hFeature!=nullptr) {
 		OGR_F_Destroy(hFeature);
 		hFeature=nullptr;
 	}
+	godalUnwrap();
 	return hFeature;
 }
 
-GDALDatasetH godalBuildVRT(char *dstName, char **sources, char **switches, char **error, char **config) {
-	godalWrap(error,config);
+GDALDatasetH godalBuildVRT(cctx *ctx, char *dstName, char **sources, char **switches) {
+	godalWrap(ctx);
 	GDALBuildVRTOptions *ropts = GDALBuildVRTOptionsNew(switches,nullptr);
-	if(*error!=nullptr) {
-		godalUnwrap(config);
+	if(failed(ctx)) {
 		GDALBuildVRTOptionsFree(ropts);
+		godalUnwrap();
 		return nullptr;
 	}
 	int usageErr=0;
@@ -1148,13 +939,10 @@ GDALDatasetH godalBuildVRT(char *dstName, char **sources, char **switches, char 
 
 	GDALDatasetH ret = GDALBuildVRT(dstName, nSources, nullptr, sources, ropts, &usageErr);
 	GDALBuildVRTOptionsFree(ropts);
-	godalUnwrap(config);
-	if(*error!=nullptr) {
-		return nullptr;
-	}
 	if(ret==nullptr || usageErr!=0) {
-		*error=strdup("buildvrt: unknown error");
+		forceError(ctx);
 	}
+	godalUnwrap();
 	return ret;
 }
 
@@ -1480,26 +1268,29 @@ namespace cpl
 
 } // namespace cpl
 
-char* VSIInstallGoHandler(const char *pszPrefix, size_t bufferSize, size_t cacheSize)
+void VSIInstallGoHandler(cctx *ctx, const char *pszPrefix, size_t bufferSize, size_t cacheSize)
 {
+	godalWrap(ctx);
     CSLConstList papszPrefix = VSIFileManager::GetPrefixes();
     for( size_t i = 0; papszPrefix && papszPrefix[i]; ++i ) {
         if(strcmp(papszPrefix[i],pszPrefix)==0) {
-            return strdup("handler already registered on prefix");
+            CPLError(CE_Failure, CPLE_AppDefined, "handler already registered on prefix");
+			godalUnwrap();
+			return;
         }
     }
     VSIFilesystemHandler *poHandler = new cpl::VSIGoFilesystemHandler(bufferSize, cacheSize);
     const std::string sPrefix(pszPrefix);
     VSIFileManager::InstallHandler(sPrefix, poHandler);
-    return nullptr;
+	godalUnwrap();
 }
 
 
 void test_godal_error_handling(cctx *ctx) {
-	godalWrap2(ctx);
+	godalWrap(ctx);
 	CPLDebug("godal","this is a debug message");
 	CPLError(CE_Warning, CPLE_AppDefined, "this is a warning message");
 	CPLError(CE_Failure, CPLE_AppDefined, "this is a failure message");
-	godalUnwrap2();
+	godalUnwrap();
 }
 

@@ -2,34 +2,39 @@ package godal
 
 import "fmt"
 
-type srWKTOpts struct{}
+type srWKTOpts struct {
+	errorHandler ErrorHandler
+}
 
 //WKTExportOption is an option that can be passed to SpatialRef.WKT()
 //
 // Available WKTExportOptions are:
 //
-// • TODO
+// • ErrLogger
 type WKTExportOption interface {
-	setWKTExportOpts(sro *srWKTOpts)
+	setWKTExportOpt(sro *srWKTOpts)
 }
 
-type trnOpts struct{}
+type trnOpts struct {
+	errorHandler ErrorHandler
+}
 
 // TransformOption is an option that can be passed to NewTransform
 //
 // Available TransformOptions are:
 //
-// • TODO
+// • ErrLogger
 type TransformOption interface {
 	setTransformOpt(o *trnOpts)
 }
 
-func (sr *SpatialRef) setBoundsOpt(o *boundsOpt) {
+func (sr *SpatialRef) setBoundsOpt(o *boundsOpts) {
 	o.sr = sr
 }
 
-type boundsOpt struct {
+type boundsOpts struct {
 	sr *SpatialRef
+	//TODO: errorHandler ErrorHandler
 }
 
 // BoundsOption is an option that can be passed to Dataset.Bounds or Geometry.Bounds
@@ -37,8 +42,18 @@ type boundsOpt struct {
 // Available options are:
 //
 // • *SpatialRef
+//
+// • TODO: ErrLogger
 type BoundsOption interface {
-	setBoundsOpt(o *boundsOpt)
+	setBoundsOpt(o *boundsOpts)
+}
+
+type createSpatialRefOpts struct {
+	errorHandler ErrorHandler
+}
+
+type CreateSpatialRefOption interface {
+	setCreateSpatialRefOpt(so *createSpatialRefOpts)
 }
 
 func reprojectBounds(bnds [4]float64, src, dst *SpatialRef) ([4]float64, error) {

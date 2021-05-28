@@ -32,6 +32,7 @@ type histogramOpts struct {
 	includeOutside int
 	min, max       float64
 	buckets        int32
+	errorHandler   ErrorHandler
 }
 
 // HistogramOption is an option that can be passed to Band.Histogram()
@@ -45,6 +46,8 @@ type histogramOpts struct {
 //
 // • IncludeOutOfRange() to populate the first and last bucket with values under/over the specified min/max
 //   when used in conjuntion with Intervals()
+//
+// • ErrLogger
 type HistogramOption interface {
 	setHistogramOpt(ho *histogramOpts)
 }

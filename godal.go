@@ -181,23 +181,25 @@ func (band Band) NoData() (nodata float64, ok bool) {
 }
 
 //SetNoData sets the band's nodata value
-func (band Band) SetNoData(nd float64) error {
-	errmsg := C.godalSetRasterNoDataValue(band.handle(), C.double(nd))
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return errors.New(C.GoString(errmsg))
+func (band Band) SetNoData(nd float64, opts ...SetNoDataOption) error {
+	sndo := &setNodataOpts{}
+	for _, opt := range opts {
+		opt.setSetNoDataOpt(sndo)
 	}
-	return nil
+	cgc := createCGOContext(nil, sndo.errorHandler)
+	C.godalSetRasterNoDataValue(cgc.cPointer(), band.handle(), C.double(nd))
+	return cgc.close()
 }
 
 // ClearNoData clears the band's nodata value
-func (band Band) ClearNoData() error {
-	errmsg := C.godalDeleteRasterNoDataValue(band.handle())
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return errors.New(C.GoString(errmsg))
+func (band Band) ClearNoData(opts ...SetNoDataOption) error {
+	sndo := &setNodataOpts{}
+	for _, opt := range opts {
+		opt.setSetNoDataOpt(sndo)
 	}
-	return nil
+	cgc := createCGOContext(nil, sndo.errorHandler)
+	C.godalDeleteRasterNoDataValue(cgc.cPointer(), band.handle())
+	return cgc.close()
 }
 
 // ColorInterp returns the band's color interpretation (defaults to Gray)
@@ -207,13 +209,15 @@ func (band Band) ColorInterp() ColorInterp {
 }
 
 // SetColorInterp sets the band's color interpretation
-func (band Band) SetColorInterp(colorInterp ColorInterp) error {
-	errmsg := C.godalSetRasterColorInterpretation(band.handle(), C.GDALColorInterp(colorInterp))
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return errors.New(C.GoString(errmsg))
+func (band Band) SetColorInterp(colorInterp ColorInterp, opts ...SetColorInterpOption) error {
+	scio := &setColorInterpOpts{}
+	for _, opt := range opts {
+		opt.setSetColorInterpOpt(scio)
 	}
-	return nil
+
+	cgc := createCGOContext(nil, scio.errorHandler)
+	C.godalSetRasterColorInterpretation(cgc.cPointer(), band.handle(), C.GDALColorInterp(colorInterp))
+	return cgc.close()
 }
 
 //MaskFlags returns the mask flags associated with this band.
@@ -237,26 +241,23 @@ func (band Band) CreateMask(flags int, opts ...BandCreateMaskOption) (Band, erro
 	for _, opt := range opts {
 		opt.setBandCreateMaskOpt(&gopts)
 	}
-	cconfig := sliceToCStringArray(gopts.config)
-	defer cconfig.free()
-
-	var errmsg *C.char
-	hndl := C.godalCreateMaskBand(band.handle(), C.int(flags), &errmsg, cconfig.cPointer())
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return Band{}, errors.New(C.GoString(errmsg))
+	cgc := createCGOContext(gopts.config, gopts.errorHandler)
+	hndl := C.godalCreateMaskBand(cgc.cPointer(), band.handle(), C.int(flags))
+	if err := cgc.close(); err != nil {
+		return Band{}, err
 	}
 	return Band{majorObject{C.GDALMajorObjectH(hndl)}}, nil
 }
 
 //Fill sets the whole band uniformely to (real,imag)
-func (band Band) Fill(real, imag float64) error {
-	errmsg := C.godalFillRaster(band.handle(), C.double(real), C.double(imag))
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return errors.New(C.GoString(errmsg))
+func (band Band) Fill(real, imag float64, opts ...FillBandOption) error {
+	fo := &fillBandOpts{}
+	for _, o := range opts {
+		o.setFillBandOpt(fo)
 	}
-	return nil
+	cgc := createCGOContext(nil, fo.errorHandler)
+	C.godalFillRaster(cgc.cPointer(), band.handle(), C.double(real), C.double(imag))
+	return cgc.close()
 }
 
 // Read populates the supplied buffer with the pixels contained in the supplied window
@@ -271,7 +272,7 @@ func (band Band) Write(srcX, srcY int, buffer interface{}, bufWidth, bufHeight i
 
 // IO reads or writes the pixels contained in the supplied window
 func (band Band) IO(rw IOOperation, srcX, srcY int, buffer interface{}, bufWidth, bufHeight int, opts ...BandIOOption) error {
-	ro := bandIOOpt{}
+	ro := bandIOOpts{}
 	for _, opt := range opts {
 		opt.setBandIOOpt(&ro)
 	}
@@ -295,26 +296,18 @@ func (band Band) IO(rw IOOperation, srcX, srcY int, buffer interface{}, bufWidth
 	if err != nil {
 		return err
 	}
-	configOpts := sliceToCStringArray(ro.config)
-	defer configOpts.free()
-
-	errmsg := C.godalBandRasterIO(band.handle(), C.GDALRWFlag(rw),
+	cgc := createCGOContext(ro.config, ro.errorHandler)
+	C.godalBandRasterIO(cgc.cPointer(), band.handle(), C.GDALRWFlag(rw),
 		C.int(srcX), C.int(srcY), C.int(ro.dsWidth), C.int(ro.dsHeight),
 		cBuf,
 		C.int(bufWidth), C.int(bufHeight), C.GDALDataType(dtype),
-		pixelSpacing, lineSpacing, ralg,
-		configOpts.cPointer())
-
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return errors.New(C.GoString(errmsg))
-	}
-	return nil
+		pixelSpacing, lineSpacing, ralg)
+	return cgc.close()
 }
 
 // Polygonize wraps GDALPolygonize
 func (band Band) Polygonize(dstLayer Layer, opts ...PolygonizeOption) error {
-	popt := polygonizeOpt{
+	popt := polygonizeOpts{
 		pixFieldIndex: -1,
 	}
 	maskBand := band.MaskBand()
@@ -330,12 +323,9 @@ func (band Band) Polygonize(dstLayer Layer, opts ...PolygonizeOption) error {
 		cMaskBand = popt.mask.handle()
 	}
 
-	errmsg := C.godalPolygonize(band.handle(), cMaskBand, dstLayer.handle(), C.int(popt.pixFieldIndex), copts.cPointer())
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return errors.New(C.GoString(errmsg))
-	}
-	return nil
+	cgc := createCGOContext(nil, popt.errorHandler)
+	C.godalPolygonize(cgc.cPointer(), band.handle(), cMaskBand, dstLayer.handle(), C.int(popt.pixFieldIndex), copts.cPointer())
+	return cgc.close()
 }
 
 //Overviews returns all overviews of band
@@ -367,11 +357,12 @@ func (band Band) Histogram(opts ...HistogramOption) (Histogram, error) {
 	var values *C.ulonglong = nil
 	defer C.VSIFree(unsafe.Pointer(values))
 
-	errmsg := C.godalRasterHistogram(band.handle(), (*C.double)(&hopt.min), (*C.double)(&hopt.max), (*C.int)(&hopt.buckets),
+	cgc := createCGOContext(nil, hopt.errorHandler)
+
+	C.godalRasterHistogram(cgc.cPointer(), band.handle(), (*C.double)(&hopt.min), (*C.double)(&hopt.max), (*C.int)(&hopt.buckets),
 		&values, C.int(hopt.includeOutside), C.int(hopt.approx))
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return Histogram{}, errors.New(C.GoString(errmsg))
+	if err := cgc.close(); err != nil {
+		return Histogram{}, err
 	}
 	counts := (*[1 << 30]C.ulonglong)(unsafe.Pointer(values))
 	h := Histogram{
@@ -506,17 +497,18 @@ func (band Band) ColorTable() ColorTable {
 
 // SetColorTable sets the band's color table. if passing in a 0-length ct.Entries,
 // the band's color table will be cleared
-func (band Band) SetColorTable(ct ColorTable) error {
+func (band Band) SetColorTable(ct ColorTable, opts ...SetColorTableOption) error {
+	cto := &setColorTableOpts{}
+	for _, o := range opts {
+		o.setSetColorTableOpt(cto)
+	}
 	var cshorts *C.short
 	if len(ct.Entries) > 0 {
 		cshorts = cColorTableArray(ct.Entries)
 	}
-	errmsg := C.godalSetColorTable(band.handle(), C.GDALPaletteInterp(ct.PaletteInterp), C.int(len(ct.Entries)), cshorts)
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return errors.New(C.GoString(errmsg))
-	}
-	return nil
+	cgc := createCGOContext(nil, cto.errorHandler)
+	C.godalSetColorTable(cgc.cPointer(), band.handle(), C.GDALPaletteInterp(ct.PaletteInterp), C.int(len(ct.Entries)), cshorts)
+	return cgc.close()
 }
 
 // Bands returns all dataset bands.
@@ -543,7 +535,7 @@ func (ds *Dataset) Bands() []Band {
 //  [MinX, MinY, MaxX, MaxY]
 func (ds *Dataset) Bounds(opts ...BoundsOption) ([4]float64, error) {
 
-	bo := boundsOpt{}
+	bo := boundsOpts{}
 	for _, o := range opts {
 		o.setBoundsOpt(&bo)
 	}
@@ -582,14 +574,10 @@ func (ds *Dataset) CreateMaskBand(flags int, opts ...DatasetCreateMaskOption) (B
 	for _, opt := range opts {
 		opt.setDatasetCreateMaskOpt(&gopts)
 	}
-	cconfig := sliceToCStringArray(gopts.config)
-	defer cconfig.free()
-
-	var errmsg *C.char
-	hndl := C.godalCreateDatasetMaskBand(ds.handle(), C.int(flags), &errmsg, cconfig.cPointer())
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return Band{}, errors.New(C.GoString(errmsg))
+	cgc := createCGOContext(gopts.config, gopts.errorHandler)
+	hndl := C.godalCreateDatasetMaskBand(cgc.cPointer(), ds.handle(), C.int(flags))
+	if err := cgc.close(); err != nil {
+		return Band{}, err
 	}
 	return Band{majorObject{C.GDALMajorObjectH(hndl)}}, nil
 }
@@ -601,18 +589,19 @@ func (ds *Dataset) Projection() string {
 }
 
 // SetProjection sets the WKT projection of the dataset. May be empty.
-func (ds *Dataset) SetProjection(wkt string) error {
+func (ds *Dataset) SetProjection(wkt string, opts ...SetProjectionOption) error {
+	po := &setProjectionOpts{}
+	for _, o := range opts {
+		o.setSetProjectionOpt(po)
+	}
 	var cwkt = (*C.char)(nil)
 	if len(wkt) > 0 {
 		cwkt = C.CString(wkt)
 		defer C.free(unsafe.Pointer(cwkt))
 	}
-	errmsg := C.godalSetProjection(ds.handle(), cwkt)
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return errors.New(C.GoString(errmsg))
-	}
-	return nil
+	cgc := createCGOContext(nil, po.errorHandler)
+	C.godalSetProjection(cgc.cPointer(), ds.handle(), cwkt)
+	return cgc.close()
 }
 
 // SpatialRef returns dataset projection.
@@ -623,30 +612,35 @@ func (ds *Dataset) SpatialRef() *SpatialRef {
 
 // SetSpatialRef sets dataset's projection.
 // sr can be set to nil to clear an existing projection
-func (ds *Dataset) SetSpatialRef(sr *SpatialRef) error {
+func (ds *Dataset) SetSpatialRef(sr *SpatialRef, opts ...SetSpatialRefOption) error {
+	sro := &setSpatialRefOpts{}
+	for _, o := range opts {
+		o.setSetSpatialRefOpt(sro)
+	}
 	var hndl C.OGRSpatialReferenceH
 	if sr == nil {
 		hndl = nil
 	} else {
 		hndl = sr.handle
 	}
-	errmsg := C.godalDatasetSetSpatialRef(ds.handle(), hndl)
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return errors.New(C.GoString(errmsg))
-	}
-	return nil
+	cgc := createCGOContext(nil, sro.errorHandler)
+	C.godalDatasetSetSpatialRef(cgc.cPointer(), ds.handle(), hndl)
+	return cgc.close()
 }
 
 // GeoTransform returns the affine transformation coefficients
-func (ds *Dataset) GeoTransform() ([6]float64, error) {
+func (ds *Dataset) GeoTransform(opts ...GetGeoTransformOption) ([6]float64, error) {
+	gto := &getGeoTransformOpts{}
+	for _, o := range opts {
+		o.setGetGeoTransformOpt(gto)
+	}
 	ret := [6]float64{}
 	gt := make([]C.double, 6)
 	cgt := (*C.double)(unsafe.Pointer(&gt[0]))
-	errmsg := C.godalGetGeoTransform(ds.handle(), cgt)
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return ret, errors.New(C.GoString(errmsg))
+	cgc := createCGOContext(nil, gto.errorHandler)
+	C.godalGetGeoTransform(cgc.cPointer(), ds.handle(), cgt)
+	if err := cgc.close(); err != nil {
+		return ret, err
 	}
 	for i := range ret {
 		ret[i] = float64(gt[i])
@@ -655,24 +649,26 @@ func (ds *Dataset) GeoTransform() ([6]float64, error) {
 }
 
 // SetGeoTransform sets the affine transformation coefficients
-func (ds *Dataset) SetGeoTransform(transform [6]float64) error {
-	gt := cDoubleArray(transform[:])
-	errmsg := C.godalSetGeoTransform(ds.handle(), gt)
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return errors.New(C.GoString(errmsg))
+func (ds *Dataset) SetGeoTransform(transform [6]float64, opts ...SetGeoTransformOption) error {
+	gto := &setGeoTransformOpts{}
+	for _, o := range opts {
+		o.setSetGeoTransformOpt(gto)
 	}
-	return nil
+	gt := cDoubleArray(transform[:])
+	cgc := createCGOContext(nil, gto.errorHandler)
+	C.godalSetGeoTransform(cgc.cPointer(), ds.handle(), gt)
+	return cgc.close()
 }
 
 //SetNoData sets the band's nodata value
-func (ds *Dataset) SetNoData(nd float64) error {
-	errmsg := C.godalSetDatasetNoDataValue(ds.handle(), C.double(nd))
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return errors.New(C.GoString(errmsg))
+func (ds *Dataset) SetNoData(nd float64, opts ...SetNoDataOption) error {
+	sndo := &setNodataOpts{}
+	for _, opt := range opts {
+		opt.setSetNoDataOpt(sndo)
 	}
-	return nil
+	cgc := createCGOContext(nil, sndo.errorHandler)
+	C.godalSetDatasetNoDataValue(cgc.cPointer(), ds.handle(), C.double(nd))
+	return cgc.close()
 }
 
 // Translate runs the library version of gdal_translate.
@@ -705,17 +701,13 @@ func (ds *Dataset) Translate(dstDS string, switches []string, opts ...DatasetTra
 	}
 	cswitches := sliceToCStringArray(switches)
 	defer cswitches.free()
-	cconfig := sliceToCStringArray(gopts.config)
-	defer cconfig.free()
-
 	cname := unsafe.Pointer(C.CString(dstDS))
 	defer C.free(cname)
 
-	var errmsg *C.char
-	hndl := C.godalTranslate((*C.char)(cname), ds.handle(), cswitches.cPointer(), &errmsg, cconfig.cPointer())
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return nil, errors.New(C.GoString(errmsg))
+	cgc := createCGOContext(gopts.config, gopts.errorHandler)
+	hndl := C.godalTranslate(cgc.cPointer(), (*C.char)(cname), ds.handle(), cswitches.cPointer())
+	if err := cgc.close(); err != nil {
+		return nil, err
 	}
 	return &Dataset{majorObject{C.GDALMajorObjectH(hndl)}}, nil
 }
@@ -774,18 +766,14 @@ func Warp(dstDS string, sourceDS []*Dataset, switches []string, opts ...DatasetW
 
 	cswitches := sliceToCStringArray(switches)
 	defer cswitches.free()
-	cconfig := sliceToCStringArray(gopts.config)
-	defer cconfig.free()
 	cname := unsafe.Pointer(C.CString(dstDS))
 	defer C.free(cname)
 
-	var errmsg *C.char
-	hndl := C.godalDatasetWarp((*C.char)(cname), C.int(len(sourceDS)), (*C.GDALDatasetH)(unsafe.Pointer(&srcDS[0])), cswitches.cPointer(), &errmsg, cconfig.cPointer())
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return nil, errors.New(C.GoString(errmsg))
+	cgc := createCGOContext(gopts.config, gopts.errorHandler)
+	hndl := C.godalDatasetWarp(cgc.cPointer(), (*C.char)(cname), C.int(len(sourceDS)), (*C.GDALDatasetH)(unsafe.Pointer(&srcDS[0])), cswitches.cPointer())
+	if err := cgc.close(); err != nil {
+		return nil, err
 	}
-
 	return &Dataset{majorObject{C.GDALMajorObjectH(hndl)}}, nil
 }
 
@@ -804,8 +792,6 @@ func (ds *Dataset) WarpInto(sourceDS []*Dataset, switches []string, opts ...Data
 
 	cswitches := sliceToCStringArray(switches)
 	defer cswitches.free()
-	cconfig := sliceToCStringArray(gopts.config)
-	defer cconfig.free()
 
 	dstDS := ds.handle()
 	srcDS := make([]C.GDALDatasetH, len(sourceDS))
@@ -813,17 +799,13 @@ func (ds *Dataset) WarpInto(sourceDS []*Dataset, switches []string, opts ...Data
 		srcDS[i] = dataset.handle()
 	}
 
-	if errmsg := C.godalDatasetWarpInto(
+	cgc := createCGOContext(gopts.config, gopts.errorHandler)
+	C.godalDatasetWarpInto(cgc.cPointer(),
 		dstDS,
 		C.int(len(sourceDS)),
 		(*C.GDALDatasetH)(unsafe.Pointer(&srcDS[0])),
-		cswitches.cPointer(),
-		cconfig.cPointer(),
-	); errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return errors.New(C.GoString(errmsg))
-	}
-	return nil
+		cswitches.cPointer())
+	return cgc.close()
 }
 
 // BuildOverviews computes overviews for the dataset.
@@ -881,28 +863,24 @@ func (ds *Dataset) BuildOverviews(opts ...BuildOverviewsOption) error {
 	if nBands > 0 {
 		cBands = cIntArray(oopts.bands)
 	}
-	copts := sliceToCStringArray(oopts.config)
-	defer copts.free()
 	cResample := unsafe.Pointer(C.CString(oopts.resampling.String()))
 	defer C.free(cResample)
 
-	errmsg := C.godalBuildOverviews(ds.handle(), (*C.char)(cResample), nLevels, cLevels,
-		nBands, cBands, copts.cPointer())
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return errors.New(C.GoString(errmsg))
-	}
-	return nil
+	cgc := createCGOContext(oopts.config, oopts.errorHandler)
+	C.godalBuildOverviews(cgc.cPointer(), ds.handle(), (*C.char)(cResample), nLevels, cLevels,
+		nBands, cBands)
+	return cgc.close()
 }
 
 // ClearOverviews deletes all dataset overviews
-func (ds *Dataset) ClearOverviews() error {
-	errmsg := C.godalClearOverviews(ds.handle())
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return errors.New(C.GoString(errmsg))
+func (ds *Dataset) ClearOverviews(opts ...ClearOverviewsOption) error {
+	co := &clearOvrOpts{}
+	for _, o := range opts {
+		o.setClearOverviewsOpt(co)
 	}
-	return nil
+	cgc := createCGOContext(nil, co.errorHandler)
+	C.godalClearOverviews(cgc.cPointer(), ds.handle())
+	return cgc.close()
 }
 
 // Structure returns the dataset's Structure
@@ -934,7 +912,7 @@ func (ds *Dataset) Write(srcX, srcY int, buffer interface{}, bufWidth, bufHeight
 // IO reads or writes the pixels contained in the supplied window
 func (ds *Dataset) IO(rw IOOperation, srcX, srcY int, buffer interface{}, bufWidth, bufHeight int, opts ...DatasetIOOption) error {
 	var bands []Band
-	ro := datasetIOOpt{}
+	ro := datasetIOOpts{}
 	for _, opt := range opts {
 		opt.setDatasetIOOpt(&ro)
 	}
@@ -976,23 +954,14 @@ func (ds *Dataset) IO(rw IOOperation, srcX, srcY int, buffer interface{}, bufWid
 	if err != nil {
 		return err
 	}
-	configOpts := sliceToCStringArray(ro.config)
-	defer configOpts.free()
-	//fmt.Fprintf(os.Stderr, "%v %d %d %d\n", ro.bands, pixelSpacing, lineSpacing, bandSpacing)
-
-	errmsg := C.godalDatasetRasterIO(ds.handle(), C.GDALRWFlag(rw),
+	cgc := createCGOContext(ro.config, ro.errorHandler)
+	C.godalDatasetRasterIO(cgc.cPointer(), ds.handle(), C.GDALRWFlag(rw),
 		C.int(srcX), C.int(srcY), C.int(ro.dsWidth), C.int(ro.dsHeight),
 		cBuf,
 		C.int(bufWidth), C.int(bufHeight), C.GDALDataType(dtype),
 		C.int(len(ro.bands)), cIntArray(ro.bands),
-		pixelSpacing, lineSpacing, bandSpacing, ralg,
-		configOpts.cPointer())
-
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return errors.New(C.GoString(errmsg))
-	}
-	return nil
+		pixelSpacing, lineSpacing, bandSpacing, ralg)
+	return cgc.close()
 }
 
 // RegisterAll calls GDALAllRegister which registers all available raster and vector
@@ -1166,18 +1135,17 @@ func Create(driver DriverName, name string, nBands int, dtype DataType, width, h
 		opt.setDatasetCreateOpt(&gopts)
 	}
 	createOpts := sliceToCStringArray(gopts.creation)
-	configOpts := sliceToCStringArray(gopts.config)
 	cname := C.CString(name)
 	defer createOpts.free()
-	defer configOpts.free()
 	defer C.free(unsafe.Pointer(cname))
-	var errmsg *C.char
-	hndl := C.godalCreate(drv.handle(), (*C.char)(unsafe.Pointer(cname)),
+
+	cgc := createCGOContext(gopts.config, gopts.errorHandler)
+	hndl := C.godalCreate(cgc.cPointer(), drv.handle(), (*C.char)(unsafe.Pointer(cname)),
 		C.int(width), C.int(height), C.int(nBands), C.GDALDataType(dtype),
-		createOpts.cPointer(), &errmsg, configOpts.cPointer())
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return nil, errors.New(C.GoString(errmsg))
+		createOpts.cPointer())
+
+	if err := cgc.close(); err != nil {
+		return nil, err
 	}
 	return &Dataset{majorObject{C.GDALMajorObjectH(hndl)}}, nil
 
@@ -1202,18 +1170,15 @@ func CreateVector(driver DriverName, name string, opts ...DatasetCreateOption) (
 		opt.setDatasetCreateOpt(&gopts)
 	}
 	createOpts := sliceToCStringArray(gopts.creation)
-	configOpts := sliceToCStringArray(gopts.config)
 	cname := C.CString(name)
 	defer createOpts.free()
-	defer configOpts.free()
 	defer C.free(unsafe.Pointer(cname))
-	var errmsg *C.char
-	hndl := C.godalCreate(drv.handle(), (*C.char)(unsafe.Pointer(cname)),
-		0, 0, 0, C.GDT_Unknown,
-		createOpts.cPointer(), &errmsg, configOpts.cPointer())
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return nil, errors.New(C.GoString(errmsg))
+
+	cgc := createCGOContext(gopts.config, gopts.errorHandler)
+	hndl := C.godalCreate(cgc.cPointer(), drv.handle(), (*C.char)(unsafe.Pointer(cname)),
+		0, 0, 0, C.GDT_Unknown, createOpts.cPointer())
+	if err := cgc.close(); err != nil {
+		return nil, err
 	}
 	return &Dataset{majorObject{C.GDALMajorObjectH(hndl)}}, nil
 
@@ -1238,12 +1203,12 @@ func (ds *Dataset) handle() C.GDALDatasetH {
 //name may be a filename or any supported string supported by gdal (e.g. a /vsixxx path,
 //the xml string representing a vrt dataset, etc...)
 func Open(name string, options ...OpenOption) (*Dataset, error) {
-	oopts := openOptions{
+	oopts := openOpts{
 		flags:        C.GDAL_OF_READONLY | C.GDAL_OF_VERBOSE_ERROR,
 		siblingFiles: []string{filepath.Base(name)},
 	}
 	for _, opt := range options {
-		opt.setOpenOption(&oopts)
+		opt.setOpenOpt(&oopts)
 	}
 	csiblings := sliceToCStringArray(oopts.siblingFiles)
 	coopts := sliceToCStringArray(oopts.options)
@@ -1266,18 +1231,18 @@ func Open(name string, options ...OpenOption) (*Dataset, error) {
 }
 
 //Close releases the dataset
-func (ds *Dataset) Close() error {
+func (ds *Dataset) Close(opts ...CloseOption) error {
+	co := &closeOpts{}
+	for _, o := range opts {
+		o.setCloseOpt(co)
+	}
 	if ds.cHandle == nil {
 		return fmt.Errorf("close called more than once")
 	}
-	var errmsg *C.char
-	C.godalClose(ds.handle(), (**C.char)(unsafe.Pointer(&errmsg)))
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return errors.New(C.GoString(errmsg))
-	}
+	cgc := createCGOContext(nil, co.errorHandler)
+	C.godalClose(cgc.cPointer(), ds.handle())
 	ds.cHandle = nil
-	return nil
+	return cgc.close()
 }
 
 //LibVersion is the GDAL lib versioning scheme
@@ -1497,7 +1462,7 @@ func cBuffer(buffer interface{}) (int, DataType, unsafe.Pointer) {
 }
 
 func (mo majorObject) Metadata(key string, opts ...MetadataOption) string {
-	mopts := metadataOpt{}
+	mopts := metadataOpts{}
 	for _, opt := range opts {
 		opt.setMetadataOpt(&mopts)
 	}
@@ -1510,7 +1475,7 @@ func (mo majorObject) Metadata(key string, opts ...MetadataOption) string {
 }
 
 func (mo majorObject) Metadatas(opts ...MetadataOption) map[string]string {
-	mopts := metadataOpt{}
+	mopts := metadataOpts{}
 	for _, opt := range opts {
 		opt.setMetadataOpt(&mopts)
 	}
@@ -1534,7 +1499,7 @@ func (mo majorObject) Metadatas(opts ...MetadataOption) map[string]string {
 }
 
 func (mo majorObject) SetMetadata(key, value string, opts ...MetadataOption) error {
-	mopts := metadataOpt{}
+	mopts := metadataOpts{}
 	for _, opt := range opts {
 		opt.setMetadataOpt(&mopts)
 	}
@@ -1544,12 +1509,9 @@ func (mo majorObject) SetMetadata(key, value string, opts ...MetadataOption) err
 	defer C.free(unsafe.Pointer(ckey))
 	defer C.free(unsafe.Pointer(cdom))
 	defer C.free(unsafe.Pointer(cval))
-	errmsg := C.godalSetMetadataItem(mo.cHandle, ckey, cval, cdom)
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return errors.New(C.GoString(errmsg))
-	}
-	return nil
+	cgc := createCGOContext(nil, mopts.errorHandler)
+	C.godalSetMetadataItem(cgc.cPointer(), mo.cHandle, ckey, cval, cdom)
+	return cgc.close()
 }
 
 func (mo majorObject) MetadataDomains() []string {
@@ -1566,7 +1528,7 @@ func Update() interface {
 	return openUpdateOpt{}
 }
 
-func (openUpdateOpt) setOpenOption(oo *openOptions) {
+func (openUpdateOpt) setOpenOpt(oo *openOpts) {
 	//unset readonly
 	oo.flags = oo.flags &^ C.GDAL_OF_READONLY //actually a noop as OF_READONLY is 0
 	oo.flags |= C.GDAL_OF_UPDATE
@@ -1581,7 +1543,7 @@ func Shared() interface {
 	return openSharedOpt{}
 }
 
-func (openSharedOpt) setOpenOption(oo *openOptions) {
+func (openSharedOpt) setOpenOpt(oo *openOpts) {
 	oo.flags |= C.GDAL_OF_SHARED
 }
 
@@ -1593,7 +1555,7 @@ func VectorOnly() interface {
 } {
 	return vectorOnlyOpt{}
 }
-func (vectorOnlyOpt) setOpenOption(oo *openOptions) {
+func (vectorOnlyOpt) setOpenOpt(oo *openOpts) {
 	oo.flags |= C.GDAL_OF_VECTOR
 }
 
@@ -1605,7 +1567,7 @@ func RasterOnly() interface {
 } {
 	return rasterOnlyOpt{}
 }
-func (rasterOnlyOpt) setOpenOption(oo *openOptions) {
+func (rasterOnlyOpt) setOpenOpt(oo *openOpts) {
 	oo.flags |= C.GDAL_OF_RASTER
 }
 
@@ -1617,11 +1579,14 @@ type SpatialRef struct {
 
 //WKT returns spatialrefernece as WKT
 func (sr *SpatialRef) WKT(opts ...WKTExportOption) (string, error) {
-	var errmsg *C.char
-	cwkt := C.godalExportToWKT(sr.handle, &errmsg)
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return "", errors.New(C.GoString(errmsg))
+	wo := &srWKTOpts{}
+	for _, o := range opts {
+		o.setWKTExportOpt(wo)
+	}
+	cgc := createCGOContext(nil, wo.errorHandler)
+	cwkt := C.godalExportToWKT(cgc.cPointer(), sr.handle)
+	if err := cgc.close(); err != nil {
+		return "", err
 	}
 	wkt := C.GoString(cwkt)
 	C.CPLFree(unsafe.Pointer(cwkt))
@@ -1643,38 +1608,47 @@ func (sr *SpatialRef) Close() {
 }
 
 // NewSpatialRefFromWKT creates a SpatialRef from an opengis WKT description
-func NewSpatialRefFromWKT(wkt string) (*SpatialRef, error) {
+func NewSpatialRefFromWKT(wkt string, opts ...CreateSpatialRefOption) (*SpatialRef, error) {
+	cso := &createSpatialRefOpts{}
+	for _, o := range opts {
+		o.setCreateSpatialRefOpt(cso)
+	}
 	cstr := C.CString(wkt)
 	defer C.free(unsafe.Pointer(cstr))
-	var errmsg *C.char
-	hndl := C.godalCreateWKTSpatialRef((*C.char)(unsafe.Pointer(cstr)), &errmsg)
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return nil, errors.New(C.GoString(errmsg))
+	cgc := createCGOContext(nil, cso.errorHandler)
+	hndl := C.godalCreateWKTSpatialRef(cgc.cPointer(), (*C.char)(unsafe.Pointer(cstr)))
+	if err := cgc.close(); err != nil {
+		return nil, err
 	}
 	return &SpatialRef{handle: hndl, isOwned: true}, nil
 }
 
 // NewSpatialRefFromProj4 creates a SpatialRef from a proj4 string
-func NewSpatialRefFromProj4(proj string) (*SpatialRef, error) {
+func NewSpatialRefFromProj4(proj string, opts ...CreateSpatialRefOption) (*SpatialRef, error) {
+	cso := &createSpatialRefOpts{}
+	for _, o := range opts {
+		o.setCreateSpatialRefOpt(cso)
+	}
 	cstr := C.CString(proj)
 	defer C.free(unsafe.Pointer(cstr))
-	var errmsg *C.char
-	hndl := C.godalCreateProj4SpatialRef((*C.char)(unsafe.Pointer(cstr)), &errmsg)
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return nil, errors.New(C.GoString(errmsg))
+	cgc := createCGOContext(nil, cso.errorHandler)
+	hndl := C.godalCreateProj4SpatialRef(cgc.cPointer(), (*C.char)(unsafe.Pointer(cstr)))
+	if err := cgc.close(); err != nil {
+		return nil, err
 	}
 	return &SpatialRef{handle: hndl, isOwned: true}, nil
 }
 
 // NewSpatialRefFromEPSG creates a SpatialRef from an epsg code
-func NewSpatialRefFromEPSG(code int) (*SpatialRef, error) {
-	var errmsg *C.char
-	hndl := C.godalCreateEPSGSpatialRef(C.int(code), &errmsg)
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return nil, errors.New(C.GoString(errmsg))
+func NewSpatialRefFromEPSG(code int, opts ...CreateSpatialRefOption) (*SpatialRef, error) {
+	cso := &createSpatialRefOpts{}
+	for _, o := range opts {
+		o.setCreateSpatialRefOpt(cso)
+	}
+	cgc := createCGOContext(nil, cso.errorHandler)
+	hndl := C.godalCreateEPSGSpatialRef(cgc.cPointer(), C.int(code))
+	if err := cgc.close(); err != nil {
+		return nil, err
 	}
 	return &SpatialRef{handle: hndl, isOwned: true}, nil
 }
@@ -1693,11 +1667,14 @@ type Transform struct {
 
 // NewTransform creates a transformation object from src to dst
 func NewTransform(src, dst *SpatialRef, opts ...TransformOption) (*Transform, error) {
-	var errmsg *C.char
-	hndl := C.godalNewCoordinateTransformation(src.handle, dst.handle, &errmsg)
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return nil, errors.New(C.GoString(errmsg))
+	to := &trnOpts{}
+	for _, o := range opts {
+		o.setTransformOpt(to)
+	}
+	cgc := createCGOContext(nil, to.errorHandler)
+	hndl := C.godalNewCoordinateTransformation(cgc.cPointer(), src.handle, dst.handle)
+	if err := cgc.close(); err != nil {
+		return nil, err
 	}
 	return &Transform{handle: hndl, dst: dst.handle}, nil
 }
@@ -1855,17 +1832,13 @@ func (ds *Dataset) Rasterize(dstDS string, switches []string, opts ...RasterizeO
 	}
 	cswitches := sliceToCStringArray(switches)
 	defer cswitches.free()
-	cconfig := sliceToCStringArray(gopts.config)
-	defer cconfig.free()
-
 	cname := unsafe.Pointer(C.CString(dstDS))
 	defer C.free(cname)
 
-	var errmsg *C.char
-	hndl := C.godalRasterize((*C.char)(cname), ds.handle(), cswitches.cPointer(), &errmsg, cconfig.cPointer())
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return nil, errors.New(C.GoString(errmsg))
+	cgc := createCGOContext(gopts.config, gopts.errorHandler)
+	hndl := C.godalRasterize(cgc.cPointer(), (*C.char)(cname), ds.handle(), cswitches.cPointer())
+	if err := cgc.close(); err != nil {
+		return nil, err
 	}
 	return &Dataset{majorObject{C.GDALMajorObjectH(hndl)}}, nil
 }
@@ -1883,7 +1856,7 @@ func (ds *Dataset) Rasterize(dstDS string, switches []string, opts ...RasterizeO
 // render path, or whose center point is within the polygon.
 //
 func (ds *Dataset) RasterizeGeometry(g *Geometry, opts ...RasterizeGeometryOption) error {
-	opt := rasterizeGeometryOpt{}
+	opt := rasterizeGeometryOpts{}
 	for _, o := range opts {
 		o.setRasterizeGeometryOpt(&opt)
 	}
@@ -1908,14 +1881,10 @@ func (ds *Dataset) RasterizeGeometry(g *Geometry, opts ...RasterizeGeometryOptio
 	if len(opt.values) != len(opt.bands) {
 		return fmt.Errorf("must pass in same number of values as bands")
 	}
-	errmsg := C.godalRasterizeGeometry(ds.handle(), g.handle,
+	cgc := createCGOContext(nil, opt.errorHandler)
+	C.godalRasterizeGeometry(cgc.cPointer(), ds.handle(), g.handle,
 		cIntArray(opt.bands), C.int(len(opt.bands)), cDoubleArray(opt.values), C.int(opt.allTouched))
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return errors.New(C.GoString(errmsg))
-	}
-	return nil
-
+	return cgc.close()
 }
 
 // GeometryType is a geometry type
@@ -2027,17 +1996,13 @@ func (ds *Dataset) VectorTranslate(dstDS string, switches []string, opts ...Data
 	}
 	cswitches := sliceToCStringArray(switches)
 	defer cswitches.free()
-	cconfig := sliceToCStringArray(gopts.config)
-	defer cconfig.free()
-
 	cname := unsafe.Pointer(C.CString(dstDS))
 	defer C.free(cname)
 
-	var errmsg *C.char
-	hndl := C.godalDatasetVectorTranslate((*C.char)(cname), ds.handle(), cswitches.cPointer(), &errmsg, cconfig.cPointer())
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return nil, errors.New(C.GoString(errmsg))
+	cgc := createCGOContext(gopts.config, gopts.errorHandler)
+	hndl := C.godalDatasetVectorTranslate(cgc.cPointer(), (*C.char)(cname), ds.handle(), cswitches.cPointer())
+	if err := cgc.close(); err != nil {
+		return nil, err
 	}
 	return &Dataset{majorObject{C.GDALMajorObjectH(hndl)}}, nil
 }
@@ -2053,12 +2018,16 @@ func (layer Layer) handle() C.OGRLayerH {
 }
 
 // FeatureCount returns the number of features in the layer
-func (layer Layer) FeatureCount() (int, error) {
+func (layer Layer) FeatureCount(opts ...FeatureCountOption) (int, error) {
+	fco := &featureCountOpts{}
+	for _, o := range opts {
+		o.setFeatureCountOpt(fco)
+	}
 	var count C.int
-	errmsg := C.godalLayerFeatureCount(layer.handle(), &count)
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return 0, errors.New(C.GoString(errmsg))
+	cgc := createCGOContext(nil, fco.errorHandler)
+	C.godalLayerFeatureCount(cgc.cPointer(), layer.handle(), &count)
+	if err := cgc.close(); err != nil {
+		return 0, err
 	}
 	return int(count), nil
 }
@@ -2096,12 +2065,15 @@ type Geometry struct {
 }
 
 //Simplify simplifies the geometry with the given tolerance
-func (g *Geometry) Simplify(tolerance float64) (*Geometry, error) {
-	var errmsg *C.char
-	hndl := C.godal_OGR_G_Simplify(g.handle, C.double(tolerance), &errmsg)
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return nil, errors.New(C.GoString(errmsg))
+func (g *Geometry) Simplify(tolerance float64, opts ...SimplifyOption) (*Geometry, error) {
+	so := &simplifyOpts{}
+	for _, o := range opts {
+		o.setSimplifyOpt(so)
+	}
+	cgc := createCGOContext(nil, so.errorHandler)
+	hndl := C.godal_OGR_G_Simplify(cgc.cPointer(), g.handle, C.double(tolerance))
+	if err := cgc.close(); err != nil {
+		return nil, err
 	}
 	return &Geometry{
 		isOwned: true,
@@ -2110,12 +2082,15 @@ func (g *Geometry) Simplify(tolerance float64) (*Geometry, error) {
 }
 
 //Buffer buffers the geometry
-func (g *Geometry) Buffer(distance float64, segments int) (*Geometry, error) {
-	var errmsg *C.char
-	hndl := C.godal_OGR_G_Buffer(g.handle, C.double(distance), C.int(segments), &errmsg)
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return nil, errors.New(C.GoString(errmsg))
+func (g *Geometry) Buffer(distance float64, segments int, opts ...BufferOption) (*Geometry, error) {
+	bo := &bufferOpts{}
+	for _, o := range opts {
+		o.setBufferOpt(bo)
+	}
+	cgc := createCGOContext(nil, bo.errorHandler)
+	hndl := C.godal_OGR_G_Buffer(cgc.cPointer(), g.handle, C.double(distance), C.int(segments))
+	if err := cgc.close(); err != nil {
+		return nil, err
 	}
 	return &Geometry{
 		isOwned: true,
@@ -2131,7 +2106,7 @@ func (g *Geometry) Empty() bool {
 
 //Bounds returns the geometry's envelope in the order minx,miny,maxx,maxy
 func (g *Geometry) Bounds(opts ...BoundsOption) ([4]float64, error) {
-	bo := boundsOpt{}
+	bo := boundsOpts{}
 	for _, o := range opts {
 		o.setBoundsOpt(&bo)
 	}
@@ -2182,13 +2157,14 @@ func (f *Feature) Geometry() *Geometry {
 }
 
 //SetGeometry overwrites the feature's geometry
-func (f *Feature) SetGeometry(geom *Geometry) error {
-	errmsg := C.godalFeatureSetGeometry(f.handle, geom.handle)
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return errors.New(C.GoString(errmsg))
+func (f *Feature) SetGeometry(geom *Geometry, opts ...SetGeometryOption) error {
+	sgo := &setGeometryOpts{}
+	for _, o := range opts {
+		o.setSetGeometryOpt(sgo)
 	}
-	return nil
+	cgc := createCGOContext(nil, sgo.errorHandler)
+	C.godalFeatureSetGeometry(cgc.cPointer(), f.handle, geom.handle)
+	return cgc.close()
 }
 
 //Field is a Feature attribute
@@ -2331,41 +2307,42 @@ func (layer Layer) NextFeature() *Feature {
 
 // NewFeature creates a feature on Layer
 func (layer Layer) NewFeature(geom *Geometry, opts ...NewFeatureOption) (*Feature, error) {
-	nfo := newFeatureOpt{}
+	nfo := newFeatureOpts{}
 	for _, opt := range opts {
 		opt.setNewFeatureOpt(&nfo)
 	}
-	var errmsg *C.char
 	ghandle := C.OGRGeometryH(nil)
 	if geom != nil {
 		ghandle = geom.handle
 	}
-	hndl := C.godalLayerNewFeature(layer.handle(), ghandle, (**C.char)(unsafe.Pointer(&errmsg)))
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return nil, errors.New(C.GoString(errmsg))
+	cgc := createCGOContext(nil, nfo.errorHandler)
+	hndl := C.godalLayerNewFeature(cgc.cPointer(), layer.handle(), ghandle)
+	if err := cgc.close(); err != nil {
+		return nil, err
 	}
 	return &Feature{hndl}, nil
 }
 
 // UpdateFeature rewrites an updated feature in the Layer
-func (layer Layer) UpdateFeature(feat *Feature) error {
-	errmsg := C.godalLayerSetFeature(layer.handle(), feat.handle)
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return errors.New(C.GoString(errmsg))
+func (layer Layer) UpdateFeature(feat *Feature, opts ...UpdateFeatureOption) error {
+	uo := &updateFeatureOpts{}
+	for _, o := range opts {
+		o.setUpdateFeatureOpt(uo)
 	}
-	return nil
+	cgc := createCGOContext(nil, uo.errorHandler)
+	C.godalLayerSetFeature(cgc.cPointer(), layer.handle(), feat.handle)
+	return cgc.close()
 }
 
 // DeleteFeature deletes feature from the Layer.
-func (layer Layer) DeleteFeature(feat *Feature) error {
-	errmsg := C.godalLayerDeleteFeature(layer.handle(), feat.handle)
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return errors.New(C.GoString(errmsg))
+func (layer Layer) DeleteFeature(feat *Feature, opts ...DeleteFeatureOption) error {
+	do := &deleteFeatureOpts{}
+	for _, o := range opts {
+		o.setDeleteFeatureOpt(do)
 	}
-	return nil
+	cgc := createCGOContext(nil, do.errorHandler)
+	C.godalLayerDeleteFeature(cgc.cPointer(), layer.handle(), feat.handle)
+	return cgc.close()
 }
 
 // CreateLayer creates a new vector layer
@@ -2382,13 +2359,12 @@ func (ds *Dataset) CreateLayer(name string, sr *SpatialRef, gtype GeometryType, 
 	if sr != nil {
 		srHandle = sr.handle
 	}
-	var errmsg *C.char
 	cname := C.CString(name)
 	defer C.free(unsafe.Pointer(cname))
-	hndl := C.godalCreateLayer(ds.handle(), (*C.char)(unsafe.Pointer(cname)), srHandle, C.OGRwkbGeometryType(gtype), (**C.char)(unsafe.Pointer(&errmsg)))
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return Layer{}, errors.New(C.GoString(errmsg))
+	cgc := createCGOContext(nil, co.errorHandler)
+	hndl := C.godalCreateLayer(cgc.cPointer(), ds.handle(), (*C.char)(unsafe.Pointer(cname)), srHandle, C.OGRwkbGeometryType(gtype))
+	if err := cgc.close(); err != nil {
+		return Layer{}, err
 	}
 	if len(co.fields) > 0 {
 		for _, fld := range co.fields {
@@ -2402,44 +2378,53 @@ func (ds *Dataset) CreateLayer(name string, sr *SpatialRef, gtype GeometryType, 
 }
 
 // NewGeometryFromWKT creates a new Geometry from its WKT representation
-func NewGeometryFromWKT(wkt string, sr *SpatialRef) (*Geometry, error) {
+func NewGeometryFromWKT(wkt string, sr *SpatialRef, opts ...NewGeometryOption) (*Geometry, error) {
+	no := &newGeometryOpts{}
+	for _, o := range opts {
+		o.setNewGeometryOpt(no)
+	}
 	srHandle := C.OGRSpatialReferenceH(nil)
 	if sr != nil {
 		srHandle = sr.handle
 	}
-	var errmsg *C.char
 	cwkt := C.CString(wkt)
 	defer C.free(unsafe.Pointer(cwkt))
-	hndl := C.godalNewGeometryFromWKT((*C.char)(unsafe.Pointer(cwkt)), srHandle, (**C.char)(unsafe.Pointer(&errmsg)))
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return nil, errors.New(C.GoString(errmsg))
+	cgc := createCGOContext(nil, no.errorHandler)
+	hndl := C.godalNewGeometryFromWKT(cgc.cPointer(), (*C.char)(unsafe.Pointer(cwkt)), srHandle)
+	if err := cgc.close(); err != nil {
+		return nil, err
 	}
 	return &Geometry{isOwned: true, handle: hndl}, nil
 }
 
 // NewGeometryFromWKB creates a new Geometry from its WKB representation
-func NewGeometryFromWKB(wkb []byte, sr *SpatialRef) (*Geometry, error) {
+func NewGeometryFromWKB(wkb []byte, sr *SpatialRef, opts ...NewGeometryOption) (*Geometry, error) {
+	no := &newGeometryOpts{}
+	for _, o := range opts {
+		o.setNewGeometryOpt(no)
+	}
 	srHandle := C.OGRSpatialReferenceH(nil)
 	if sr != nil {
 		srHandle = sr.handle
 	}
-	var errmsg *C.char
-	hndl := C.godalNewGeometryFromWKB(unsafe.Pointer(&wkb[0]), C.int(len(wkb)), srHandle, (**C.char)(unsafe.Pointer(&errmsg)))
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return nil, errors.New(C.GoString(errmsg))
+	cgc := createCGOContext(nil, no.errorHandler)
+	hndl := C.godalNewGeometryFromWKB(cgc.cPointer(), unsafe.Pointer(&wkb[0]), C.int(len(wkb)), srHandle)
+	if err := cgc.close(); err != nil {
+		return nil, err
 	}
 	return &Geometry{isOwned: true, handle: hndl}, nil
 }
 
 //WKT returns the Geomtry's WKT representation
-func (g *Geometry) WKT() (string, error) {
-	var errmsg *C.char
-	cwkt := C.godalExportGeometryWKT(g.handle, (**C.char)(unsafe.Pointer(&errmsg)))
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return "", errors.New(C.GoString(errmsg))
+func (g *Geometry) WKT(opts ...GeometryWKTOption) (string, error) {
+	wo := &geometryWKTOpts{}
+	for _, o := range opts {
+		o.setGeometryWKTOpt(wo)
+	}
+	cgc := createCGOContext(nil, wo.errorHandler)
+	cwkt := C.godalExportGeometryWKT(cgc.cPointer(), g.handle)
+	if err := cgc.close(); err != nil {
+		return "", err
 	}
 	wkt := C.GoString(cwkt)
 	C.CPLFree(unsafe.Pointer(cwkt))
@@ -2447,17 +2432,18 @@ func (g *Geometry) WKT() (string, error) {
 }
 
 //WKB returns the Geomtry's WKB representation
-func (g *Geometry) WKB() ([]byte, error) {
+func (g *Geometry) WKB(opts ...GeometryWKBOption) ([]byte, error) {
+	wo := &geometryWKBOpts{}
+	for _, o := range opts {
+		o.setGeometryWKBOpt(wo)
+	}
 	var cwkb unsafe.Pointer
 	clen := C.int(0)
-	errmsg := C.godalExportGeometryWKB(&cwkb, &clen, g.handle)
-	/* wkb export never errors
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return nil, errors.New(C.GoString(errmsg))
+	cgc := createCGOContext(nil, wo.errorHandler)
+	C.godalExportGeometryWKB(cgc.cPointer(), &cwkb, &clen, g.handle)
+	if err := cgc.close(); err != nil {
+		return nil, err
 	}
-	*/
-	_ = errmsg
 	wkb := C.GoBytes(unsafe.Pointer(cwkb), clen)
 	C.free(unsafe.Pointer(cwkb))
 	return wkb, nil
@@ -2479,24 +2465,26 @@ func (g *Geometry) SetSpatialRef(sr *SpatialRef) {
 }
 
 // Reproject reprojects the given geometry to the given SpatialRef
-func (g *Geometry) Reproject(to *SpatialRef) error {
-	errmsg := C.godalGeometryTransformTo(g.handle, to.handle)
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return errors.New(C.GoString(errmsg))
+func (g *Geometry) Reproject(to *SpatialRef, opts ...GeometryReprojectOption) error {
+	gr := &geometryReprojectOpts{}
+	for _, o := range opts {
+		o.setGeometryReprojectOpt(gr)
 	}
-	return nil
+	cgc := createCGOContext(nil, gr.errorHandler)
+	C.godalGeometryTransformTo(cgc.cPointer(), g.handle, to.handle)
+	return cgc.close()
 }
 
 // Transform transforms the given geometry. g is expected to already be
 // in the supplied Transform source SpatialRef.
-func (g *Geometry) Transform(trn *Transform) error {
-	errmsg := C.godalGeometryTransform(g.handle, trn.handle, trn.dst)
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return errors.New(C.GoString(errmsg))
+func (g *Geometry) Transform(trn *Transform, opts ...GeometryTransformOption) error {
+	gt := &geometryTransformOpts{}
+	for _, o := range opts {
+		o.setGeometryTransformOpt(gt)
 	}
-	return nil
+	cgc := createCGOContext(nil, gt.errorHandler)
+	C.godalGeometryTransform(cgc.cPointer(), g.handle, trn.handle, trn.dst)
+	return cgc.close()
 }
 
 // GeoJSON returns the geometry in geojson format. The geometry is expected to be in epsg:4326
@@ -2506,17 +2494,16 @@ func (g *Geometry) Transform(trn *Transform) error {
 //
 // • SignificantDigits(n int) to keep n significant digits after the decimal separator (default: 8)
 func (g *Geometry) GeoJSON(opts ...GeoJSONOption) (string, error) {
-	gjo := geojsonOpt{
+	gjo := geojsonOpts{
 		precision: 7,
 	}
 	for _, opt := range opts {
 		opt.setGeojsonOpt(&gjo)
 	}
-	var errmsg *C.char
-	gjdata := C.godalExportGeometryGeoJSON(g.handle, C.int(gjo.precision), (**C.char)(unsafe.Pointer(&errmsg)))
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return "", errors.New(C.GoString(errmsg))
+	cgc := createCGOContext(nil, gjo.errorHandler)
+	gjdata := C.godalExportGeometryGeoJSON(cgc.cPointer(), g.handle, C.int(gjo.precision))
+	if err := cgc.close(); err != nil {
+		return "", err
 	}
 	wkt := C.GoString(gjdata)
 	C.CPLFree(unsafe.Pointer(gjdata))
@@ -2530,14 +2517,17 @@ type VSIFile struct {
 }
 
 //VSIOpen opens path. path can be virtual, eg beginning with /vsimem/
-func VSIOpen(path string) (*VSIFile, error) {
+func VSIOpen(path string, opts ...VSIOpenOption) (*VSIFile, error) {
+	vo := &vsiOpenOpts{}
+	for _, o := range opts {
+		o.setVSIOpenOpt(vo)
+	}
 	cname := unsafe.Pointer(C.CString(path))
 	defer C.free(cname)
-	var errmsg *C.char
-	hndl := C.godalVSIOpen((*C.char)(cname), &errmsg)
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return nil, errors.New(C.GoString(errmsg))
+	cgc := createCGOContext(nil, vo.errorHandler)
+	hndl := C.godalVSIOpen(cgc.cPointer(), (*C.char)(cname))
+	if err := cgc.close(); err != nil {
+		return nil, err
 	}
 	return &VSIFile{hndl}, nil
 }
@@ -2557,15 +2547,16 @@ func (vf *VSIFile) Close() error {
 }
 
 //VSIUnlink deletes path
-func VSIUnlink(path string) error {
+func VSIUnlink(path string, opts ...VSIUnlinkOption) error {
+	vo := &vsiUnlinkOpts{}
+	for _, o := range opts {
+		o.setVSIUnlinkOpt(vo)
+	}
 	cname := unsafe.Pointer(C.CString(path))
 	defer C.free(cname)
-	errmsg := C.godalVSIUnlink((*C.char)(cname))
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return errors.New(C.GoString(errmsg))
-	}
-	return nil
+	cgc := createCGOContext(nil, vo.errorHandler)
+	C.godalVSIUnlink(cgc.cPointer(), (*C.char)(cname))
+	return cgc.close()
 }
 
 var _ io.ReadCloser = &VSIFile{}
@@ -2726,31 +2717,6 @@ func getGoGDALReader(ckey *C.char, errorString **C.char) VSIReader {
 	return nil
 }
 
-type vsiHandlerOptions struct {
-	bufferSize, cacheSize C.size_t
-}
-
-// VSIHandlerOption is an option that can be passed to RegisterVSIHandler
-type VSIHandlerOption func(v *vsiHandlerOptions)
-
-// VSIHandlerBufferSize sets the size of the gdal-native block size used for caching. Must be positive,
-// can be set to 0 to disable this behavior (not recommended).
-//
-// Defaults to 64Kb
-func VSIHandlerBufferSize(s int) VSIHandlerOption {
-	return func(o *vsiHandlerOptions) {
-		o.bufferSize = C.size_t(s)
-	}
-}
-
-// VSIHandlerCacheSize sets the total number of gdal-native bytes used as cache *per handle*.
-// Defaults to 128Kb.
-func VSIHandlerCacheSize(s int) VSIHandlerOption {
-	return func(o *vsiHandlerOptions) {
-		o.cacheSize = C.size_t(s)
-	}
-}
-
 type osioAdapterWrapper struct {
 	*osio.Adapter
 }
@@ -2769,12 +2735,12 @@ func RegisterVSIAdapter(prefix string, keyReader *osio.Adapter, opts ...VSIHandl
 // calling Open("scheme://myfile.txt") will result in godal making calls to
 //  VSIKeyReader("myfile.txt").ReadAt(buf,offset)
 func RegisterVSIHandler(prefix string, keyReader VSIKeyReader, opts ...VSIHandlerOption) error {
-	opt := vsiHandlerOptions{
+	opt := vsiHandlerOpts{
 		bufferSize: 64 * 1024,
 		cacheSize:  2 * 64 * 1024,
 	}
 	for _, o := range opts {
-		o(&opt)
+		o.setVSIHandlerOpt(&opt)
 	}
 	if handlers == nil {
 		handlers = make(map[string]VSIKeyReader)
@@ -2782,10 +2748,10 @@ func RegisterVSIHandler(prefix string, keyReader VSIKeyReader, opts ...VSIHandle
 	if handlers[prefix] != nil {
 		return fmt.Errorf("handler already registered on prefix")
 	}
-	errmsg := C.VSIInstallGoHandler(C.CString(prefix), opt.bufferSize, opt.cacheSize)
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return errors.New(C.GoString(errmsg))
+	cgc := createCGOContext(nil, opt.errorHandler)
+	C.VSIInstallGoHandler(cgc.cPointer(), C.CString(prefix), C.size_t(opt.bufferSize), C.size_t(opt.cacheSize))
+	if err := cgc.close(); err != nil {
+		return err
 	}
 	handlers[prefix] = keyReader
 	return nil
@@ -2808,8 +2774,6 @@ func BuildVRT(dstVRTName string, sourceDatasets []string, switches []string, opt
 	}
 	cswitches := sliceToCStringArray(switches)
 	defer cswitches.free()
-	cconfig := sliceToCStringArray(bvo.config)
-	defer cconfig.free()
 
 	cname := unsafe.Pointer(C.CString(dstVRTName))
 	defer C.free(cname)
@@ -2817,12 +2781,11 @@ func BuildVRT(dstVRTName string, sourceDatasets []string, switches []string, opt
 	csources := sliceToCStringArray(sourceDatasets)
 	defer csources.free()
 
-	var errmsg *C.char
-	hndl := C.godalBuildVRT((*C.char)(cname), csources.cPointer(),
-		cswitches.cPointer(), &errmsg, cconfig.cPointer())
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return nil, errors.New(C.GoString(errmsg))
+	cgc := createCGOContext(bvo.config, bvo.errorHandler)
+	hndl := C.godalBuildVRT(cgc.cPointer(), (*C.char)(cname), csources.cPointer(),
+		cswitches.cPointer())
+	if err := cgc.close(); err != nil {
+		return nil, err
 	}
 	return &Dataset{majorObject{C.GDALMajorObjectH(hndl)}}, nil
 }

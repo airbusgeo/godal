@@ -114,7 +114,7 @@ func Drivers(drivers ...string) interface {
 } {
 	return driversOpt{drivers}
 }
-func (do driversOpt) setOpenOption(oo *openOptions) {
+func (do driversOpt) setOpenOpt(oo *openOpts) {
 	oo.drivers = append(oo.drivers, do.drivers...)
 }
 
@@ -130,7 +130,7 @@ func DriverOpenOption(keyval ...string) interface {
 } {
 	return driverOpenOption{keyval}
 }
-func (doo driverOpenOption) setOpenOption(oo *openOptions) {
+func (doo driverOpenOption) setOpenOpt(oo *openOpts) {
 	oo.options = append(oo.options, doo.oo...)
 }
 func (doo driverOpenOption) setBuildVRTOpt(bvo *buildVRTOpts) {
