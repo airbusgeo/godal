@@ -33,7 +33,7 @@ extern "C" {
 	extern long long int _gogdalSizeCallback(char* key, char** errorString);
 	extern int _gogdalMultiReadCallback(char* key, int nRanges, void* pocbuffers, void* coffsets, void* clengths, char** errorString);
 	extern size_t _gogdalReadCallback(char* key, void* buffer, size_t off, size_t clen, char** errorString);
-	extern void godalLogger(int loggerID, CPLErr lvl, const char *msg);
+	extern int goErrorHandler(int loggerID, CPLErr lvl, int code, const char *msg);
 }
 
 char *cplErrToString(CPLErr err) {
@@ -96,6 +96,72 @@ static void godalWrap(char **hmsg, char **options) {
 	}
 }
 
+static void godalErrorHandler2(CPLErr e, CPLErrorNum n, const char* msg) {
+	cctx *ctx = (cctx*)CPLGetErrorHandlerUserData();
+	assert(ctx!=nullptr);
+	if (ctx->handlerIdx !=0) {
+		int ret = goErrorHandler(ctx->handlerIdx, e, n, msg);
+		if(ret!=0 && ctx->failed==0) {
+			ctx->failed=1;
+		}
+	} else {
+		//let's be strict and treat all warnings as errors
+		if (e < CE_Warning)
+		{
+			fprintf(stderr, "GDAL: %s\n", msg);
+			return;
+		}
+		if (ctx->errMessage == nullptr)
+		{
+			ctx->errMessage = (char *)malloc(strlen(msg) + 1);
+			strcpy(ctx->errMessage, msg);
+		}
+		else
+		{
+			ctx->errMessage = (char *)realloc(ctx->errMessage, strlen(ctx->errMessage) + strlen(msg) + 3);
+			strcat(ctx->errMessage, "\n");
+			strcat(ctx->errMessage, msg);
+		}
+	}
+}
+
+static void godalWrap2(cctx *ctx) {
+	CPLPushErrorHandlerEx(&godalErrorHandler2,ctx);
+	if(ctx->configOptions!=nullptr) {
+		char **options = ctx->configOptions;
+		for(char* option=*options; option; option=*(++options)) {
+			char *idx = strchr(option,'=');
+			if(idx) {
+				*idx='\0';
+				CPLSetThreadLocalConfigOption(option,idx+1);
+				*idx='=';
+			}
+		}
+	}
+}
+
+static void godalUnwrap2() {
+	cctx *ctx = (cctx*)CPLGetErrorHandlerUserData();
+	CPLPopErrorHandler();
+	if(ctx->configOptions!=nullptr) {
+		char **options = ctx->configOptions;
+		for(char* option=*options; option; option=*(++options)) {
+			char *idx = strchr(option,'=');
+			if(idx) {
+				*idx='\0';
+				CPLSetThreadLocalConfigOption(option,nullptr);
+				*idx='=';
+			}
+		}
+	}
+}
+
+inline void forceError(cctx *ctx) {
+	if (ctx->errMessage == nullptr && ctx->failed==0) {
+		CPLError(CE_Failure, CPLE_AppDefined, "unknown error");
+	}
+}
+
 char *godalSetMetadataItem(GDALMajorObjectH mo, char *ckey, char *cval, char *cdom) {
 	char *error=nullptr;
 	godalWrap(&error,nullptr);
@@ -124,15 +190,14 @@ char *godalSetRasterColorInterpretation(GDALRasterBandH bnd, GDALColorInterp ci)
 	return nullptr;
 }
 
-GDALDatasetH godalOpen(const char *name, unsigned int nOpenFlags, const char *const *papszAllowedDrivers,
-					const char *const *papszOpenOptions, const char *const *papszSiblingFiles,
-					char **error, char **config) {
-	godalWrap(error, config);
+GDALDatasetH godalOpen(cctx *ctx, const char *name, unsigned int nOpenFlags, const char *const *papszAllowedDrivers,
+					const char *const *papszOpenOptions, const char *const *papszSiblingFiles) {
+	godalWrap2(ctx);
 	GDALDatasetH ret = GDALOpenEx(name,nOpenFlags,papszAllowedDrivers,papszOpenOptions,papszSiblingFiles);
-	godalUnwrap(config);
-	if (ret==nullptr && *error==nullptr) {
-		*error=strdup("failed to open: unknown error");
+	if (ret == nullptr) {
+		forceError(ctx);
 	}
+	godalUnwrap2();
 	return ret;
 }
 
@@ -1429,85 +1494,12 @@ char* VSIInstallGoHandler(const char *pszPrefix, size_t bufferSize, size_t cache
     return nullptr;
 }
 
-typedef struct {
-	char **configOptions;
-	char *errorMessage;
-	CPLErr failLevel;
-	int loggerID;
-} godalContext;
 
-static void godalErrorHandler2(CPLErr e, CPLErrorNum n, const char* msg) {
-	godalContext *ctx = (godalContext*)CPLGetErrorHandlerUserData();
-	assert(ctx!=nullptr);
-	if(e >= ctx->failLevel) {
-		if (ctx->errorMessage == nullptr) {
-			ctx->errorMessage = (char *)malloc(strlen(msg) + 1);
-			strcpy(ctx->errorMessage, msg);
-		} else {
-			ctx->errorMessage = (char *)realloc(ctx->errorMessage, strlen(ctx->errorMessage) + strlen(msg) + 3);
-			strcat(ctx->errorMessage, "\n");
-			strcat(ctx->errorMessage, msg);
-		}
-	} else if( ctx->loggerID != 0) {
-		godalLogger(ctx->loggerID, e, msg);
-	} else {
-		fprintf(stderr, "GDAL: ");
-		switch(e) {
-		case CE_Debug:
-			fprintf(stderr, "DEBUG ");
-			break;
-		case CE_Warning:
-			fprintf(stderr, "WARN ");
-			break;
-		case CE_Failure:
-			fprintf(stderr, "ERROR ");
-			break;
-		case CE_Fatal:
-			fprintf(stderr, "FATAL ");
-			break;
-		}
-		fprintf(stderr,"%d: %s\n", n, msg);
-	}
-}
-
-static void godalWrap2(godalContext *ctx) {
-	CPLPushErrorHandlerEx(&godalErrorHandler2,ctx);
-	if(ctx->configOptions!=nullptr) {
-		char **options = ctx->configOptions;
-		for(char* option=*options; option; option=*(++options)) {
-			char *idx = strchr(option,'=');
-			if(idx) {
-				*idx='\0';
-				CPLSetThreadLocalConfigOption(option,idx+1);
-				*idx='=';
-			}
-		}
-	}
-}
-
-static void godalUnwrap2() {
-	godalContext *ctx = (godalContext*)CPLGetErrorHandlerUserData();
-	CPLPopErrorHandler();
-	if(ctx->configOptions!=nullptr) {
-		char **options = ctx->configOptions;
-		for(char* option=*options; option; option=*(++options)) {
-			char *idx = strchr(option,'=');
-			if(idx) {
-				*idx='\0';
-				CPLSetThreadLocalConfigOption(option,nullptr);
-				*idx='=';
-			}
-		}
-	}
-}
-
-char *test_godal_error_handling(int loggerID, CPLErr failLevel, char **configOptions) {
-	godalContext ctx{configOptions, nullptr, failLevel, loggerID};
-	godalWrap2(&ctx);
+void test_godal_error_handling(cctx *ctx) {
+	godalWrap2(ctx);
 	CPLDebug("godal","this is a debug message");
 	CPLError(CE_Warning, CPLE_AppDefined, "this is a warning message");
 	CPLError(CE_Failure, CPLE_AppDefined, "this is a failure message");
 	godalUnwrap2();
-	return ctx.errorMessage;
 }
 

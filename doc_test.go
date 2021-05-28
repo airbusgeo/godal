@@ -16,8 +16,10 @@ package godal_test
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"os"
 	"strings"
@@ -513,4 +515,24 @@ func Example_vectorTutorial() {
 	// map[foo:baz]
 	// geom: POLYGON ((100 0,101 0,101 1,100 1,100 0))
 	// created geometry { "type": "Point", "coordinates": [ 1.0, 1.0 ] }
+}
+
+func ExampleErrorHandler_sentinel() {
+	sentinel := errors.New("noent")
+	eh := func(ec godal.ErrorCategory, code int, msg string) error {
+		/* do some advanced checking of ec, code and msg to determine if this is an actual error */
+		not_an_error := false
+		if not_an_error {
+			log.Println(msg)
+			return nil
+		}
+		return sentinel
+
+	}
+	_, err := godal.Open("nonexistent.tif", godal.ErrLogger(eh))
+	if err == sentinel {
+		fmt.Println(err.Error())
+	}
+	// Output:
+	// noent
 }

@@ -17,6 +17,7 @@ package godal
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -2734,46 +2735,44 @@ func TestVSIGCSNoAuth(t *testing.T) {
 }
 
 type errLogger struct {
-	logs []struct {
-		ec  ErrorCategory
-		msg string
-	}
+	msg    []string
+	thresh ErrorCategory
 }
 
-func (e *errLogger) Log(ec ErrorCategory, message string) {
-	e.logs = append(e.logs, struct {
-		ec  ErrorCategory
-		msg string
-	}{ec, message})
+//this is an example error handler that returns an error if its level is over thresh,
+//or logs the message in its msg []string if under
+func (e *errLogger) ErrorHandler(ec ErrorCategory, code int, message string) error {
+	if ec >= e.thresh {
+		return errors.New(message)
+	}
+	e.msg = append(e.msg, message)
+	return nil
 }
+
 func TestErrorHandling(t *testing.T) {
 	err := testErrorAndLogging()
 	assert.EqualError(t, err, "this is a warning message\nthis is a failure message")
 
-	err = testErrorAndLogging(FailureLevel(CE_Failure))
-	assert.EqualError(t, err, "this is a failure message")
+	el := errLogger{thresh: CE_Warning}
+	err = testErrorAndLogging(ErrLogger(el.ErrorHandler))
+	assert.EqualError(t, err, "this is a warning message\nthis is a failure message")
 
-	err = testErrorAndLogging(FailureLevel(CE_Fatal))
+	el.thresh = CE_Fatal
+	el.msg = nil
+	err = testErrorAndLogging(ErrLogger(el.ErrorHandler))
 	assert.NoError(t, err)
 
-	el := &errLogger{}
-	err = testErrorAndLogging(FailureLevel(CE_Failure), Logger(el.Log), ConfigOption("CPL_DEBUG=ON"))
+	el.thresh = CE_Failure
+	el.msg = nil
+	err = testErrorAndLogging(ErrLogger(el.ErrorHandler), ConfigOption("CPL_DEBUG=ON"))
 	assert.EqualError(t, err, "this is a failure message")
-	assert.Equal(t, []struct {
-		ec  ErrorCategory
-		msg string
-	}{
-		{CE_Debug, "godal: this is a debug message"},
-		{CE_Warning, "this is a warning message"},
-	}, el.logs)
+	assert.Equal(t, []string{
+		"godal: this is a debug message",
+		"this is a warning message",
+	}, el.msg)
 
-	el.logs = nil
-	err = testErrorAndLogging(FailureLevel(CE_Failure), Logger(el.Log))
+	el.msg = nil
+	err = testErrorAndLogging(ErrLogger(el.ErrorHandler))
 	assert.EqualError(t, err, "this is a failure message")
-	assert.Equal(t, []struct {
-		ec  ErrorCategory
-		msg string
-	}{
-		{CE_Warning, "this is a warning message"},
-	}, el.logs)
+	assert.Equal(t, []string{"this is a warning message"}, el.msg)
 }

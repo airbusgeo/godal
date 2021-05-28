@@ -1644,6 +1644,7 @@ type openOptions struct {
 	options      []string //driver specific open options (see gdal docs for each driver)
 	siblingFiles []string //list of sidecar files
 	config       []string
+	errorHandler ErrorHandler
 }
 
 //OpenOption is an option passed to Open()
@@ -1684,25 +1685,19 @@ func Open(name string, options ...OpenOption) (*Dataset, error) {
 	csiblings := sliceToCStringArray(oopts.siblingFiles)
 	coopts := sliceToCStringArray(oopts.options)
 	cdrivers := sliceToCStringArray(oopts.drivers)
-	cconfig := sliceToCStringArray(oopts.config)
 	defer csiblings.free()
 	defer coopts.free()
 	defer cdrivers.free()
-	defer cconfig.free()
-	var errmsg *C.char
 	cname := C.CString(name)
 	defer C.free(unsafe.Pointer(cname))
 
-	retds := C.godalOpen(cname, C.uint(oopts.flags),
-		cdrivers.cPointer(), coopts.cPointer(), csiblings.cPointer(),
-		(**C.char)(unsafe.Pointer(&errmsg)), cconfig.cPointer())
+	cgc := createCGOContext(oopts.config, oopts.errorHandler)
 
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		if retds != nil {
-			C.GDALClose(retds)
-		}
-		return nil, errors.New(C.GoString(errmsg))
+	retds := C.godalOpen(cgc.cPointer(), cname, C.uint(oopts.flags),
+		cdrivers.cPointer(), coopts.cPointer(), csiblings.cPointer())
+
+	if err := cgc.close(); err != nil {
+		return nil, err
 	}
 	return &Dataset{majorObject{C.GDALMajorObjectH(retds)}}, nil
 }
@@ -1849,31 +1844,50 @@ func AssertMinVersion(major, minor, revision int) {
 	}
 }
 
-var loggerMu sync.Mutex
-var loggerIndex int
-var loggerFns = make(map[int]func(ErrorCategory, string))
+var errorHandlerMu sync.Mutex
+var errorHandlerIndex int
 
-func registerLogger(fn func(ErrorCategory, string)) int {
-	loggerMu.Lock()
-	defer loggerMu.Unlock()
-	loggerIndex++
-	for loggerIndex == 0 && loggerFns[loggerIndex] != nil {
-		loggerIndex++
+// ErrorHandler is a function that can be used to override godal's default behavior
+// of treating all messages with severity >= CE_Warning as errors. When an ErrorHandler
+// is passed as an option to a godal function, all logs/errors emitted by gdal will be passed
+// to this function, which can decide wether the parameters correspond to an actual error
+// or not.
+//
+// If the ErrorHandler returns nil, the parent function will not return an error. It is up
+// to the ErrorHandler to log the message if needed.
+//
+// If the ErrorHandler returns an error, that error will be returned as-is to the caller
+// of the parent function
+type ErrorHandler func(ec ErrorCategory, code int, msg string) error
+
+type errorHandlerWrapper struct {
+	fn     ErrorHandler
+	errors []error
+}
+
+var errorHandlers = make(map[int]*errorHandlerWrapper)
+
+func registerErrorHandler(fn ErrorHandler) int {
+	errorHandlerMu.Lock()
+	defer errorHandlerMu.Unlock()
+	errorHandlerIndex++
+	for errorHandlerIndex == 0 || errorHandlers[errorHandlerIndex] != nil {
+		errorHandlerIndex++
 	}
-	loggerFns[loggerIndex] = fn
-	return loggerIndex
+	errorHandlers[errorHandlerIndex] = &errorHandlerWrapper{fn: fn}
+	return errorHandlerIndex
 }
 
-func getLogger(i int) func(ErrorCategory, string) {
-	loggerMu.Lock()
-	defer loggerMu.Unlock()
-	return loggerFns[i]
+func getErrorHandler(i int) *errorHandlerWrapper {
+	errorHandlerMu.Lock()
+	defer errorHandlerMu.Unlock()
+	return errorHandlers[i]
 }
 
-func unregisterLogger(i int) {
-	loggerMu.Lock()
-	defer loggerMu.Unlock()
-	delete(loggerFns, i)
+func unregisterErrorHandler(i int) {
+	errorHandlerMu.Lock()
+	defer errorHandlerMu.Unlock()
+	delete(errorHandlers, i)
 }
 
 func init() {
@@ -1881,69 +1895,56 @@ func init() {
 	AssertMinVersion(compiledVersion.Major(), compiledVersion.Minor(), 0)
 }
 
-//export godalLogger
-func godalLogger(loggerID C.int, ec C.int, msg *C.char) {
-	lfn := getLogger(int(loggerID))
-	lfn(ErrorCategory(ec), C.GoString(msg))
-}
-
-type logCallback struct {
-	logFn func(ec ErrorCategory, message string)
-}
-
-func (lcb logCallback) setErrorAndLoggingOpt(elo *errorAndLoggingOpts) {
-	elo.logFn = lcb.logFn
-}
-
-func Logger(logFn func(ec ErrorCategory, message string)) interface {
-	errorAndLoggingOption
-} {
-	return logCallback{logFn}
-}
-
-type failureLevel struct {
-	ec ErrorCategory
-}
-
-func (fl failureLevel) setErrorAndLoggingOpt(elo *errorAndLoggingOpts) {
-	elo.ec = fl.ec
-}
-
-func FailureLevel(ec ErrorCategory) interface {
-	errorAndLoggingOption
-} {
-	return failureLevel{ec}
+//export goErrorHandler
+func goErrorHandler(loggerID C.int, ec C.int, code C.int, msg *C.char) C.int {
+	//returns 0 if the received ec/code/msg is not an actual error
+	//returns !0 if msg should be considered an error
+	lfn := getErrorHandler(int(loggerID))
+	err := lfn.fn(ErrorCategory(ec), int(code), C.GoString(msg))
+	if err != nil {
+		lfn.errors = append(lfn.errors, err)
+		return 1
+	}
+	return 0
 }
 
 type errorAndLoggingOpts struct {
-	logFn  func(ec ErrorCategory, message string)
-	ec     ErrorCategory
+	eh     ErrorHandler
 	config []string
+}
+
+type errorCallback struct {
+	fn ErrorHandler
 }
 
 type errorAndLoggingOption interface {
 	setErrorAndLoggingOpt(elo *errorAndLoggingOpts)
 }
 
+func ErrLogger(fn ErrorHandler) interface {
+	errorAndLoggingOption
+	OpenOption
+} {
+	return errorCallback{fn}
+}
+
+func (ec errorCallback) setErrorAndLoggingOpt(elo *errorAndLoggingOpts) {
+	elo.eh = ec.fn
+}
+
+func (ec errorCallback) setOpenOption(oo *openOptions) {
+	oo.errorHandler = ec.fn
+}
+
 func testErrorAndLogging(opts ...errorAndLoggingOption) error {
-	ealo := errorAndLoggingOpts{nil, CE_Warning, nil}
+	ealo := errorAndLoggingOpts{}
 	for _, o := range opts {
 		o.setErrorAndLoggingOpt(&ealo)
 	}
-	cconfig := sliceToCStringArray(ealo.config)
-	defer cconfig.free()
+	cctx := createCGOContext(ealo.config, ealo.eh)
 
-	var logIdx int
-	if ealo.logFn != nil {
-		logIdx = registerLogger(ealo.logFn)
-		defer unregisterLogger(logIdx)
-	}
-	errmsg := C.test_godal_error_handling(C.int(logIdx), C.CPLErr(ealo.ec), cconfig.cPointer())
-	if errmsg != nil {
-		defer C.free(unsafe.Pointer(errmsg))
-		return errors.New(C.GoString(errmsg))
-	}
-	return nil
+	C.test_godal_error_handling(cctx.cPointer())
+	return cctx.close()
 }
 
 // Version returns the runtime version of the gdal library
@@ -4087,4 +4088,57 @@ func BuildVRT(dstVRTName string, sourceDatasets []string, switches []string, opt
 		return nil, errors.New(C.GoString(errmsg))
 	}
 	return &Dataset{majorObject{C.GDALMajorObjectH(hndl)}}, nil
+}
+
+type cgoContext struct {
+	cctx *C.cctx
+	opts cStringArray
+}
+
+func createCGOContext(configOptions []string, eh ErrorHandler) cgoContext {
+	cgc := cgoContext{
+		opts: sliceToCStringArray(configOptions),
+		cctx: (*C.cctx)(C.malloc(C.size_t(unsafe.Sizeof(C.cctx{})))),
+	}
+	cgc.cctx.configOptions = cgc.opts.cPointer()
+	cgc.cctx.failed = 0
+	cgc.cctx.errMessage = nil
+	if eh != nil {
+		cgc.cctx.handlerIdx = C.int(registerErrorHandler(eh))
+	} else {
+		cgc.cctx.handlerIdx = 0
+	}
+	return cgc
+}
+
+func (cgc cgoContext) cPointer() *C.cctx {
+	return cgc.cctx
+}
+
+//frees the context and returns any error it may contain
+func (cgc cgoContext) close() error {
+	cgc.opts.free()
+	if cgc.cctx.errMessage != nil {
+		if cgc.cctx.handlerIdx != 0 {
+			panic("bug!")
+		}
+		defer C.free(unsafe.Pointer(cgc.cctx.errMessage))
+		return errors.New(C.GoString(cgc.cctx.errMessage))
+	}
+	if cgc.cctx.handlerIdx != 0 {
+		defer unregisterErrorHandler(int(cgc.cctx.handlerIdx))
+		errs := getErrorHandler(int(cgc.cctx.handlerIdx)).errors
+		if errs != nil {
+			if len(errs) == 1 {
+				return errs[0]
+			} else {
+				msgs := []string{errs[0].Error()}
+				for i := 1; i < len(errs); i++ {
+					msgs = append(msgs, errs[i].Error())
+				}
+				return errors.New(strings.Join(msgs, "\n"))
+			}
+		}
+	}
+	return nil
 }

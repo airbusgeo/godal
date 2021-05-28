@@ -29,10 +29,15 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+	typedef struct {
+		char *errMessage;
+		int handlerIdx;
+		int failed;
+		char **configOptions;
+	} cctx;
 	char *godalSetMetadataItem(GDALMajorObjectH mo, char *ckey, char *cval, char *cdom);
-	GDALDatasetH godalOpen(const char *name, unsigned int nOpenFlags, const char *const *papszAllowedDrivers,
-						   const char *const *papszOpenOptions, const char *const *papszSiblingFiles,
-						   char **error, char **config);
+	GDALDatasetH godalOpen(cctx *ctx, const char *name, unsigned int nOpenFlags, const char *const *papszAllowedDrivers,
+						   const char *const *papszOpenOptions, const char *const *papszSiblingFiles);
 
 	GDALDatasetH godalCreate(GDALDriverH drv, const char *name, int width, int height, int nbands, GDALDataType dtype,
 							 char **options, char **errmsg, char **config);
@@ -111,7 +116,7 @@ extern "C" {
 
 	GDALDatasetH godalBuildVRT(char *dstname, char **sources, char **switches, char **error, char **config);
 
-	char *test_godal_error_handling(int loggerID, CPLErr failLevel, char **configOptions);
+	void test_godal_error_handling(cctx *ctx);
 #ifdef __cplusplus
 }
 #endif
