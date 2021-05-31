@@ -1286,7 +1286,7 @@ func goErrorHandler(loggerID C.int, ec C.int, code C.int, msg *C.char) C.int {
 	lfn := getErrorHandler(int(loggerID))
 	err := lfn.fn(ErrorCategory(ec), int(code), C.GoString(msg))
 	if err != nil {
-		lfn.errors = append(lfn.errors, err)
+		lfn.err = combine(lfn.err, err)
 		return 1
 	}
 	return 0
@@ -2818,18 +2818,7 @@ func (cgc cgoContext) close() error {
 	}
 	if cgc.cctx.handlerIdx != 0 {
 		defer unregisterErrorHandler(int(cgc.cctx.handlerIdx))
-		errs := getErrorHandler(int(cgc.cctx.handlerIdx)).errors
-		if errs != nil {
-			if len(errs) == 1 {
-				return errs[0]
-			} else {
-				msgs := []string{errs[0].Error()}
-				for i := 1; i < len(errs); i++ {
-					msgs = append(msgs, errs[i].Error())
-				}
-				return errors.New(strings.Join(msgs, "\n"))
-			}
-		}
+		return getErrorHandler(int(cgc.cctx.handlerIdx)).err
 	}
 	return nil
 }

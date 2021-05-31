@@ -1,6 +1,10 @@
 package godal
 
-import "sync"
+import (
+	"bytes"
+	"errors"
+	"sync"
+)
 
 var errorHandlerMu sync.Mutex
 var errorHandlerIndex int
@@ -19,8 +23,8 @@ var errorHandlerIndex int
 type ErrorHandler func(ec ErrorCategory, code int, msg string) error
 
 type errorHandlerWrapper struct {
-	fn     ErrorHandler
-	errors []error
+	fn  ErrorHandler
+	err error
 }
 
 var errorHandlers = make(map[int]*errorHandlerWrapper)
@@ -264,4 +268,60 @@ func (ec errorCallback) setVSIUnlinkOpt(o *vsiUnlinkOpts) {
 }
 func (ec errorCallback) setWKTExportOpt(o *srWKTOpts) {
 	o.errorHandler = ec.fn
+}
+
+type multiError struct {
+	errs []error
+}
+
+func (me *multiError) Error() string {
+	w := bytes.NewBufferString(me.errs[0].Error())
+	for i := 1; i < len(me.errs); i++ {
+		w.WriteByte('\n')
+		w.WriteString(me.errs[i].Error())
+	}
+	return w.String()
+}
+
+func (me *multiError) As(target interface{}) bool {
+	for _, err := range me.errs {
+		if errors.As(err, target) {
+			return true
+		}
+	}
+	return false
+}
+
+func (merr *multiError) Is(target error) bool {
+	for _, err := range merr.errs {
+		if errors.Is(err, target) {
+			return true
+		}
+	}
+	return false
+}
+
+func combine(e1, e2 error) error {
+	switch {
+	case e1 == nil:
+		return e2
+	case e2 == nil:
+		return e1
+	}
+	if me1, ok := e1.(*multiError); ok {
+		if me2, ok := e2.(*multiError); ok {
+			me1.errs = append(me1.errs, me2.errs...)
+		} else {
+			me1.errs = append(me1.errs, e2)
+		}
+		return me1
+	} else if me2, ok := e2.(*multiError); ok {
+		me := &multiError{}
+		me.errs = make([]error, 1, len(me2.errs)+1)
+		me.errs[0] = e1
+		me.errs = append(me.errs, me2.errs...)
+		return me
+	} else {
+		return &multiError{errs: []error{e1, e2}}
+	}
 }
