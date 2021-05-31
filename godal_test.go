@@ -2095,14 +2095,14 @@ func TestRasterize(t *testing.T) {
 	_, err = inv.Rasterize(tf, []string{"-of", "bogus"}, ErrLogger(ehc.ErrorHandler))
 	assert.Error(t, err)
 
+	dl := &debugLogger{}
 	rds, err := inv.Rasterize(tf, []string{
 		"-te", "99", "-1", "102", "2",
 		"-ts", "9", "9",
 		"-init", "10",
-		"-burn", "20"}, CreationOption("TILED=YES"), GTiff)
-	if err != nil {
-		t.Fatal(err)
-	}
+		"-burn", "20"}, CreationOption("TILED=YES"), GTiff, ErrLogger(dl.L), ConfigOption("CPL_DEBUG=ON"))
+	assert.NoError(t, err)
+	assert.NotEmpty(t, dl.logs)
 	defer rds.Close()
 	data := make([]byte, 81)
 	err = rds.Read(0, 0, data, 9, 9)
@@ -2189,36 +2189,32 @@ func TestVectorTranslate(t *testing.T) {
 	tmpname := tempfile()
 	defer os.Remove(tmpname)
 	ds, err := Open("testdata/test.geojson", VectorOnly())
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
+
 	st1, _ := os.Stat("testdata/test.geojson")
 	nds, err := ds.VectorTranslate(tmpname, []string{"-lco", "RFC7946=YES"}, GeoJSON)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
+
 	_ = nds.SetMetadata("baz", "boo")
 	err = nds.Close()
-	if err != nil {
-		t.Error("err")
-	}
+	assert.NoError(t, err)
+
 	st2, _ := os.Stat(tmpname)
 	if st2.Size() == 0 || st1.Size() == st2.Size() {
 		t.Error("invalid size")
 	}
 
 	err = RegisterVector("TAB")
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
+
 	tmpdir, _ := ioutil.TempDir("", "")
 	defer os.RemoveAll(tmpdir)
-	mds, err := ds.VectorTranslate(filepath.Join(tmpdir, "test.mif"), []string{"-f", "Mapinfo File"}, CreationOption("FORMAT=MIF"))
-	if err != nil {
-		t.Error(err)
-	} else {
-		mds.Close()
-	}
+	dl := &debugLogger{}
+	mds, err := ds.VectorTranslate(filepath.Join(tmpdir, "test.mif"), []string{"-f", "Mapinfo File"}, CreationOption("FORMAT=MIF"),
+		ErrLogger(dl.L), ConfigOption("CPL_DEBUG=ON"))
+	assert.NoError(t, err)
+	assert.NotEmpty(t, dl.logs)
+	mds.Close()
 
 	_, err = ds.VectorTranslate("foobar", []string{"-f", "bogusdriver"})
 	assert.Error(t, err)
@@ -3006,4 +3002,51 @@ func TestErrorHandling(t *testing.T) {
 	err = testErrorAndLogging(ErrLogger(el.ErrorHandler))
 	assert.EqualError(t, err, "this is a failure message")
 	assert.Equal(t, []string{"this is a warning message"}, el.msg)
+}
+
+type debugLogger struct {
+	logs string
+}
+
+func (dl *debugLogger) L(ec ErrorCategory, code int, msg string) error {
+	if ec >= CE_Warning {
+		return fmt.Errorf(msg)
+	}
+	if ec == CE_Debug {
+		dl.logs += ",GOTESTDEBUG:" + msg
+	}
+	return nil
+}
+func (dl *debugLogger) reset() {
+	dl.logs = ""
+}
+
+func TestConfigOptionsExtended(t *testing.T) {
+	dl := &debugLogger{}
+
+	ds, _ := Open("testdata/test.tif")
+	defer ds.Close()
+	dsm, _ := ds.Translate("", nil, Memory)
+	defer dsm.Close()
+	ds2, _ := Open("testdata/test.tif")
+	defer ds2.Close()
+
+	dl.reset()
+	err := dsm.WarpInto([]*Dataset{ds2}, nil, ErrLogger(dl.L), ConfigOption("CPL_DEBUG=ON"))
+	assert.NoError(t, err)
+	assert.Contains(t, dl.logs, "GOTESTDEBUG:") //contains something like "GDALWARP: Defining SKIP_NOSOURCE=YES,WARP: Copying metadata from first source to destination dataset,GDAL: Computing area of interest: 45, 25, 55, 35,OGRCT: Wrap source at 50.,GTiff: ScanDirectories(),GDAL: GDALDefaultOverviews::OverviewScan(),WARP: band=0 dstNoData=99.000000,WARP: band=1 dstNoData=99.000000,WARP: band=2 dstNoData=99.000000,GDAL: GDALWarpKernel()::GWKNearestByte() Src=0,0,10x10 Dst=0,0,10x10"
+	buf := make([]byte, 100)
+
+	//force 0 pixel read to emit a dbug message
+	dl.reset()
+	err = ds.Read(0, 0, buf, 0, 1, ErrLogger(dl.L), ConfigOption("CPL_DEBUG=ON"))
+	assert.NoError(t, err)
+	assert.Contains(t, dl.logs, "GOTESTDEBUG:")
+
+	//force 0 pixel read to emit a dbug message
+	dl.reset()
+	err = ds.Bands()[0].Read(0, 0, buf, 0, 1, ErrLogger(dl.L), ConfigOption("CPL_DEBUG=ON"))
+	assert.NoError(t, err)
+	assert.Contains(t, dl.logs, "GOTESTDEBUG:")
+
 }
