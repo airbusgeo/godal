@@ -2623,13 +2623,8 @@ func _gogdalSizeCallback(key *C.char, errorString **C.char) C.longlong {
 
 //export _gogdalMultiReadCallback
 func _gogdalMultiReadCallback(key *C.char, nRanges C.int, pocbuffers unsafe.Pointer, coffsets unsafe.Pointer, clengths unsafe.Pointer, errorString **C.char) C.int {
-	if nRanges == 0 {
-		return -1
-	}
 	cbd := getGoGDALReader(key, errorString)
-	if cbd == nil {
-		return -1
-	}
+	/* cbd == nil would be a bug elsewhere */
 	n := int(nRanges)
 	cbuffers := (*[1 << 28]unsafe.Pointer)(unsafe.Pointer(pocbuffers))[:n:n]
 	lengths := (*[1 << 28]C.size_t)(unsafe.Pointer(clengths))[:n:n]
@@ -2682,15 +2677,9 @@ func _gogdalMultiReadCallback(key *C.char, nRanges C.int, pocbuffers unsafe.Poin
 
 //export _gogdalReadCallback
 func _gogdalReadCallback(key *C.char, buffer unsafe.Pointer, off C.size_t, clen C.size_t, errorString **C.char) C.size_t {
-	if clen == 0 {
-		return 0
-	}
-
 	l := int(clen)
 	cbd := getGoGDALReader(key, errorString)
-	if cbd == nil {
-		return 0
-	}
+	/* cbd == nil would be a bug elsewhere */
 	slice := (*[1 << 28]byte)(buffer)[:l:l]
 	rlen, err := cbd.ReadAt(slice, int64(off))
 	if err != nil && err != io.EOF {
@@ -2819,9 +2808,11 @@ func (cgc cgoContext) cPointer() *C.cctx {
 func (cgc cgoContext) close() error {
 	cgc.opts.free()
 	if cgc.cctx.errMessage != nil {
+		/* debug code
 		if cgc.cctx.handlerIdx != 0 {
 			panic("bug!")
 		}
+		*/
 		defer C.free(unsafe.Pointer(cgc.cctx.errMessage))
 		return errors.New(C.GoString(cgc.cctx.errMessage))
 	}

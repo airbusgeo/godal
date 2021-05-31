@@ -841,12 +841,13 @@ char* godalExportGeometryWKT(cctx *ctx, OGRGeometryH in) {
 }
 
 void godalExportGeometryWKB(cctx *ctx, void **wkb, int *wkbLen, OGRGeometryH in) {
+	godalWrap(ctx);
 	*wkbLen=OGR_G_WkbSize(in);
 	if (*wkbLen == 0) {
 		*wkb=nullptr;
+		godalUnwrap();
 		return;
 	}
-	godalWrap(ctx);
 	*wkb = malloc(*wkbLen);
 	OGRErr gret = OGR_G_ExportToIsoWkb(in,wkbNDR,(unsigned char*)*wkb);
 	if (gret != 0) {
