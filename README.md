@@ -82,7 +82,7 @@ before submitting fixes or enhancements.
 
 ### Installation
 
-Godal requires a GDAL version greater than 3.2. Make sure the GDAL headers
+Godal requires a GDAL version greater than 3.0. Make sure the GDAL headers
 are installed on the system used for compiling go+godal code. If using a GDAL
 installation in a non standard location, you can set your `PKG_CONFIG_PATH`
 environment variable, e.g. `export PKG_CONFIG_PATH=/opt/include/pkgconfig`.

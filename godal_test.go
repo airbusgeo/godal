@@ -2436,9 +2436,8 @@ func TestNewGeometry(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "POINT (30 10)", wkt)
 
-	//nil geom for wkb is ok
 	_, err = (&Geometry{}).WKB()
-	assert.NoError(t, err)
+	assert.Error(t, err)
 
 	_, err = (&Geometry{}).WKT()
 	assert.Error(t, err)
@@ -2637,6 +2636,21 @@ func TestVSIFile(t *testing.T) {
 	ehc = eh()
 	err = VSIUnlink(fname, ErrLogger(ehc.ErrorHandler))
 	assert.Error(t, err)
+}
+
+func TestUnexpectedVSIAccess(t *testing.T) {
+	vpa := vpAdapter{datas: make(map[string]VSIReader)}
+	tifdat, _ := ioutil.ReadFile("testdata/test.tif")
+	vpa.datas["test.tif"] = mbufAdapter{tifdat}
+	err := RegisterVSIHandler("broken://", vpa, VSIHandlerBufferSize(0))
+	assert.NoError(t, err)
+
+	vf, err := VSIOpen("broken://test.tif")
+	assert.NoError(t, err)
+
+	l, err := vf.Read(nil)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, l)
 }
 
 type bufAdapter []byte

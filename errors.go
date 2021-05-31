@@ -28,7 +28,6 @@ var errorHandlers = make(map[int]*errorHandlerWrapper)
 func registerErrorHandler(fn ErrorHandler) int {
 	errorHandlerMu.Lock()
 	defer errorHandlerMu.Unlock()
-	errorHandlerIndex++
 	for errorHandlerIndex == 0 || errorHandlers[errorHandlerIndex] != nil {
 		errorHandlerIndex++
 	}
