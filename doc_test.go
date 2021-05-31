@@ -531,7 +531,7 @@ func ExampleErrorHandler_sentinel() {
 		return sentinel
 	}
 	_, err := godal.Open("nonexistent.tif", godal.ErrLogger(eh))
-	if err == sentinel {
+	if errors.Is(err, sentinel) {
 		fmt.Println(err.Error())
 	}
 

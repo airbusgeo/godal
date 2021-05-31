@@ -3050,3 +3050,75 @@ func TestConfigOptionsExtended(t *testing.T) {
 	assert.Contains(t, dl.logs, "GOTESTDEBUG:")
 
 }
+
+type custErr struct {
+	msg string
+}
+
+func (e *custErr) Error() string {
+	return e.msg
+}
+
+type custErr2 struct {
+	msg string
+}
+
+func (e *custErr2) Error() string {
+	return e.msg
+}
+
+type custErr3 struct {
+	msg string
+}
+
+func (e *custErr3) Error() string {
+	return e.msg
+}
+
+func TestMultiError(t *testing.T) {
+	e1 := &custErr{"e1"}
+	e2 := &custErr2{"e2"}
+	e3 := &custErr3{"e3"}
+
+	var cerr *custErr
+	var cerr2 *custErr2
+	var cerr3 *custErr3
+	e11 := combine(nil, e1)
+	assert.True(t, errors.Is(e11, e1))
+	assert.True(t, errors.As(e11, &cerr))
+	assert.False(t, errors.As(e11, &cerr2))
+	assert.Equal(t, "e1", cerr.msg)
+
+	e11 = combine(e1, nil)
+	assert.True(t, errors.Is(e11, e1))
+	assert.True(t, errors.As(e11, &cerr))
+	assert.False(t, errors.As(e11, &cerr2))
+	assert.Equal(t, "e1", cerr.msg)
+
+	e12 := combine(e1, e2)
+	assert.True(t, errors.Is(e12, e1))
+	assert.True(t, errors.Is(e12, e2))
+	assert.False(t, errors.Is(e12, e3))
+	assert.True(t, errors.As(e12, &cerr))
+	assert.True(t, errors.As(e12, &cerr2))
+	assert.False(t, errors.As(e12, &cerr3))
+	assert.Equal(t, "e1", cerr.msg)
+	assert.Equal(t, "e2", cerr2.msg)
+
+	e123 := combine(e12, e3)
+	assert.True(t, errors.Is(e123, e1))
+	assert.True(t, errors.Is(e123, e2))
+	assert.True(t, errors.Is(e123, e3))
+
+	e312 := combine(e3, e12)
+	assert.True(t, errors.Is(e312, e1))
+	assert.True(t, errors.Is(e312, e2))
+	assert.True(t, errors.Is(e312, e3))
+
+	e12 = combine(e1, e2)
+	e13 := combine(e1, e3)
+	e1213 := combine(e12, e13)
+	assert.True(t, errors.Is(e1213, e1))
+	assert.True(t, errors.Is(e1213, e2))
+	assert.True(t, errors.Is(e1213, e3))
+}
