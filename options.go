@@ -137,6 +137,28 @@ type BandIOOption interface {
 	setBandIOOpt(ro *bandIOOpts)
 }
 
+type fillnodataOpts struct {
+	mask         *Band
+	maxDistance  int
+	iterations   int
+	errorHandler ErrorHandler
+}
+
+// FillNoDataOption is an option that can be passed to band.FillNoData
+//
+// Available FillNoDataOptions are:
+//
+// • MaxDistance(int): The maximum distance (in pixels) that the algorithm will
+// search out for values to interpolate. The default is 100 pixels.
+//
+// • SmoothIterations(int): The number of 3x3 average filter smoothing iterations
+// to run after the interpolation to dampen artifacts. The default is zero smoothing iterations.
+//
+// • Mask(band) to use given band as nodata mask. The default uses the internal nodata mask
+type FillNoDataOption interface {
+	setFillnodataOpt(ro *fillnodataOpts)
+}
+
 type polygonizeOpts struct {
 	mask          *Band
 	options       []string
@@ -144,7 +166,7 @@ type polygonizeOpts struct {
 	errorHandler  ErrorHandler
 }
 
-// PolygonizeOption is an option to modify the default behavior of band.IO
+// PolygonizeOption is an option to modify the default behavior of band.Polygonize
 //
 // Available PolygonizeOptions are:
 //
