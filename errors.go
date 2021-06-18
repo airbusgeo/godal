@@ -185,7 +185,7 @@ func (ec errorCallback) setFeatureCountOpt(o *featureCountOpts) {
 func (ec errorCallback) setFillBandOpt(o *fillBandOpts) {
 	o.errorHandler = ec.fn
 }
-func (ec errorCallback) setFillnodata(o *fillnodataOpts) {
+func (ec errorCallback) setFillnodataOpt(o *fillnodataOpts) {
 	o.errorHandler = ec.fn
 }
 func (ec errorCallback) setGeojsonOpt(o *geojsonOpts) {

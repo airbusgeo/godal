@@ -310,6 +310,8 @@ func (band Band) Polygonize(dstLayer Layer, opts ...PolygonizeOption) error {
 	popt := polygonizeOpts{
 		pixFieldIndex: -1,
 	}
+	maskBand := band.MaskBand()
+	popt.mask = &maskBand
 
 	for _, opt := range opts {
 		opt.setPolygonizeOpt(&popt)
@@ -332,19 +334,19 @@ func (band Band) FillNoData(opts ...FillNoDataOption) error {
 		maxDistance: 100,
 		iterations:  0,
 	}
-	maskBand := band.MaskBand()
-	popt.mask = &maskBand
 
 	for _, opt := range opts {
 		opt.setFillnodataOpt(&popt)
 	}
+	copts := sliceToCStringArray(popt.options)
+	defer copts.free()
 	var cMaskBand C.GDALRasterBandH = nil
 	if popt.mask != nil {
 		cMaskBand = popt.mask.handle()
 	}
 
 	cgc := createCGOContext(nil, popt.errorHandler)
-	C.godalPolygonize(cgc.cPointer(), band.handle(), cMaskBand, dstLayer.handle(), C.int(popt.pixFieldIndex), copts.cPointer())
+	C.godalFillNoData(cgc.cPointer(), band.handle(), cMaskBand, C.int(popt.maxDistance), C.int(popt.iterations), copts.cPointer())
 	return cgc.close()
 }
 

@@ -139,6 +139,7 @@ type BandIOOption interface {
 
 type fillnodataOpts struct {
 	mask         *Band
+	options      []string
 	maxDistance  int
 	iterations   int
 	errorHandler ErrorHandler
@@ -822,11 +823,15 @@ type maskBandOpt struct {
 func (mbo maskBandOpt) setPolygonizeOpt(o *polygonizeOpts) {
 	o.mask = mbo.band
 }
+func (mbo maskBandOpt) setFillnodataOpt(o *fillnodataOpts) {
+	o.mask = mbo.band
+}
 
-// Mask makes Polygonize use the given band as a nodata mask
+// Mask makes Polygonize or FillNoData use the given band as a nodata mask
 // instead of using the source band's nodata mask
 func Mask(band Band) interface {
 	PolygonizeOption
+	FillNoDataOption
 } {
 	return maskBandOpt{&band}
 }
@@ -836,6 +841,38 @@ func NoMask() interface {
 	PolygonizeOption
 } {
 	return maskBandOpt{}
+}
+
+type maxDistanceOpt struct {
+	d float64
+}
+
+func (mdo maxDistanceOpt) setFillnodataOpt(o *fillnodataOpts) {
+	o.maxDistance = int(mdo.d)
+}
+
+// MaxDistance is an option that can be passed to Band.FillNoData which sets the maximum number of
+// pixels to search in all directions to find values to interpolate from.
+func MaxDistance(d float64) interface {
+	FillNoDataOption
+} {
+	return maxDistanceOpt{d}
+}
+
+type smoothingIterationsOpt struct {
+	it int
+}
+
+func (sio smoothingIterationsOpt) setFillnodataOpt(o *fillnodataOpts) {
+	o.iterations = sio.it
+}
+
+// SmoothingIterations is an option that can be passed to Band.FillNoData which sets the number of
+// 3x3 smoothing filter passes to run (0 or more).
+func SmoothingIterations(iterations int) interface {
+	FillNoDataOption
+} {
+	return smoothingIterationsOpt{iterations}
 }
 
 type polyPixField struct {
