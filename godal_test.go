@@ -17,6 +17,7 @@ package godal
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"io"
@@ -2083,6 +2084,97 @@ func TestPolygonize(t *testing.T) {
 		t.Errorf("got %d/48 polys", cnt)
 	}
 }
+
+func TestFillNoData(t *testing.T) {
+	ds, _ := Create(Memory, "", 1, Byte, 1000, 1000)
+	mskds, _ := Create(Memory, "", 1, Byte, 1000, 1000)
+	defer ds.Close()
+	defer mskds.Close()
+	_ = ds.SetNoData(0)
+	bnd := ds.Bands()[0]
+	msk := mskds.Bands()[0]
+	_ = bnd.Fill(0, 0)
+	_ = msk.Fill(255, 0)
+	buf := make([]byte, 100)
+	for i := range buf {
+		buf[i] = 128
+	}
+	_ = bnd.Write(495, 495, buf, 10, 10)
+	for i := range buf {
+		buf[i] = 0
+	}
+	_ = msk.Write(495, 495, buf, 10, 10)
+
+	err := bnd.FillNoData()
+	assert.NoError(t, err)
+
+	// test that the default 100 pixel distance is respected
+	_ = bnd.Read(500, 595, buf, 10, 10)
+	assert.Equal(t, uint8(128), buf[0])
+	assert.Equal(t, uint8(0), buf[99])
+
+	_ = bnd.Fill(0, 0)
+	for i := range buf {
+		buf[i] = 128
+	}
+	_ = bnd.Write(495, 495, buf, 10, 10)
+
+	err = bnd.FillNoData(MaxDistance(10))
+	assert.NoError(t, err)
+	// test that the 10 pixel distance is respected
+	_ = bnd.Read(500, 595, buf, 10, 10)
+	assert.Equal(t, uint8(0), buf[0])
+	assert.Equal(t, uint8(0), buf[99])
+	_ = bnd.Read(510, 510, buf, 10, 10)
+	assert.Equal(t, uint8(128), buf[0])
+	assert.Equal(t, uint8(0), buf[99])
+
+	//test that output is changed when smoothing is applied
+	//smoothing is only visible on the horizontal/vertical cross
+	//centered on the data patch
+	_ = bnd.Fill(0, 0)
+	_, _ = rand.Read(buf)
+	_ = bnd.Write(495, 495, buf, 10, 10)
+	_ = bnd.FillNoData()
+	val1 := make([]byte, 1)
+	_ = bnd.Read(500, 520, val1, 1, 1)
+
+	_ = bnd.Fill(0, 0)
+	_ = bnd.Write(495, 495, buf, 10, 10)
+	_ = bnd.FillNoData(SmoothingIterations(20))
+	val2 := make([]byte, 1)
+	_ = bnd.Read(500, 520, val2, 1, 1)
+	assert.NotEqual(t, val1[0], val2[0])
+
+	//test masked.
+	_ = bnd.Fill(0, 0)
+	_, _ = rand.Read(buf)
+	_ = bnd.Write(495, 495, buf, 10, 10)
+	_ = bnd.Read(500, 500, val1, 1, 1)
+	_ = bnd.FillNoData(Mask(msk))
+	_ = bnd.Read(500, 500, val2, 1, 1)
+	assert.NotEqual(t, val1[0], val2[0])
+
+	ehc := eh()
+	nilbnd := Band{}
+	err = nilbnd.FillNoData(ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+	assert.Equal(t, 1, ehc.errs)
+}
+
+/*
+func debug(ds *Dataset) {
+	str := ds.Structure()
+	tmpf, _ := ioutil.TempFile("", "godal*.tif")
+	tmpf.Close()
+	dds, _ := Create(GTiff, tmpf.Name(), str.NBands, str.DataType, str.SizeX, str.SizeY)
+	buf := make([]byte, str.NBands*str.SizeX*str.SizeY)
+	_ = ds.Read(0, 0, buf, str.SizeX, str.SizeY)
+	_ = dds.Write(0, 0, buf, str.SizeX, str.SizeY)
+	dds.Close()
+	fmt.Fprintln(os.Stderr, tmpf.Name())
+}
+*/
 
 func TestRasterize(t *testing.T) {
 	tf := tempfile()

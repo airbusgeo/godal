@@ -86,6 +86,7 @@ func ErrLogger(fn ErrorHandler) interface {
 	DeleteFeatureOption
 	FeatureCountOption
 	FillBandOption
+	FillNoDataOption
 	GeoJSONOption
 	GeometryTransformOption
 	GeometryReprojectOption
@@ -182,6 +183,9 @@ func (ec errorCallback) setFeatureCountOpt(o *featureCountOpts) {
 	o.errorHandler = ec.fn
 }
 func (ec errorCallback) setFillBandOpt(o *fillBandOpts) {
+	o.errorHandler = ec.fn
+}
+func (ec errorCallback) setFillnodataOpt(o *fillnodataOpts) {
 	o.errorHandler = ec.fn
 }
 func (ec errorCallback) setGeojsonOpt(o *geojsonOpts) {

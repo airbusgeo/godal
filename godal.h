@@ -86,6 +86,7 @@ extern "C" {
 		int nBXSize, int nBYSize, GDALDataType eBDataType, int nPixelSpace, int nLineSpace, GDALRIOResampleAlg alg);
 	void godalFillRaster(cctx *ctx, GDALRasterBandH bnd, double real, double imag);
 	void godalPolygonize(cctx *ctx, GDALRasterBandH in, GDALRasterBandH mask, OGRLayerH layer, int fieldIndex, char **opts);
+	void godalFillNoData(cctx *ctx, GDALRasterBandH in, GDALRasterBandH mask, int maxDistance, int iterations, char **opts);
 
 	void godalLayerFeatureCount(cctx *ctx, OGRLayerH layer, int *count);
 	void godalLayerSetFeature(cctx *ctx, OGRLayerH layer, OGRFeatureH feat);

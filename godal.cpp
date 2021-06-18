@@ -582,6 +582,15 @@ void godalPolygonize(cctx *ctx, GDALRasterBandH in, GDALRasterBandH mask, OGRLay
 	godalUnwrap();
 }
 
+void godalFillNoData(cctx *ctx, GDALRasterBandH in, GDALRasterBandH mask, int maxDistance, int iterations, char **opts) {
+	godalWrap(ctx);
+	CPLErr ret = GDALFillNodata(in,mask,maxDistance,0,iterations,opts,nullptr,nullptr);
+	if(ret!=0){
+		forceCPLError(ctx,ret);
+	}
+	godalUnwrap();
+}
+
 GDALDatasetH godalRasterize(cctx *ctx, char *dstName, GDALDatasetH ds, char **switches) {
 	godalWrap(ctx);
 	GDALRasterizeOptions *ropts = GDALRasterizeOptionsNew(switches,nullptr);

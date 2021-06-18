@@ -328,6 +328,28 @@ func (band Band) Polygonize(dstLayer Layer, opts ...PolygonizeOption) error {
 	return cgc.close()
 }
 
+//FillNoData wraps GDALFillNodata()
+func (band Band) FillNoData(opts ...FillNoDataOption) error {
+	popt := fillnodataOpts{
+		maxDistance: 100,
+		iterations:  0,
+	}
+
+	for _, opt := range opts {
+		opt.setFillnodataOpt(&popt)
+	}
+	//copts := sliceToCStringArray(popt.options)
+	//defer copts.free()
+	var cMaskBand C.GDALRasterBandH = nil
+	if popt.mask != nil {
+		cMaskBand = popt.mask.handle()
+	}
+
+	cgc := createCGOContext(nil, popt.errorHandler)
+	C.godalFillNoData(cgc.cPointer(), band.handle(), cMaskBand, C.int(popt.maxDistance), C.int(popt.iterations), nil)
+	return cgc.close()
+}
+
 //Overviews returns all overviews of band
 func (band Band) Overviews() []Band {
 	cbands := C.godalBandOverviews(band.handle())
