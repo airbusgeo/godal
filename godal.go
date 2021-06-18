@@ -338,15 +338,15 @@ func (band Band) FillNoData(opts ...FillNoDataOption) error {
 	for _, opt := range opts {
 		opt.setFillnodataOpt(&popt)
 	}
-	copts := sliceToCStringArray(popt.options)
-	defer copts.free()
+	//copts := sliceToCStringArray(popt.options)
+	//defer copts.free()
 	var cMaskBand C.GDALRasterBandH = nil
 	if popt.mask != nil {
 		cMaskBand = popt.mask.handle()
 	}
 
 	cgc := createCGOContext(nil, popt.errorHandler)
-	C.godalFillNoData(cgc.cPointer(), band.handle(), cMaskBand, C.int(popt.maxDistance), C.int(popt.iterations), copts.cPointer())
+	C.godalFillNoData(cgc.cPointer(), band.handle(), cMaskBand, C.int(popt.maxDistance), C.int(popt.iterations), nil)
 	return cgc.close()
 }
 

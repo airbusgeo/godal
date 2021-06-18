@@ -2154,6 +2154,12 @@ func TestFillNoData(t *testing.T) {
 	_ = bnd.FillNoData(Mask(msk))
 	_ = bnd.Read(500, 500, val2, 1, 1)
 	assert.NotEqual(t, val1[0], val2[0])
+
+	ehc := eh()
+	nilbnd := Band{}
+	err = nilbnd.FillNoData(ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+	assert.Equal(t, 1, ehc.errs)
 }
 
 /*

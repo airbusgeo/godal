@@ -138,8 +138,8 @@ type BandIOOption interface {
 }
 
 type fillnodataOpts struct {
-	mask         *Band
-	options      []string
+	mask *Band
+	//options      []string
 	maxDistance  int
 	iterations   int
 	errorHandler ErrorHandler
