@@ -3214,3 +3214,88 @@ func TestMultiError(t *testing.T) {
 	assert.True(t, errors.Is(e1213, e2))
 	assert.True(t, errors.Is(e1213, e3))
 }
+
+func TestSieveFilter(t *testing.T) {
+	ds, _ := Create(Memory, "", 1, Byte, 10, 10)
+	dsb := ds.Bands()[0]
+	ds2, _ := Create(Memory, "", 1, Byte, 10, 10)
+	dsb2 := ds2.Bands()[0]
+	defer ds.Close()
+	defer ds2.Close()
+	_ = dsb.SetNoData(0)
+
+	buf := make([]byte, 100)
+	reset := func(val byte) {
+		for i := range buf {
+			buf[i] = val
+		}
+	}
+
+	// using only nodata
+	reset(2)
+	buf[11] = 0
+	buf[12] = 1
+	_ = dsb.Write(0, 0, buf, 10, 10)
+	err := dsb.SieveFilter(3)
+	assert.NoError(t, err)
+	_ = dsb.Read(0, 0, buf, 10, 10)
+	assert.Equal(t, byte(0), buf[11]) //check nodata preserved
+	assert.Equal(t, byte(2), buf[12]) //check sieve modified pixel
+
+	// using explicit mask band
+	reset(2)
+	buf[13] = 0
+	_ = dsb2.Write(0, 0, buf, 10, 10) //buf2 is nodata mask
+	reset(2)
+	buf[12] = 1
+	buf[13] = 1
+	_ = dsb.Write(0, 0, buf, 10, 10)
+	err = dsb.SieveFilter(3, Mask(dsb2))
+	assert.NoError(t, err)
+	_ = dsb.Read(0, 0, buf, 10, 10)
+	assert.Equal(t, byte(1), buf[13]) //check nodatamask preserved
+	assert.Equal(t, byte(2), buf[12]) //check sieve modified pixel
+
+	//ignore nodata mask
+	reset(2)
+	buf[11] = 0
+	buf[12] = 0
+	_ = dsb.Write(0, 0, buf, 10, 10)
+	err = dsb.SieveFilter(3, NoMask())
+	assert.NoError(t, err)
+	_ = dsb.Read(0, 0, buf, 10, 10)
+	assert.Equal(t, byte(2), buf[11]) //check nodata ignored
+	assert.Equal(t, byte(2), buf[12]) //check sieve modified pixel
+
+	//test eight connectedness
+	reset(2)
+	for i := 0; i < 10; i++ {
+		buf[i*10+i] = 1 //diagonal
+	}
+	_ = dsb.Write(0, 0, buf, 10, 10)
+	err = dsb.SieveFilter(3, EightConnected())
+	assert.NoError(t, err)
+	_ = dsb.Read(0, 0, buf, 10, 10)
+	assert.Equal(t, byte(1), buf[0]) //check not sieved as on a 8-connected polygon of 10 pixels
+
+	//test destination band
+	reset(3)
+	_ = dsb2.Write(0, 0, buf, 10, 10)
+	//dsb is still the diagonal
+	err = dsb.SieveFilter(3, Destination(dsb2))
+	assert.NoError(t, err)
+	_ = dsb.Read(0, 0, buf, 10, 10)
+	assert.Equal(t, byte(1), buf[0]) //check not modified in source band
+	assert.Equal(t, byte(2), buf[1]) //check not modified in source band
+	_ = dsb2.Read(0, 0, buf, 10, 10)
+	assert.Equal(t, byte(2), buf[1]) //check copied to destination band
+	assert.Equal(t, byte(2), buf[0]) //check modified in destination band
+
+	// test error handling
+	err = Band{}.SieveFilter(3)
+	assert.Error(t, err)
+	ehc := eh()
+	err = Band{}.SieveFilter(3, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+	assert.Equal(t, 1, ehc.errs)
+}

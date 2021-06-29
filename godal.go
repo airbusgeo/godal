@@ -350,6 +350,28 @@ func (band Band) FillNoData(opts ...FillNoDataOption) error {
 	return cgc.close()
 }
 
+// SieveFilter wraps GDALSieveFilter
+func (band Band) SieveFilter(sizeThreshold int, opts ...SieveFilterOption) error {
+	sfopt := sieveFilterOpts{
+		dstBand:       &band,
+		connectedness: 4,
+	}
+	maskBand := band.MaskBand()
+	sfopt.mask = &maskBand
+
+	for _, opt := range opts {
+		opt.setSieveFilterOpt(&sfopt)
+	}
+	var cMaskBand C.GDALRasterBandH = nil
+	if sfopt.mask != nil {
+		cMaskBand = sfopt.mask.handle()
+	}
+	cgc := createCGOContext(nil, sfopt.errorHandler)
+	C.godalSieveFilter(cgc.cPointer(), band.handle(), cMaskBand, sfopt.dstBand.handle(),
+		C.int(sizeThreshold), C.int(sfopt.connectedness))
+	return cgc.close()
+}
+
 //Overviews returns all overviews of band
 func (band Band) Overviews() []Band {
 	cbands := C.godalBandOverviews(band.handle())

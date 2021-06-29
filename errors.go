@@ -108,6 +108,7 @@ func ErrLogger(fn ErrorHandler) interface {
 	SetGeoTransformOption
 	SetProjectionOption
 	SetSpatialRefOption
+	SieveFilterOption
 	SimplifyOption
 	TransformOption
 	UpdateFeatureOption
@@ -251,6 +252,9 @@ func (ec errorCallback) setSetNoDataOpt(ndo *setNodataOpts) {
 }
 func (ec errorCallback) setSetSpatialRefOpt(ndo *setSpatialRefOpts) {
 	ndo.errorHandler = ec.fn
+}
+func (ec errorCallback) setSieveFilterOpt(sfo *sieveFilterOpts) {
+	sfo.errorHandler = ec.fn
 }
 func (ec errorCallback) setSimplifyOpt(o *simplifyOpts) {
 	o.errorHandler = ec.fn
