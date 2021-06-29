@@ -582,6 +582,15 @@ void godalPolygonize(cctx *ctx, GDALRasterBandH in, GDALRasterBandH mask, OGRLay
 	godalUnwrap();
 }
 
+void godalSieveFilter(cctx *ctx, GDALRasterBandH bnd, GDALRasterBandH mask, GDALRasterBandH dst, int sizeThreshold, int connectedNess) {
+	godalWrap(ctx);
+	CPLErr ret = GDALSieveFilter(bnd,mask,dst,sizeThreshold,connectedNess,nullptr,nullptr,nullptr);
+	if(ret!=0){
+		forceCPLError(ctx,ret);
+	}
+	godalUnwrap();
+}
+
 void godalFillNoData(cctx *ctx, GDALRasterBandH in, GDALRasterBandH mask, int maxDistance, int iterations, char **opts) {
 	godalWrap(ctx);
 	CPLErr ret = GDALFillNodata(in,mask,maxDistance,0,iterations,opts,nullptr,nullptr);

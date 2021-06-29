@@ -160,6 +160,28 @@ type FillNoDataOption interface {
 	setFillnodataOpt(ro *fillnodataOpts)
 }
 
+type sieveFilterOpts struct {
+	mask          *Band
+	dstBand       *Band
+	connectedness int
+	errorHandler  ErrorHandler
+}
+
+// SieveFilterOption is an option to modify the behavior of Band.SieveFilter
+//
+// Available SieveFilterOptions are:
+//
+// • EightConnected() to enable 8-connectivity. Leave out completely for 4-connectivity (default)
+//
+// • Mask(band) to use given band as nodata mask instead of the internal nodata mask
+//
+// • NoMask() to ignore the the source band's nodata value or mask band
+//
+// • Destination(band) where to output the sieved band, instead of updating in-place
+type SieveFilterOption interface {
+	setSieveFilterOpt(sfo *sieveFilterOpts)
+}
+
 type polygonizeOpts struct {
 	mask          *Band
 	options       []string
@@ -826,12 +848,16 @@ func (mbo maskBandOpt) setPolygonizeOpt(o *polygonizeOpts) {
 func (mbo maskBandOpt) setFillnodataOpt(o *fillnodataOpts) {
 	o.mask = mbo.band
 }
+func (mbo maskBandOpt) setSieveFilterOpt(sfo *sieveFilterOpts) {
+	sfo.mask = mbo.band
+}
 
 // Mask makes Polygonize or FillNoData use the given band as a nodata mask
 // instead of using the source band's nodata mask
 func Mask(band Band) interface {
 	PolygonizeOption
 	FillNoDataOption
+	SieveFilterOption
 } {
 	return maskBandOpt{&band}
 }
@@ -839,8 +865,24 @@ func Mask(band Band) interface {
 // NoMask makes Polygonize ignore band nodata mask
 func NoMask() interface {
 	PolygonizeOption
+	SieveFilterOption
 } {
 	return maskBandOpt{}
+}
+
+type dstBandOpt struct {
+	band *Band
+}
+
+func (dbo dstBandOpt) setSieveFilterOpt(sfo *sieveFilterOpts) {
+	sfo.dstBand = dbo.band
+}
+
+// Destination makes SieveFilter output its result to the given band, instead of updating in-place
+func Destination(band Band) interface {
+	SieveFilterOption
+} {
+	return dstBandOpt{&band}
 }
 
 type maxDistanceOpt struct {
@@ -894,12 +936,16 @@ func PixelValueFieldIndex(fld int) interface {
 type eightConnected struct{}
 
 func (ec eightConnected) setPolygonizeOpt(o *polygonizeOpts) {
-	o.options = append(o.options, "8CONNECTED=YES")
+	o.options = append(o.options, "8connected=yes")
+}
+func (ec eightConnected) setSieveFilterOpt(sfo *sieveFilterOpts) {
+	sfo.connectedness = 8
 }
 
 //EightConnected is an option that switches pixel connectivity from 4 to 8
 func EightConnected() interface {
 	PolygonizeOption
+	SieveFilterOption
 } {
 	return eightConnected{}
 }
