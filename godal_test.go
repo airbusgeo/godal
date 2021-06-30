@@ -17,7 +17,6 @@ package godal
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"errors"
 	"fmt"
 	"io"
@@ -2133,22 +2132,26 @@ func TestFillNoData(t *testing.T) {
 	//smoothing is only visible on the horizontal/vertical cross
 	//centered on the data patch
 	_ = bnd.Fill(0, 0)
-	_, _ = rand.Read(buf)
+	for i := range buf {
+		buf[i] = byte(i + 23)
+	}
 	_ = bnd.Write(495, 495, buf, 10, 10)
 	_ = bnd.FillNoData()
 	val1 := make([]byte, 1)
-	_ = bnd.Read(500, 520, val1, 1, 1)
+	_ = bnd.Read(520, 500, val1, 1, 1)
 
 	_ = bnd.Fill(0, 0)
 	_ = bnd.Write(495, 495, buf, 10, 10)
 	_ = bnd.FillNoData(SmoothingIterations(20))
 	val2 := make([]byte, 1)
-	_ = bnd.Read(500, 520, val2, 1, 1)
+	_ = bnd.Read(520, 500, val2, 1, 1)
 	assert.NotEqual(t, val1[0], val2[0])
 
 	//test masked.
 	_ = bnd.Fill(0, 0)
-	_, _ = rand.Read(buf)
+	for i := range buf {
+		buf[i] = byte(i + 23)
+	}
 	_ = bnd.Write(495, 495, buf, 10, 10)
 	_ = bnd.Read(500, 500, val1, 1, 1)
 	_ = bnd.FillNoData(Mask(msk))
