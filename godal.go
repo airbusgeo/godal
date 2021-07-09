@@ -19,6 +19,7 @@ package godal
 #include <stdlib.h>
 
 #cgo pkg-config: gdal
+#cgo CXXFLAGS: -std=c++11
 #cgo LDFLAGS: -ldl
 */
 import "C"
