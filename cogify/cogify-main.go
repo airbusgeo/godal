@@ -46,7 +46,11 @@ func init() {
 	cogCommand.Flags().StringVarP(&outfile, "out", "o", "out-cog.tif", "output cog name")
 }
 func main() {
-	cogCommand.Execute()
+	err := cogCommand.Execute()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 }
 
 var cogCommand = &cobra.Command{
