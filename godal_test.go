@@ -2786,6 +2786,30 @@ func (vp vpAdapter) VSIReader(k string) (VSIReader, error) {
 	return b, nil
 }
 
+func TestVSIPrefix(t *testing.T) {
+	vpa := vpAdapter{datas: make(map[string]VSIReader)}
+	tifdat, _ := ioutil.ReadFile("testdata/test.tif")
+	vpa.datas["testmem://test.tif"] = mbufAdapter{tifdat}
+
+	err := RegisterVSIHandler("testmem://", vpa, VSIHandlerStripPrefix(false))
+	assert.NoError(t, err)
+
+	ds, err := Open("testmem://test.tif")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ds.Close()
+	str := ds.Structure()
+	if str.SizeX != 10 || str.SizeY != 10 {
+		t.Error("wrong structure")
+	}
+
+	_, err = Open("testmem://noent")
+	if err == nil {
+		t.Error("NoEnt not raised")
+	}
+}
+
 func TestVSIPlugin(t *testing.T) {
 	vpa := vpAdapter{datas: make(map[string]VSIReader)}
 	tifdat, _ := ioutil.ReadFile("testdata/test.tif")
