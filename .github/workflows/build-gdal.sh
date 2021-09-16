@@ -2,7 +2,7 @@
 
 GDALVERSION=$1
 
-apt-get install -y libproj-dev libgeos-dev build-essential libsqlite3-dev curl pkgconf libjpeg-turbo8-dev sqlite3
+apt update && apt-get install -y libproj-dev libgeos-dev build-essential libsqlite3-dev curl pkgconf libjpeg-turbo8-dev sqlite3
 cd $HOME
 mkdir -p gdal
 cd gdal
