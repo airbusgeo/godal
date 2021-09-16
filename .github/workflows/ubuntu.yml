@@ -15,7 +15,7 @@ jobs:
     name: Go ${{ matrix.go }} + GDAL on ubuntu 20.04 test
     steps:
       - name: APT
-        run: sudo apt-get install gcc g++ libgeos-c1v5 libproj15 libsqlite3-0 pkgconf libjpeg-turbo8 libgdal-dev
+        run: sudo apt-get update && sudo apt-get install gcc g++ libgeos-c1v5 libproj15 libsqlite3-0 pkgconf libjpeg-turbo8 libgdal-dev
       - name: Checkout
         uses: actions/checkout@v2
       - name: Setup Go
