@@ -2733,7 +2733,7 @@ func TestUnexpectedVSIAccess(t *testing.T) {
 	vpa := vpAdapter{datas: make(map[string]VSIReader)}
 	tifdat, _ := ioutil.ReadFile("testdata/test.tif")
 	vpa.datas["test.tif"] = mbufAdapter{tifdat}
-	err := RegisterVSIHandler("broken://", vpa, VSIHandlerBufferSize(0))
+	err := RegisterVSIHandler("broken://", vpa, VSIHandlerBufferSize(0), VSIHandlerStripPrefix(true))
 	assert.NoError(t, err)
 
 	vf, err := VSIOpen("broken://test.tif")
@@ -2790,14 +2790,14 @@ func TestVSIPlugin(t *testing.T) {
 	vpa := vpAdapter{datas: make(map[string]VSIReader)}
 	tifdat, _ := ioutil.ReadFile("testdata/test.tif")
 	vpa.datas["test.tif"] = mbufAdapter{tifdat}
-	err := RegisterVSIHandler("testmem://", vpa)
+	err := RegisterVSIHandler("testmem://", vpa, VSIHandlerStripPrefix(true))
 	assert.NoError(t, err)
-	err = RegisterVSIHandler("testmem://", vpa)
+	err = RegisterVSIHandler("testmem://", vpa, VSIHandlerStripPrefix(true))
 	assert.Error(t, err)
 	ehc := eh()
-	err = RegisterVSIHandler("testmem://", vpa, ErrLogger(ehc.ErrorHandler))
+	err = RegisterVSIHandler("testmem://", vpa, ErrLogger(ehc.ErrorHandler), VSIHandlerStripPrefix(true))
 	assert.Error(t, err)
-	err = RegisterVSIHandler("/vsimem/", vpa)
+	err = RegisterVSIHandler("/vsimem/", vpa, VSIHandlerStripPrefix(true))
 	assert.Error(t, err)
 
 	ds, err := Open("testmem://test.tif")
@@ -2824,7 +2824,7 @@ func TestVSIPluginEx(t *testing.T) {
 	vpa := vpAdapter{datas: make(map[string]VSIReader)}
 	tifdat, _ := ioutil.ReadFile("testdata/test.tif")
 	vpa.datas["test.tif"] = mbufAdapter{tifdat}
-	_ = RegisterVSIHandler("testmem2://", vpa, VSIHandlerBufferSize(10), VSIHandlerCacheSize(30))
+	_ = RegisterVSIHandler("testmem2://", vpa, VSIHandlerBufferSize(10), VSIHandlerCacheSize(30), VSIHandlerStripPrefix(true))
 
 	ds, err := Open("testmem2://test.tif")
 	if err != nil {
@@ -2850,7 +2850,7 @@ func TestVSIPluginNoMulti(t *testing.T) {
 	vpa := vpAdapter{datas: make(map[string]VSIReader)}
 	tifdat, _ := ioutil.ReadFile("testdata/test.tif")
 	vpa.datas["test.tif"] = bufAdapter(tifdat)
-	_ = RegisterVSIHandler("testmem3://", vpa, VSIHandlerBufferSize(10), VSIHandlerCacheSize(30))
+	_ = RegisterVSIHandler("testmem3://", vpa, VSIHandlerBufferSize(10), VSIHandlerCacheSize(30), VSIHandlerStripPrefix(true))
 
 	ds, err := Open("testmem3://test.tif")
 	if err != nil {
@@ -2906,7 +2906,7 @@ func TestVSIErrors(t *testing.T) {
 	vpa.datas["test2.tif"] = readErroringAdapter{bufAdapter(tifdat)}
 	vpa.datas["test3.tif"] = multireadErroringAdapter{bufAdapter(tifdat)}
 	vpa.datas["test4.tif"] = bodyreadErroringAdapter{bufAdapter(tifdat)}
-	_ = RegisterVSIHandler("testmem4://", vpa, VSIHandlerBufferSize(0), VSIHandlerCacheSize(0))
+	_ = RegisterVSIHandler("testmem4://", vpa, VSIHandlerBufferSize(0), VSIHandlerCacheSize(0), VSIHandlerStripPrefix(true))
 
 	_, err := Open("testmem4://test2.tif")
 	if err == nil {
@@ -2990,7 +2990,7 @@ func TestVSIGCS(t *testing.T) {
 		t.Error(err)
 	}
 	gcsa, _ := osio.NewAdapter(gcs)
-	err = RegisterVSIAdapter("gdalgs://", gcsa)
+	err = RegisterVSIAdapter("gdalgs://", gcsa, VSIHandlerStripPrefix(true))
 	if err != nil {
 		t.Error(err)
 	}
@@ -3027,7 +3027,7 @@ func TestVSIGCSNoAuth(t *testing.T) {
 	}
 	gcs, _ := osio.GCSHandle(ctx, osio.GCSClient(st))
 	gcsa, _ := osio.NewAdapter(gcs)
-	err = RegisterVSIAdapter("gdalgcs://", gcsa)
+	err = RegisterVSIAdapter("gdalgcs://", gcsa, VSIHandlerStripPrefix(true))
 	if err != nil {
 		t.Error(err)
 	}

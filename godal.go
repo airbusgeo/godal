@@ -2739,7 +2739,7 @@ func getGoGDALReader(ckey *C.char, errorString **C.char) VSIReader {
 	key := C.GoString(ckey)
 	for prefix, handler := range handlers {
 		if strings.HasPrefix(key, prefix) {
-			hndl, err := handler.VSIReader(key[len(prefix):])
+			hndl, err := handler.VSIReader(key)
 			if err != nil {
 				*errorString = C.CString(err.Error())
 				return nil
@@ -2759,6 +2759,15 @@ func (ga osioAdapterWrapper) VSIReader(key string) (VSIReader, error) {
 	return ga.Reader(key)
 }
 
+type stripPrefixWrapper struct {
+	VSIKeyReader
+	prefix string
+}
+
+func (sp stripPrefixWrapper) VSIReader(key string) (VSIReader, error) {
+	return sp.VSIKeyReader.VSIReader(key[len(sp.prefix):])
+}
+
 func RegisterVSIAdapter(prefix string, keyReader *osio.Adapter, opts ...VSIHandlerOption) error {
 	return RegisterVSIHandler(prefix, osioAdapterWrapper{keyReader}, opts...)
 }
@@ -2770,8 +2779,9 @@ func RegisterVSIAdapter(prefix string, keyReader *osio.Adapter, opts ...VSIHandl
 //  VSIKeyReader("myfile.txt").ReadAt(buf,offset)
 func RegisterVSIHandler(prefix string, keyReader VSIKeyReader, opts ...VSIHandlerOption) error {
 	opt := vsiHandlerOpts{
-		bufferSize: 64 * 1024,
-		cacheSize:  2 * 64 * 1024,
+		bufferSize:  64 * 1024,
+		cacheSize:   2 * 64 * 1024,
+		stripPrefix: false,
 	}
 	for _, o := range opts {
 		o.setVSIHandlerOpt(&opt)
@@ -2787,7 +2797,11 @@ func RegisterVSIHandler(prefix string, keyReader VSIKeyReader, opts ...VSIHandle
 	if err := cgc.close(); err != nil {
 		return err
 	}
-	handlers[prefix] = keyReader
+	if opt.stripPrefix {
+		handlers[prefix] = stripPrefixWrapper{keyReader, prefix}
+	} else {
+		handlers[prefix] = keyReader
+	}
 	return nil
 }
 

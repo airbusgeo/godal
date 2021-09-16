@@ -1118,6 +1118,7 @@ type BuildVRTOption interface {
 
 type vsiHandlerOpts struct {
 	bufferSize, cacheSize int
+	stripPrefix           bool
 	errorHandler          ErrorHandler
 }
 
@@ -1142,6 +1143,14 @@ func (b cacheSizeOpt) setVSIHandlerOpt(v *vsiHandlerOpts) {
 	v.cacheSize = b.b
 }
 
+type stripPrefixOpt struct {
+	v bool
+}
+
+func (sp stripPrefixOpt) setVSIHandlerOpt(v *vsiHandlerOpts) {
+	v.stripPrefix = sp.v
+}
+
 // VSIHandlerBufferSize sets the size of the gdal-native block size used for caching. Must be positive,
 // can be set to 0 to disable this behavior (not recommended).
 //
@@ -1154,4 +1163,10 @@ func VSIHandlerBufferSize(s int) VSIHandlerOption {
 // Defaults to 128Kb.
 func VSIHandlerCacheSize(s int) VSIHandlerOption {
 	return cacheSizeOpt{s}
+}
+
+// VSIHandlerStripPrefix allows to strip the prefix of the key when calling the underlying
+// VSIKeyReader.
+func VSIHandlerStripPrefix(v bool) VSIHandlerOption {
+	return stripPrefixOpt{v}
 }
