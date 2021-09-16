@@ -2787,14 +2787,15 @@ func (vp vpAdapter) VSIReader(k string) (VSIReader, error) {
 }
 
 func TestVSIPrefix(t *testing.T) {
-	vpa := vpAdapter{datas: make(map[string]VSIReader)}
 	tifdat, _ := ioutil.ReadFile("testdata/test.tif")
-	vpa.datas["testmem://test.tif"] = mbufAdapter{tifdat}
 
-	err := RegisterVSIHandler("testmem://", vpa, VSIHandlerStripPrefix(false))
+	// stripPrefix false
+	vpa := vpAdapter{datas: make(map[string]VSIReader)}
+	vpa.datas["prefix://test.tif"] = mbufAdapter{tifdat}
+	err := RegisterVSIHandler("prefix://", vpa, VSIHandlerStripPrefix(false))
 	assert.NoError(t, err)
 
-	ds, err := Open("testmem://test.tif")
+	ds, err := Open("prefix://test.tif")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2803,8 +2804,28 @@ func TestVSIPrefix(t *testing.T) {
 	if str.SizeX != 10 || str.SizeY != 10 {
 		t.Error("wrong structure")
 	}
+	_, err = Open("prefix://noent")
+	if err == nil {
+		t.Error("NoEnt not raised")
+	}
 
-	_, err = Open("testmem://noent")
+	// stripPrefix true
+	vpa = vpAdapter{datas: make(map[string]VSIReader)}
+	vpa.datas["test.tif"] = mbufAdapter{tifdat}
+
+	err = RegisterVSIHandler("noprefix://", vpa, VSIHandlerStripPrefix(true))
+	assert.NoError(t, err)
+
+	ds, err = Open("noprefix://test.tif")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ds.Close()
+	str = ds.Structure()
+	if str.SizeX != 10 || str.SizeY != 10 {
+		t.Error("wrong structure")
+	}
+	_, err = Open("noprefix://noent")
 	if err == nil {
 		t.Error("NoEnt not raised")
 	}
