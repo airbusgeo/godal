@@ -1224,19 +1224,19 @@ namespace cpl
             strchr(pszAccess, '+') != NULL)
         {
             CPLError(CE_Failure, CPLE_AppDefined, "Only read-only mode is supported");
-            return NULL;
+            return nullptr;
         }
         char *err = nullptr;
         long long s = _gogdalSizeCallback((char *)pszFilename, &err);
 
         if (s == -1)
         {
-            if (err != nullptr)
+            if (err != nullptr && bSetError)
             {
-                CPLError(CE_Failure, CPLE_AppDefined, "%s", err);
+                VSIError(VSIE_FileError, "%s", err);
             }
             errno = ENOENT;
-            return NULL;
+            return nullptr;
         }
         if (m_buffer == 0)
         {
