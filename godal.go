@@ -437,31 +437,37 @@ func cDoubleArray(in []float64) *C.double {
 	return (*C.double)(unsafe.Pointer(&ret[0]))
 }
 
-type cStringArray []*C.char
+type cStringArray struct {
+	arr **C.char
+	l   int
+}
 
 func (ca cStringArray) free() {
-	for _, str := range ca {
-		C.free(unsafe.Pointer(str))
+	if ca.l > 0 {
+		garr := (*[1 << 30]*C.char)(unsafe.Pointer(ca.arr))[0:ca.l:ca.l]
+		for i := 0; i < ca.l-1; i++ {
+			C.free(unsafe.Pointer(garr[i]))
+		}
+		C.free(unsafe.Pointer(ca.arr))
 	}
 }
 
 func (ca cStringArray) cPointer() **C.char {
-	if len(ca) <= 1 { //nil terminated, must be at least len==2 to be not empty
-		return nil
-	}
-	return (**C.char)(unsafe.Pointer(&ca[0]))
+	return ca.arr
 }
 
 func sliceToCStringArray(in []string) cStringArray {
 	if len(in) > 0 {
-		arr := make([]*C.char, len(in)+1)
+		csa := cStringArray{l: len(in) + 1}
+		csa.arr = (**C.char)(C.malloc(C.size_t(csa.l) * C.size_t(unsafe.Sizeof((*C.char)(nil)))))
+		garr := (*[1 << 30]*C.char)(unsafe.Pointer(csa.arr))[0:csa.l:csa.l]
 		for i := range in {
-			arr[i] = C.CString(in[i])
+			garr[i] = C.CString(in[i])
 		}
-		arr[len(in)] = nil
-		return arr
+		garr[len(in)] = nil
+		return csa
 	}
-	return nil
+	return cStringArray{}
 }
 
 func cStringArrayToSlice(in **C.char) []string {
