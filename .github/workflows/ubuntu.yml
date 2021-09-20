@@ -9,6 +9,8 @@ on:
 jobs:
   ubuntu2004:
     runs-on: ubuntu-20.04
+    env:
+      GODEBUG: cgocheck=2
     strategy:
       matrix:
         go: [ '1.16', '1.15' ]
@@ -52,6 +54,8 @@ jobs:
     runs-on: ubuntu-20.04
     name: golangci-lint
     if: github.event_name == 'pull_request'
+    env:
+      GODEBUG: cgocheck=2
     steps:
       - name: APT
         run: sudo apt-get update && sudo apt-get install gcc g++ libgeos-c1v5 libproj15 libsqlite3-0 pkgconf libjpeg-turbo8
@@ -84,6 +88,8 @@ jobs:
   test:
     needs: build_gdal
     runs-on: ubuntu-20.04
+    env:
+      GODEBUG: cgocheck=2
     strategy:
       matrix:
         go: [ '1.16', '1.15' ]

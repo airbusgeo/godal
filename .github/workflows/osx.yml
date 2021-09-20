@@ -10,6 +10,8 @@ jobs:
   osx:
     runs-on: macOS-latest
     name: macOS test
+    env:
+      GODEBUG: cgocheck=2
     steps:
       - name: install gdal
         run: brew install pkg-config gdal proj geos
