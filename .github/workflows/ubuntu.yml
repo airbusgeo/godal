@@ -92,7 +92,7 @@ jobs:
       GODEBUG: cgocheck=2
     strategy:
       matrix:
-        go: [ '1.16', '1.15' ]
+        go: [ '1.17', '1.16', '1.15' ]
         gdal: [ 'release/3.1', 'release/3.2', 'release/3.3', 'master' ]
     name: Go ${{ matrix.go }} + GDAL ${{ matrix.gdal }} test
     steps:
@@ -127,7 +127,7 @@ jobs:
         env:
           PKG_CONFIG_PATH: /optgdal/lib/pkgconfig/
       - name: Send coverage
-        if: ${{ matrix.go == '1.16' && matrix.gdal == 'master' }}
+        if: ${{ matrix.go == '1.17' && matrix.gdal == 'master' }}
         uses: shogo82148/actions-goveralls@v1
         with:
           path-to-profile: profile.cov
