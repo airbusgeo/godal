@@ -1238,7 +1238,7 @@ func TestOpenShared(t *testing.T) {
 	ds, _ := Open("testdata/test.tif", Shared())
 	vds, _ := ds.Translate("", []string{"-of", "VRT"})
 	_ = ds.Close()
-	data := make([]uint8, 100)
+	data := make([]uint8, 300)
 	err := vds.Read(0, 0, data, 10, 10) //this will segfault if ds is not opened with Shared()
 	assert.NoError(t, err)
 	_ = vds.Close()
