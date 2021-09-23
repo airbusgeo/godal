@@ -1699,8 +1699,8 @@ func TestDatasetWarp(t *testing.T) {
 	}
 }
 func TestDatasetWarpMulti(t *testing.T) {
-	ds1, _ := Create(Memory, "", 3, Byte, 5, 5)
-	ds2, _ := Create(Memory, "", 3, Byte, 5, 5)
+	ds1, _ := Create(Memory, "", 1, Byte, 5, 5)
+	ds2, _ := Create(Memory, "", 1, Byte, 5, 5)
 
 	sr, _ := NewSpatialRefFromEPSG(4326)
 	_ = ds1.SetSpatialRef(sr)
@@ -1736,13 +1736,17 @@ func TestDatasetWarpMulti(t *testing.T) {
 
 	// read total warp result
 	data := make([]uint8, 50)
-	err = outputDataset.Read(0, 0, data, outputDataset.Structure().SizeX, outputDataset.Structure().SizeY,
-		Bands(0, 1, 2),
-		Window(outputDataset.Structure().SizeX, outputDataset.Structure().SizeY),
-	)
+	err = outputDataset.Read(0, 0, data, outputDataset.Structure().SizeX, outputDataset.Structure().SizeY) //Bands(0, 1, 2),
+	//Window(outputDataset.Structure().SizeX, outputDataset.Structure().SizeY),
+
 	assert.NoError(t, err)
 
-	assert.Equal(t, []uint8{200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 100, 100, 100, 100, 100}, data)
+	assert.Equal(t, []uint8{
+		200, 200, 200, 200, 200, 100, 100, 100, 100, 100,
+		200, 200, 200, 200, 200, 100, 100, 100, 100, 100,
+		200, 200, 200, 200, 200, 100, 100, 100, 100, 100,
+		200, 200, 200, 200, 200, 100, 100, 100, 100, 100,
+		200, 200, 200, 200, 200, 100, 100, 100, 100, 100}, data)
 }
 func TestDatasetWarpInto(t *testing.T) {
 	outputDataset, _ := Create(Memory, "", 1, Byte, 5, 5)
@@ -3003,7 +3007,7 @@ func TestVSIGCS(t *testing.T) {
 	if ds.Structure().SizeX != 10 {
 		t.Errorf("xsize: %d", ds.Structure().SizeX)
 	}
-	data := make([]byte, 100)
+	data := make([]byte, 300)
 	err = ds.Read(0, 0, data, 10, 10)
 	if err != nil {
 		t.Error(err)
@@ -3040,7 +3044,7 @@ func TestVSIGCSNoAuth(t *testing.T) {
 	if ds.Structure().SizeX != 10 {
 		t.Errorf("xsize: %d", ds.Structure().SizeX)
 	}
-	data := make([]byte, 100)
+	data := make([]byte, 300)
 	err = ds.Read(0, 0, data, 10, 10)
 	if err != nil {
 		t.Error(err)
@@ -3130,7 +3134,7 @@ func TestConfigOptionsExtended(t *testing.T) {
 	err := dsm.WarpInto([]*Dataset{ds2}, nil, ErrLogger(dl.L), ConfigOption("CPL_DEBUG=ON"))
 	assert.NoError(t, err)
 	assert.Contains(t, dl.logs, "GOTESTDEBUG:") //contains something like "GDALWARP: Defining SKIP_NOSOURCE=YES,WARP: Copying metadata from first source to destination dataset,GDAL: Computing area of interest: 45, 25, 55, 35,OGRCT: Wrap source at 50.,GTiff: ScanDirectories(),GDAL: GDALDefaultOverviews::OverviewScan(),WARP: band=0 dstNoData=99.000000,WARP: band=1 dstNoData=99.000000,WARP: band=2 dstNoData=99.000000,GDAL: GDALWarpKernel()::GWKNearestByte() Src=0,0,10x10 Dst=0,0,10x10"
-	buf := make([]byte, 100)
+	buf := make([]byte, 3)
 
 	//force 0 pixel read to emit a dbug message
 	dl.reset()
