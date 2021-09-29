@@ -29,6 +29,7 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/airbusgeo/osio"
+	"github.com/airbusgeo/osio/gcs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/api/option"
@@ -3034,11 +3035,11 @@ func TestVSIGCS(t *testing.T) {
 	if err != nil {
 		t.Skipf("skip test on missing credentials: %v", err)
 	}
-	gcs, _ := osio.GCSHandle(ctx)
+	gcsh, err := gcs.Handle(ctx)
 	if err != nil {
 		t.Error(err)
 	}
-	gcsa, _ := osio.NewAdapter(gcs)
+	gcsa, _ := osio.NewAdapter(gcsh)
 	err = RegisterVSIAdapter("gdalgs://", gcsa, VSIHandlerStripPrefix(true))
 	if err != nil {
 		t.Error(err)
@@ -3074,8 +3075,8 @@ func TestVSIGCSNoAuth(t *testing.T) {
 	if err != nil {
 		t.Skipf("failed to create gcs client: %v", err)
 	}
-	gcs, _ := osio.GCSHandle(ctx, osio.GCSClient(st))
-	gcsa, _ := osio.NewAdapter(gcs)
+	gcsh, _ := gcs.Handle(ctx, gcs.GCSClient(st))
+	gcsa, _ := osio.NewAdapter(gcsh)
 	err = RegisterVSIAdapter("gdalgcs://", gcsa, VSIHandlerStripPrefix(true))
 	if err != nil {
 		t.Error(err)
