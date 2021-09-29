@@ -67,53 +67,63 @@ func tempfile() string {
 }
 
 func TestCBuffer(t *testing.T) {
-	bbuf := make([]byte, 100)
-	sz, dt, _ := cBuffer(bbuf)
-	if dt != Byte || sz != 1 {
-		t.Error("cbuf bug")
-	}
-	i16buf := make([]int16, 100)
-	sz, dt, _ = cBuffer(i16buf)
-	if dt != Int16 || sz != 2 {
-		t.Error("cbuf bug")
-	}
-	u16buf := make([]uint16, 100)
-	sz, dt, _ = cBuffer(u16buf)
-	if dt != UInt16 || sz != 2 {
-		t.Error("cbuf bug")
-	}
-	i32buf := make([]int32, 100)
-	sz, dt, _ = cBuffer(i32buf)
-	if dt != Int32 || sz != 4 {
-		t.Error("cbuf bug")
-	}
-	u32buf := make([]uint32, 100)
-	sz, dt, _ = cBuffer(u32buf)
-	if dt != UInt32 || sz != 4 {
-		t.Error("cbuf bug")
-	}
-	f32buf := make([]float32, 100)
-	sz, dt, _ = cBuffer(f32buf)
-	if dt != Float32 || sz != 4 {
-		t.Error("cbuf bug")
-	}
-	f64buf := make([]float64, 100)
-	sz, dt, _ = cBuffer(f64buf)
-	if dt != Float64 || sz != 8 {
-		t.Error("cbuf bug")
-	}
-	c64buf := make([]complex64, 100)
-	sz, dt, _ = cBuffer(c64buf)
-	if dt != CFloat32 || sz != 8 {
-		t.Error("cbuf bug")
-	}
-	c128buf := make([]complex128, 100)
-	sz, dt, _ = cBuffer(c128buf)
-	if dt != CFloat64 || sz != 16 {
-		t.Error("cbuf bug")
-	}
+	var buf interface{}
+	buf = make([]byte, 100)
+	_ = cBuffer(buf, 100)
+	assert.Equal(t, Byte, bufferType(buf))
+	assert.Equal(t, 1, bufferType(buf).Size())
+	assert.Panics(t, func() { cBuffer(buf, 101) })
 
-	assert.Panics(t, func() { cBuffer("stringtest") })
+	buf = make([]int16, 100)
+	_ = cBuffer(buf, 100)
+	assert.Equal(t, Int16, bufferType(buf))
+	assert.Equal(t, 2, bufferType(buf).Size())
+	assert.Panics(t, func() { cBuffer(buf, 101) })
+
+	buf = make([]uint16, 100)
+	_ = cBuffer(buf, 100)
+	assert.Equal(t, UInt16, bufferType(buf))
+	assert.Equal(t, 2, bufferType(buf).Size())
+	assert.Panics(t, func() { cBuffer(buf, 101) })
+
+	buf = make([]int32, 100)
+	_ = cBuffer(buf, 100)
+	assert.Equal(t, Int32, bufferType(buf))
+	assert.Equal(t, 4, bufferType(buf).Size())
+	assert.Panics(t, func() { cBuffer(buf, 101) })
+
+	buf = make([]uint32, 100)
+	_ = cBuffer(buf, 100)
+	assert.Equal(t, UInt32, bufferType(buf))
+	assert.Equal(t, 4, bufferType(buf).Size())
+	assert.Panics(t, func() { cBuffer(buf, 101) })
+
+	buf = make([]float32, 100)
+	_ = cBuffer(buf, 100)
+	assert.Equal(t, Float32, bufferType(buf))
+	assert.Equal(t, 4, bufferType(buf).Size())
+	assert.Panics(t, func() { cBuffer(buf, 101) })
+
+	buf = make([]float64, 100)
+	_ = cBuffer(buf, 100)
+	assert.Equal(t, Float64, bufferType(buf))
+	assert.Equal(t, 8, bufferType(buf).Size())
+	assert.Panics(t, func() { cBuffer(buf, 101) })
+
+	buf = make([]complex64, 100)
+	_ = cBuffer(buf, 100)
+	assert.Equal(t, CFloat32, bufferType(buf))
+	assert.Equal(t, 8, bufferType(buf).Size())
+	assert.Panics(t, func() { cBuffer(buf, 101) })
+
+	buf = make([]complex128, 100)
+	_ = cBuffer(buf, 100)
+	assert.Equal(t, CFloat64, bufferType(buf))
+	assert.Equal(t, 16, bufferType(buf).Size())
+	assert.Panics(t, func() { cBuffer(buf, 101) })
+
+	assert.Panics(t, func() { cBuffer("stringtest", 100) })
+	assert.Panics(t, func() { bufferType("stringtest") })
 }
 
 func TestColorTable(t *testing.T) {
@@ -772,7 +782,77 @@ func TestBandRead(t *testing.T) {
 }
 
 func TestStridedIO(t *testing.T) {
+	ds, _ := Create(Memory, "", 3, Byte, 2, 2)
+	defer func() {
+		_ = ds.Close()
+	}()
+	padData := []int32{
+		1, 2, 3, 4, 5, 6, 7, 8, 9,
+		10, 11, 12, 13, 14, 15, 16, 17, 18,
+	}
+	reset := func() {
+		for i := range padData {
+			padData[i] = 0
+		}
+	}
+	_ = ds.Write(0, 0, padData, 2, 2, LineStride(9))
+	reset()
+
+	_ = ds.Read(0, 0, padData, 2, 2, PixelStride(4))
+	assert.Equal(t, []int32{
+		1, 2, 3, 0, 4, 5, 6, 0,
+		10, 11, 12, 0, 13, 14, 15, 0,
+	}, padData[0:16])
+	reset()
+
+	_ = ds.Read(0, 0, padData, 2, 2, PixelStride(1), LineStride(2), BandStride(4))
+	assert.Equal(t, []int32{
+		1, 4, 10, 13, //b1
+		2, 5, 11, 14, //b2
+		3, 6, 12, 15, //b3
+	}, padData[0:12])
+	reset()
+
+	assert.Panics(t, func() {
+		_ = ds.Read(0, 0, padData[0:12], 2, 2, PixelStride(1), LineStride(2), BandStride(5))
+	})
+	assert.Panics(t, func() {
+		_ = ds.Read(0, 0, padData[0:12], 2, 2, PixelStride(1), LineStride(3), BandStride(4))
+	})
+	assert.Panics(t, func() {
+		_ = ds.Read(0, 0, padData[0:12], 2, 2, PixelStride(2), LineStride(2), BandStride(4))
+	})
+
+	padData = padData[0:8] //single band tests
+	bnd := ds.Bands()[0]
+	_ = bnd.Read(0, 0, padData, 2, 2, PixelStride(2))
+	assert.Equal(t, []int32{
+		1, 0, 4, 0,
+		10, 0, 13, 0,
+	}, padData)
+	reset()
+
+	_ = bnd.Read(0, 0, padData, 2, 2, PixelStride(2), LineStride(3))
+	assert.Equal(t, []int32{
+		1, 0, 4,
+		10, 0, 13,
+		0, 0, //overflow
+	}, padData)
+	reset()
+
+	assert.Panics(t, func() {
+		_ = bnd.Read(0, 0, padData[0:4], 2, 2, PixelStride(1), LineStride(3))
+	})
+	assert.Panics(t, func() {
+		_ = bnd.Read(0, 0, padData[0:4], 2, 2, PixelStride(2), LineStride(2))
+	})
+
+}
+func TestSpacedIO(t *testing.T) {
 	ds, _ := Create(Memory, "", 3, Byte, 8, 8)
+	defer func() {
+		_ = ds.Close()
+	}()
 	padData := make([]byte, 8*16*3)
 	for i := 0; i < 16; i++ {
 		for j := 0; j < 8; j++ {

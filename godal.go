@@ -222,6 +222,7 @@ func (band Band) SetColorInterp(colorInterp ColorInterp, opts ...SetColorInterpO
 }
 
 //MaskFlags returns the mask flags associated with this band.
+//
 //See https://gdal.org/development/rfc/rfc15_nodatabitmask.html for how this flag
 //should be interpreted
 func (band Band) MaskFlags() int {
@@ -235,6 +236,7 @@ func (band Band) MaskBand() Band {
 }
 
 //CreateMask creates a mask (nodata) band for this band.
+//
 //Any handle returned by a previous call to MaskBand() should not be used after a call to CreateMask
 //See https://gdal.org/development/rfc/rfc15_nodatabitmask.html for how flag should be used
 func (band Band) CreateMask(flags int, opts ...BandCreateMaskOption) (Band, error) {
@@ -283,15 +285,26 @@ func (band Band) IO(rw IOOperation, srcX, srcY int, buffer interface{}, bufWidth
 	if ro.dsWidth == 0 {
 		ro.dsWidth = bufWidth
 	}
-	dsize, dtype, cBuf := cBuffer(buffer)
-	pixelSpacing := C.int(dsize)
+	dtype := bufferType(buffer)
+	dsize := dtype.Size()
+
+	pixelSpacing := dsize
 	if ro.pixelSpacing > 0 {
-		pixelSpacing = C.int(ro.pixelSpacing)
+		pixelSpacing = ro.pixelSpacing
 	}
-	lineSpacing := C.int(bufWidth) * pixelSpacing
+	if ro.pixelStride > 0 {
+		pixelSpacing = ro.pixelStride * dsize
+	}
+	lineSpacing := bufWidth * pixelSpacing
 	if ro.lineSpacing > 0 {
-		lineSpacing = C.int(ro.lineSpacing)
+		lineSpacing = ro.lineSpacing
 	}
+	if ro.lineStride > 0 {
+		lineSpacing = ro.lineStride * dsize
+	}
+
+	minsize := (lineSpacing*(bufHeight-1) + (bufWidth-1)*pixelSpacing + dsize) / dsize
+	cBuf := cBuffer(buffer, minsize)
 	//fmt.Fprintf(os.Stderr, "%v %d %d %d\n", ro.bands, pixelSpacing, lineSpacing, bandSpacing)
 	ralg, err := ro.resampling.rioAlg()
 	if err != nil {
@@ -302,7 +315,7 @@ func (band Band) IO(rw IOOperation, srcX, srcY int, buffer interface{}, bufWidth
 		C.int(srcX), C.int(srcY), C.int(ro.dsWidth), C.int(ro.dsHeight),
 		cBuf,
 		C.int(bufWidth), C.int(bufHeight), C.GDALDataType(dtype),
-		pixelSpacing, lineSpacing, ralg)
+		C.int(pixelSpacing), C.int(lineSpacing), ralg)
 	return cgc.close()
 }
 
@@ -618,6 +631,7 @@ func (ds *Dataset) Bounds(opts ...BoundsOption) ([4]float64, error) {
 }
 
 //CreateMaskBand creates a mask (nodata) band shared for all bands of this dataset.
+//
 //Any handle returned by a previous call to Band.MaskBand() should not be used after a call to CreateMaskBand
 //See https://gdal.org/development/rfc/rfc15_nodatabitmask.html for how flag should be used
 func (ds *Dataset) CreateMaskBand(flags int, opts ...DatasetCreateMaskOption) (Band, error) {
@@ -662,6 +676,7 @@ func (ds *Dataset) SpatialRef() *SpatialRef {
 }
 
 // SetSpatialRef sets dataset's projection.
+//
 // sr can be set to nil to clear an existing projection
 func (ds *Dataset) SetSpatialRef(sr *SpatialRef, opts ...SetSpatialRefOption) error {
 	sro := &setSpatialRefOpts{}
@@ -982,24 +997,41 @@ func (ds *Dataset) IO(rw IOOperation, srcX, srcY int, buffer interface{}, bufWid
 			ro.bands = append(ro.bands, i+1)
 		}
 	}
-	dsize, dtype, cBuf := cBuffer(buffer)
-	pixelSpacing := C.int(dsize * len(ro.bands))
-	lineSpacing := C.int(bufWidth * dsize * len(ro.bands))
-	bandSpacing := C.int(dsize)
-	if ro.bandInterleave {
-		pixelSpacing = C.int(dsize)
-		lineSpacing = C.int(bufWidth * dsize)
-		bandSpacing = C.int(bufHeight * bufWidth * dsize)
-	}
+	dtype := bufferType(buffer)
+	dsize := dtype.Size()
+
+	pixelSpacing := dsize * len(ro.bands)
 	if ro.pixelSpacing > 0 {
-		pixelSpacing = C.int(ro.pixelSpacing)
+		pixelSpacing = ro.pixelSpacing
 	}
-	if ro.bandSpacing > 0 {
-		bandSpacing = C.int(ro.bandSpacing)
+	if ro.pixelStride > 0 {
+		pixelSpacing = ro.pixelStride * dsize
 	}
+
+	lineSpacing := bufWidth * pixelSpacing
 	if ro.lineSpacing > 0 {
-		lineSpacing = C.int(ro.lineSpacing)
+		lineSpacing = ro.lineSpacing
 	}
+	if ro.lineStride > 0 {
+		lineSpacing = ro.lineStride * dsize
+	}
+
+	bandSpacing := dsize
+	if ro.bandSpacing > 0 {
+		bandSpacing = ro.bandSpacing
+	}
+	if ro.bandStride > 0 {
+		bandSpacing = ro.bandStride * dsize
+	}
+
+	if ro.bandInterleave {
+		pixelSpacing = dsize
+		lineSpacing = bufWidth * dsize
+		bandSpacing = bufHeight * bufWidth * dsize
+	}
+
+	minsize := ((len(ro.bands)-1)*bandSpacing + (bufHeight-1)*lineSpacing + (bufWidth-1)*pixelSpacing + dsize) / dsize
+	cBuf := cBuffer(buffer, minsize)
 
 	ralg, err := ro.resampling.rioAlg()
 	if err != nil {
@@ -1011,7 +1043,7 @@ func (ds *Dataset) IO(rw IOOperation, srcX, srcY int, buffer interface{}, bufWid
 		cBuf,
 		C.int(bufWidth), C.int(bufHeight), C.GDALDataType(dtype),
 		C.int(len(ro.bands)), cIntArray(ro.bands),
-		pixelSpacing, lineSpacing, bandSpacing, ralg)
+		C.int(pixelSpacing), C.int(lineSpacing), C.int(bandSpacing), ralg)
 	return cgc.close()
 }
 
@@ -1019,9 +1051,9 @@ func (ds *Dataset) IO(rw IOOperation, srcX, srcY int, buffer interface{}, bufWid
 // drivers.
 //
 // Alternatively, you may also register a select number of drivers by calling one or more of
-//  godal.RegisterInternal() // MEM, VRT, GTiff and GeoJSON
-//  godal.RegisterRaster(godal.GTiff,godal.VRT)
-//  godal.RegisterVector(godal.Shapefile)
+//  - godal.RegisterInternal() // MEM, VRT, GTiff and GeoJSON
+//  - godal.RegisterRaster(godal.GTiff,godal.VRT)
+//  - godal.RegisterVector(godal.Shapefile)
 func RegisterAll() {
 	C.GDALAllRegister()
 }
@@ -1251,6 +1283,7 @@ func (ds *Dataset) handle() C.GDALDatasetH {
 
 //Open calls GDALOpenEx() with the provided options. It returns nil and an error
 //in case there was an error opening the provided dataset name.
+//
 //name may be a filename or any supported string supported by gdal (e.g. a /vsixxx path,
 //the xml string representing a vrt dataset, etc...)
 func Open(name string, options ...OpenOption) (*Dataset, error) {
@@ -1472,44 +1505,70 @@ func (ra ResamplingAlg) rioAlg() (C.GDALRIOResampleAlg, error) {
 	}
 }
 
-//cBuffer returns the byte size of an individual element, and a pointer to the
-//underlying memory array
-func cBuffer(buffer interface{}) (int, DataType, unsafe.Pointer) {
-	var dtype DataType
-	var cBuf unsafe.Pointer
-	switch buf := buffer.(type) {
+func bufferType(buffer interface{}) DataType {
+	switch buffer.(type) {
 	case []byte:
-		dtype = Byte
-		cBuf = unsafe.Pointer(&buf[0])
+		return Byte
 	case []int16:
-		dtype = Int16
-		cBuf = unsafe.Pointer(&buf[0])
+		return Int16
 	case []uint16:
-		dtype = UInt16
-		cBuf = unsafe.Pointer(&buf[0])
+		return UInt16
 	case []int32:
-		dtype = Int32
-		cBuf = unsafe.Pointer(&buf[0])
+		return Int32
 	case []uint32:
-		dtype = UInt32
-		cBuf = unsafe.Pointer(&buf[0])
+		return UInt32
 	case []float32:
-		dtype = Float32
-		cBuf = unsafe.Pointer(&buf[0])
+		return Float32
 	case []float64:
-		dtype = Float64
-		cBuf = unsafe.Pointer(&buf[0])
+		return Float64
 	case []complex64:
-		dtype = CFloat32
-		cBuf = unsafe.Pointer(&buf[0])
+		return CFloat32
 	case []complex128:
-		dtype = CFloat64
-		cBuf = unsafe.Pointer(&buf[0])
+		return CFloat64
 	default:
 		panic("unsupported type")
 	}
-	dsize := dtype.Size()
-	return dsize, dtype, cBuf
+}
+
+//cBuffer returns the type of an individual element, and a pointer to the
+//underlying memory array
+func cBuffer(buffer interface{}, minsize int) unsafe.Pointer {
+	sizecheck := func(size int) {
+		if size < minsize {
+			panic(fmt.Sprintf("buffer len=%d less than min=%d", size, minsize))
+		}
+	}
+	switch buf := buffer.(type) {
+	case []byte:
+		sizecheck(len(buf))
+		return unsafe.Pointer(&buf[0])
+	case []int16:
+		sizecheck(len(buf))
+		return unsafe.Pointer(&buf[0])
+	case []uint16:
+		sizecheck(len(buf))
+		return unsafe.Pointer(&buf[0])
+	case []int32:
+		sizecheck(len(buf))
+		return unsafe.Pointer(&buf[0])
+	case []uint32:
+		sizecheck(len(buf))
+		return unsafe.Pointer(&buf[0])
+	case []float32:
+		sizecheck(len(buf))
+		return unsafe.Pointer(&buf[0])
+	case []float64:
+		sizecheck(len(buf))
+		return unsafe.Pointer(&buf[0])
+	case []complex64:
+		sizecheck(len(buf))
+		return unsafe.Pointer(&buf[0])
+	case []complex128:
+		sizecheck(len(buf))
+		return unsafe.Pointer(&buf[0])
+	default:
+		panic("unsupported type")
+	}
 }
 
 func (mo majorObject) Metadata(key string, opts ...MetadataOption) string {
@@ -1897,13 +1956,10 @@ func (ds *Dataset) Rasterize(dstDS string, switches []string, opts ...RasterizeO
 // RasterizeGeometry "burns" the provided geometry onto ds.
 // By default, the "0" value is burned into all of ds's bands. This behavior can be modified
 // with the following options:
-//
-// • Bands(bnd ...int) the list of bands to affect
-//
-// • Values(val ...float64) the pixel value to burn. There must be either 1 or len(bands) values
+//  - Bands(bnd ...int) the list of bands to affect
+//  - Values(val ...float64) the pixel value to burn. There must be either 1 or len(bands) values
 // provided
-//
-// • AllTouched() pixels touched by lines or polygons will be updated, not just those on the line
+//  - AllTouched() pixels touched by lines or polygons will be updated, not just those on the line
 // render path, or whose center point is within the polygon.
 //
 func (ds *Dataset) RasterizeGeometry(g *Geometry, opts ...RasterizeGeometryOption) error {
@@ -2399,8 +2455,7 @@ func (layer Layer) DeleteFeature(feat *Feature, opts ...DeleteFeatureOption) err
 // CreateLayer creates a new vector layer
 //
 // Available CreateLayerOptions are
-//
-// • FieldDefinition (may be used multiple times) to add attribute fields to the layer
+//  - FieldDefinition (may be used multiple times) to add attribute fields to the layer
 func (ds *Dataset) CreateLayer(name string, sr *SpatialRef, gtype GeometryType, opts ...CreateLayerOption) (Layer, error) {
 	co := createLayerOpts{}
 	for _, opt := range opts {
@@ -2542,8 +2597,7 @@ func (g *Geometry) Transform(trn *Transform, opts ...GeometryTransformOption) er
 // projection per RFCxxx
 //
 // Available GeoJSONOptions are
-//
-// • SignificantDigits(n int) to keep n significant digits after the decimal separator (default: 8)
+//  - SignificantDigits(n int) to keep n significant digits after the decimal separator (default: 8)
 func (g *Geometry) GeoJSON(opts ...GeoJSONOption) (string, error) {
 	gjo := geojsonOpts{
 		precision: 7,

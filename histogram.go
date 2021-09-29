@@ -52,16 +52,12 @@ type histogramOpts struct {
 // HistogramOption is an option that can be passed to Band.Histogram()
 //
 // Available HistogramOptions are:
-//
-// • Approximate() to allow the algorithm to operate on a subset of the full resolution data
-//
-// • Intervals(count int, min,max float64) to compute a histogram with count buckets, spanning [min,max].
+//  - Approximate() to allow the algorithm to operate on a subset of the full resolution data
+//  - Intervals(count int, min,max float64) to compute a histogram with count buckets, spanning [min,max].
 //   Each bucket will be (max-min)/count wide. If not provided, the default histogram will be returned.
-//
-// • IncludeOutOfRange() to populate the first and last bucket with values under/over the specified min/max
+//  - IncludeOutOfRange() to populate the first and last bucket with values under/over the specified min/max
 //   when used in conjuntion with Intervals()
-//
-// • ErrLogger
+//  - ErrLogger
 type HistogramOption interface {
 	setHistogramOpt(ho *histogramOpts)
 }
