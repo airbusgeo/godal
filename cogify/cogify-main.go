@@ -11,6 +11,7 @@ import (
 	"github.com/airbusgeo/cogger"
 	"github.com/airbusgeo/godal"
 	"github.com/airbusgeo/osio"
+	"github.com/airbusgeo/osio/gcs"
 	"github.com/spf13/cobra"
 )
 
@@ -70,7 +71,7 @@ var cogCommand = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf("failed to create gcs storage client: %w", err)
 			}
-			gs, err := osio.GCSHandle(ctx, osio.GCSClient(stcl))
+			gs, err := gcs.Handle(ctx, gcs.GCSClient(stcl))
 			if err != nil {
 				return fmt.Errorf("osio.gcshandle: %w", err)
 			}

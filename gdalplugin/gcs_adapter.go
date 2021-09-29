@@ -11,6 +11,7 @@ import (
 
 	"github.com/airbusgeo/godal"
 	"github.com/airbusgeo/osio"
+	"github.com/airbusgeo/osio/gcs"
 )
 
 var ctx context.Context
@@ -55,12 +56,12 @@ func GDALRegister_gcs() {
 	if nb := numBlocks(); nb > 0 {
 		opts = append(opts, osio.NumCachedBlocks(nb))
 	}
-	gcs, err := osio.GCSHandle(ctx)
+	gcsh, err := gcs.Handle(ctx)
 	if err != nil {
 		log.Printf("osio.gcshandle() failed: %v", err)
 		return
 	}
-	gcsa, err := osio.NewAdapter(gcs, opts...)
+	gcsa, err := osio.NewAdapter(gcsh, opts...)
 	if err != nil {
 		log.Printf("osio.newadapter() failed: %v", err)
 		return
