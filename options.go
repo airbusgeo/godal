@@ -19,8 +19,7 @@ import "sort"
 //GetGeoTransformOption is an option that can be passed to Dataset.GeoTransform()
 //
 // Available GetGeoTransformOptions are:
-//
-// • ErrLogger
+//  - ErrLogger
 type GetGeoTransformOption interface {
 	setGetGeoTransformOpt(ndo *getGeoTransformOpts)
 }
@@ -31,8 +30,7 @@ type getGeoTransformOpts struct {
 //SetGeoTransformOption is an option that can be passed to Dataset.SetGeoTransform()
 //
 // Available SetGeoTransformOptions are:
-//
-// • ErrLogger
+//  - ErrLogger
 type SetGeoTransformOption interface {
 	setSetGeoTransformOpt(ndo *setGeoTransformOpts)
 }
@@ -43,8 +41,7 @@ type setGeoTransformOpts struct {
 //SetProjectionOption is an option that can be passed to Dataset.SetProjection
 //
 // Available SetProjection are:
-//
-// • ErrLogger
+//  - ErrLogger
 type SetProjectionOption interface {
 	setSetProjectionOpt(ndo *setProjectionOpts)
 }
@@ -55,8 +52,7 @@ type setProjectionOpts struct {
 //SetSpatialRefOption is an option that can be passed to Dataset.SetSpatialRef
 //
 // Available SetProjection are:
-//
-// • ErrLogger
+//  - ErrLogger
 type SetSpatialRefOption interface {
 	setSetSpatialRefOpt(ndo *setSpatialRefOpts)
 }
@@ -68,8 +64,7 @@ type setSpatialRefOpts struct {
 //Band.ClearNodata(), Dataset.SetNodata()
 //
 // Available SetNoDataOptions are:
-//
-// • ErrLogger
+//  - ErrLogger
 type SetNoDataOption interface {
 	setSetNoDataOpt(ndo *setNodataOpts)
 }
@@ -80,8 +75,7 @@ type setNodataOpts struct {
 //SetColorInterpOption is an option that can be passed to Band.SetColorInterpretation()
 //
 // Available SetColorInterpOption are:
-//
-// • ErrLogger
+//  - ErrLogger
 type SetColorInterpOption interface {
 	setSetColorInterpOpt(ndo *setColorInterpOpts)
 }
@@ -92,8 +86,7 @@ type setColorInterpOpts struct {
 //SetColorTableOption is an option that can be passed to Band.SetColorTable()
 //
 // Available SetColorTableOption are:
-//
-// • ErrLogger
+//  - ErrLogger
 type SetColorTableOption interface {
 	setSetColorTableOpt(ndo *setColorTableOpts)
 }
@@ -116,10 +109,8 @@ type bandCreateMaskOpts struct {
 // BandCreateMaskOption is an option that can be passed to Band.CreateMask()
 //
 // Available BandCreateMaskOptions are:
-//
-// • ConfigOption
-//
-// • ErrLogger
+//  - ConfigOption
+//  - ErrLogger
 type BandCreateMaskOption interface {
 	setBandCreateMaskOpt(dcm *bandCreateMaskOpts)
 }
@@ -129,24 +120,20 @@ type bandIOOpts struct {
 	dsWidth, dsHeight         int
 	resampling                ResamplingAlg
 	pixelSpacing, lineSpacing int
+	pixelStride, lineStride   int
 	errorHandler              ErrorHandler
 }
 
 // BandIOOption is an option to modify the default behavior of band.IO
 //
 // Available BandIOOptions are:
-//
-// • Stride
-//
-// • Window
-//
-// • Resampling
-//
-// • ConfigOption
-//
-// • PixelSpacing
-//
-// • LineSpacing
+//  - PixelStride
+//  - LineStride
+//  - Window
+//  - Resampling
+//  - ConfigOption
+//  - PixelSpacing
+//  - LineSpacing
 type BandIOOption interface {
 	setBandIOOpt(ro *bandIOOpts)
 }
@@ -162,14 +149,11 @@ type fillnodataOpts struct {
 // FillNoDataOption is an option that can be passed to band.FillNoData
 //
 // Available FillNoDataOptions are:
-//
-// • MaxDistance(int): The maximum distance (in pixels) that the algorithm will
-// search out for values to interpolate. The default is 100 pixels.
-//
-// • SmoothIterations(int): The number of 3x3 average filter smoothing iterations
-// to run after the interpolation to dampen artifacts. The default is zero smoothing iterations.
-//
-// • Mask(band) to use given band as nodata mask. The default uses the internal nodata mask
+//  - MaxDistance(int): The maximum distance (in pixels) that the algorithm will
+//    search out for values to interpolate. The default is 100 pixels.
+//  - SmoothIterations(int): The number of 3x3 average filter smoothing iterations
+//    to run after the interpolation to dampen artifacts. The default is zero smoothing iterations.
+//  - Mask(band) to use given band as nodata mask. The default uses the internal nodata mask
 type FillNoDataOption interface {
 	setFillnodataOpt(ro *fillnodataOpts)
 }
@@ -184,14 +168,10 @@ type sieveFilterOpts struct {
 // SieveFilterOption is an option to modify the behavior of Band.SieveFilter
 //
 // Available SieveFilterOptions are:
-//
-// • EightConnected() to enable 8-connectivity. Leave out completely for 4-connectivity (default)
-//
-// • Mask(band) to use given band as nodata mask instead of the internal nodata mask
-//
-// • NoMask() to ignore the the source band's nodata value or mask band
-//
-// • Destination(band) where to output the sieved band, instead of updating in-place
+//  - EightConnected() to enable 8-connectivity. Leave out completely for 4-connectivity (default)
+//  - Mask(band) to use given band as nodata mask instead of the internal nodata mask
+//  - NoMask() to ignore the the source band's nodata value or mask band
+//  - Destination(band) where to output the sieved band, instead of updating in-place
 type SieveFilterOption interface {
 	setSieveFilterOpt(sfo *sieveFilterOpts)
 }
@@ -206,13 +186,10 @@ type polygonizeOpts struct {
 // PolygonizeOption is an option to modify the default behavior of band.Polygonize
 //
 // Available PolygonizeOptions are:
-//
-// • EightConnected() to enable 8-connectivity. Leave out completely for 4-connectivity (default)
-//
-// • PixelValueFieldIndex(fieldidx) to populate the fieldidx'th field of the output
-// dataset with the polygon's pixel value
-//
-// • Mask(band) to use given band as nodata mask instead of the internal nodata mask
+//  - EightConnected() to enable 8-connectivity. Leave out completely for 4-connectivity (default)
+//  - PixelValueFieldIndex(fieldidx) to populate the fieldidx'th field of the output
+//    dataset with the polygon's pixel value
+//  - Mask(band) to use given band as nodata mask instead of the internal nodata mask
 type PolygonizeOption interface {
 	setPolygonizeOpt(ro *polygonizeOpts)
 }
@@ -225,8 +202,7 @@ type dsCreateMaskOpts struct {
 // DatasetCreateMaskOption is an option that can be passed to Dataset.CreateMaskBand()
 //
 // Available DatasetCreateMaskOptions are:
-//
-// • ConfigOption
+//  - ConfigOption
 type DatasetCreateMaskOption interface {
 	setDatasetCreateMaskOpt(dcm *dsCreateMaskOpts)
 }
@@ -241,12 +217,9 @@ type dsTranslateOpts struct {
 // DatasetTranslateOption is an option that can be passed to Dataset.Translate()
 //
 // Available DatasetTranslateOptions are:
-//
-// • ConfigOption
-//
-// • CreationOption
-//
-// • DriverName
+//  - ConfigOption
+//  - CreationOption
+//  - DriverName
 type DatasetTranslateOption interface {
 	setDatasetTranslateOpt(dto *dsTranslateOpts)
 }
@@ -261,12 +234,9 @@ type dsWarpOpts struct {
 // DatasetWarpOption is an option that can be passed to Dataset.Warp()
 //
 // Available DatasetWarpOptions are:
-//
-// • ConfigOption
-//
-// • CreationOption
-//
-// • DriverName
+//  - ConfigOption
+//  - CreationOption
+//  - DriverName
 type DatasetWarpOption interface {
 	setDatasetWarpOpt(dwo *dsWarpOpts)
 }
@@ -274,9 +244,7 @@ type DatasetWarpOption interface {
 // DatasetWarpIntoOption is an option that can be passed to Dataset.WarpInto()
 //
 // Available DatasetWarpIntoOption is:
-//
-// • ConfigOption
-//
+//  - ConfigOption
 type DatasetWarpIntoOption interface {
 	setDatasetWarpIntoOpt(dwo *dsWarpIntoOpts)
 }
@@ -298,16 +266,11 @@ type buildOvrOpts struct {
 // BuildOverviewsOption is an option to specify how overview building should behave.
 //
 // Available BuildOverviewsOptions are:
-//
-// • ConfigOption
-//
-// • Resampling
-//
-// • Levels
-//
-// • MinSize
-//
-// • Bands
+//  - ConfigOption
+//  - Resampling
+//  - Levels
+//  - MinSize
+//  - Bands
 type BuildOverviewsOption interface {
 	setBuildOverviewsOpt(bo *buildOvrOpts)
 }
@@ -325,30 +288,24 @@ type datasetIOOpts struct {
 	resampling                             ResamplingAlg
 	bandInterleave                         bool //return r1r2...rn,g1g2...gn,b1b2...bn instead of r1g1b1,r2g2b2,...,rngnbn
 	bandSpacing, pixelSpacing, lineSpacing int
+	bandStride, pixelStride, lineStride    int
 	errorHandler                           ErrorHandler
 }
 
 // DatasetIOOption is an option to modify the default behavior of dataset.IO
 //
 // Available DatasetIOOptions are:
-//
-// • Stride
-//
-// • Window
-//
-// • Resampling
-//
-// • ConfigOption
-//
-// • Bands
-//
-// • BandInterleaved
-//
-// • PixelSpacing
-//
-// • LineSpacing
-//
-// • BandSpacing
+//  - PixelStride
+//  - LineStride
+//  - BandStride
+//  - Window
+//  - Resampling
+//  - ConfigOption
+//  - Bands
+//  - BandInterleaved
+//  - PixelSpacing
+//  - LineSpacing
+//  - BandSpacing
 type DatasetIOOption interface {
 	setDatasetIOOpt(ro *datasetIOOpts)
 }
@@ -362,12 +319,9 @@ type dsCreateOpts struct {
 // DatasetCreateOption is an option that can be passed to Create()
 //
 // Available DatasetCreateOptions are:
-//
-// • CreationOption
-//
-// • ConfigOption
-//
-// • ErrLogger
+//  - CreationOption
+//  - ConfigOption
+//  - ErrLogger
 type DatasetCreateOption interface {
 	setDatasetCreateOpt(dc *dsCreateOpts)
 }
@@ -384,22 +338,14 @@ type openOpts struct {
 //OpenOption is an option passed to Open()
 //
 // Available OpenOptions are:
-//
-// • Drivers
-//
-// • SiblingFiles
-//
-// • Shared
-//
-// • ConfigOption
-//
-// • Update
-//
-// • DriverOpenOption
-//
-// • RasterOnly
-//
-// • VectorOnly
+//  - Drivers
+//  - SiblingFiles
+//  - Shared
+//  - ConfigOption
+//  - Update
+//  - DriverOpenOption
+//  - RasterOnly
+//  - VectorOnly
 type OpenOption interface {
 	setOpenOpt(oo *openOpts)
 }
@@ -506,14 +452,11 @@ type siblingFilesOpt struct {
 //the main dataset)
 //
 // SiblingFiles may be used in 3 different manners:
-//
-// • By default, i.e. by not using the option, godal will consider that there are no sibling files
-// at all and will prevent any scanning or probing of specific sibling files by passing a list of
-// sibling files to gdal containing only the main file
-//
-// • By passing a list of files, only those files will be probed
-//
-// • By passing SiblingFiles() (i.e. with an empty list of files), the default gdal behavior of
+//  - By default, i.e. by not using the option, godal will consider that there are no sibling files
+//    at all and will prevent any scanning or probing of specific sibling files by passing a list of
+//    sibling files to gdal containing only the main file
+//  - By passing a list of files, only those files will be probed
+//  - By passing SiblingFiles() (i.e. with an empty list of files), the default gdal behavior of
 // reading the directory content and/or probing for well-known sidecar filenames will be used.
 func SiblingFiles(files ...string) interface {
 	OpenOption
@@ -538,8 +481,7 @@ type domainOpt struct {
 
 // MetadataOption is an option that can be passed to metadata related calls
 // Available MetadataOptions are:
-//
-// • Domain
+//  - Domain
 type MetadataOption interface {
 	setMetadataOpt(mo *metadataOpts)
 }
@@ -598,7 +540,31 @@ type pixelSpacingOpt struct {
 type lineSpacingOpt struct {
 	sp int
 }
+type bandStrideOpt struct {
+	sp int
+}
+type pixelStrideOpt struct {
+	sp int
+}
+type lineStrideOpt struct {
+	sp int
+}
 
+func (so bandStrideOpt) setDatasetIOOpt(ro *datasetIOOpts) {
+	ro.bandStride = so.sp
+}
+func (so pixelStrideOpt) setDatasetIOOpt(ro *datasetIOOpts) {
+	ro.pixelStride = so.sp
+}
+func (so lineStrideOpt) setDatasetIOOpt(ro *datasetIOOpts) {
+	ro.lineStride = so.sp
+}
+func (so lineStrideOpt) setBandIOOpt(bo *bandIOOpts) {
+	bo.lineStride = so.sp
+}
+func (so pixelStrideOpt) setBandIOOpt(bo *bandIOOpts) {
+	bo.pixelStride = so.sp
+}
 func (so bandSpacingOpt) setDatasetIOOpt(ro *datasetIOOpts) {
 	ro.bandSpacing = so.sp
 }
@@ -617,6 +583,9 @@ func (so pixelSpacingOpt) setBandIOOpt(bo *bandIOOpts) {
 
 // BandSpacing sets the number of bytes from one pixel to the next band of the same pixel. If not
 // provided, it will be calculated from the pixel type
+//
+// Warning: BandSpacing expects a stride given in *bytes*. Use BandStride to supply a stride compatible
+// with indexes of the buffer slice
 func BandSpacing(stride int) interface {
 	DatasetIOOption
 } {
@@ -625,6 +594,9 @@ func BandSpacing(stride int) interface {
 
 // PixelSpacing sets the number of bytes from one pixel to the next pixel in the same row. If not
 // provided, it will be calculated from the number of bands and pixel type
+//
+// Warning: PixelSpacing expects a stride given in *bytes*. Use PixelStride to supply a stride compatible
+// with indexes of the buffer slice
 func PixelSpacing(stride int) interface {
 	DatasetIOOption
 	BandIOOption
@@ -634,11 +606,40 @@ func PixelSpacing(stride int) interface {
 
 // LineSpacing sets the number of bytes from one pixel to the pixel of the same band one row below. If not
 // provided, it will be calculated from the number of bands, pixel type and image width
+//
+// Warning: LineSpacing expects a stride given in *bytes*. Use LineStride to supply a stride compatible
+// with indexes of the buffer slice
 func LineSpacing(stride int) interface {
 	DatasetIOOption
 	BandIOOption
 } {
 	return lineSpacingOpt{stride}
+}
+
+// BandStride sets the offset in the provided buffer from one pixel to the next band of the same pixel. If not
+// provided, it will be calculated from the pixel type
+func BandStride(stride int) interface {
+	DatasetIOOption
+} {
+	return bandStrideOpt{stride}
+}
+
+// PixelStride sets the offset in the provided buffer from one pixel to the next pixel in the same row. If not
+// provided, it will be calculated from the number of bands and pixel type
+func PixelStride(stride int) interface {
+	DatasetIOOption
+	BandIOOption
+} {
+	return pixelStrideOpt{stride}
+}
+
+// LineStride sets the offset in the provided buffer from one pixel to the pixel of the same band one row below. If not
+// provided, it will be calculated from the number of bands, pixel type and image width
+func LineStride(stride int) interface {
+	DatasetIOOption
+	BandIOOption
+} {
+	return lineStrideOpt{stride}
 }
 
 type windowOpt struct {
@@ -671,7 +672,8 @@ type bandInterleaveOp struct{}
 // r1r2r3...rn, g1g2g3...gn, b1b2b3...bn instead of the default
 // r1g1b1, r2g2b2, r3g3b3, ... rnbngn
 //
-// BandInterleaved should not be used in conjunction with BandSpacing, LineSpacing, or PixelSpacing
+// BandInterleaved should not be used in conjunction with BandSpacing, LineSpacing, PixelSpacing,
+// BandStride, LineStride, or PixelStride
 func BandInterleaved() interface {
 	DatasetIOOption
 } {
@@ -991,12 +993,9 @@ type rasterizeOpts struct {
 // RasterizeOption is an option that can be passed to Rasterize()
 //
 // Available RasterizeOptions are:
-//
-// • CreationOption
-//
-// • ConfigOption
-//
-// • DriverName
+//  - CreationOption
+//  - ConfigOption
+//  - DriverName
 type RasterizeOption interface {
 	setRasterizeOpt(ro *rasterizeOpts)
 }
@@ -1038,10 +1037,9 @@ type dsVectorTranslateOpts struct {
 // DatasetVectorTranslateOption is an option that can be passed to Dataset.Warp()
 //
 // Available Options are:
-//
-// • CreationOption
-// • ConfigOption
-// • DriverName
+//  - CreationOption
+//  - ConfigOption
+//  - DriverName
 type DatasetVectorTranslateOption interface {
 	setDatasetVectorTranslateOpt(dwo *dsVectorTranslateOpts)
 }
@@ -1053,8 +1051,7 @@ type newFeatureOpts struct {
 //NewFeatureOption is an option that can be passed to Layer.NewFeature
 //
 // Available options are:
-//
-// • none yet
+//  - none yet
 type NewFeatureOption interface {
 	setNewFeatureOpt(nfo *newFeatureOpts)
 }
@@ -1104,14 +1101,10 @@ type buildVRTOpts struct {
 // BuildVRTOption is an option that can be passed to BuildVRT
 //
 // Available BuildVRTOptions are:
-//
-// • ConfigOption
-//
-// • DriverOpenOption
-//
-// • Bands
-//
-// • Resampling
+//  - ConfigOption
+//  - DriverOpenOption
+//  - Bands
+//  - Resampling
 type BuildVRTOption interface {
 	setBuildVRTOpt(bvo *buildVRTOpts)
 }

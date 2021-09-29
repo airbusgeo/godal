@@ -23,8 +23,7 @@ type srWKTOpts struct {
 //WKTExportOption is an option that can be passed to SpatialRef.WKT()
 //
 // Available WKTExportOptions are:
-//
-// • ErrLogger
+//  - ErrLogger
 type WKTExportOption interface {
 	setWKTExportOpt(sro *srWKTOpts)
 }
@@ -36,8 +35,7 @@ type trnOpts struct {
 // TransformOption is an option that can be passed to NewTransform
 //
 // Available TransformOptions are:
-//
-// • ErrLogger
+//  - ErrLogger
 type TransformOption interface {
 	setTransformOpt(o *trnOpts)
 }
@@ -54,10 +52,8 @@ type boundsOpts struct {
 // BoundsOption is an option that can be passed to Dataset.Bounds or Geometry.Bounds
 //
 // Available options are:
-//
-// • *SpatialRef
-//
-// • TODO: ErrLogger
+//  - *SpatialRef
+//  - TODO: ErrLogger
 type BoundsOption interface {
 	setBoundsOpt(o *boundsOpts)
 }
