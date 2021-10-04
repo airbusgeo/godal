@@ -38,6 +38,7 @@ var blockSize string
 var numCachedBlocks int //= flag.Int("gs.numblocks", 512, "osio number of cached blocks")
 var tmpdir string       //= flag.String("tmpdir", ".", "temporary directory for intermediate file")
 var overviews bool      //= flag.Bool("ovr", true, "compute overviews")
+var numThreads int
 
 func init() {
 	cogCommand.Flags().StringVarP(&blockSize, "gs.blocksize", "b", "512k", "gs:// block size")
@@ -45,6 +46,7 @@ func init() {
 	cogCommand.Flags().StringVar(&tmpdir, "tmp", ".", "directory to use for temp file")
 	cogCommand.Flags().BoolVar(&overviews, "ovr", true, "compute overviews")
 	cogCommand.Flags().StringVarP(&outfile, "out", "o", "out-cog.tif", "output cog name")
+	cogCommand.Flags().IntVarP(&numThreads, "nth", "m", 8, "number of compression threads")
 }
 func main() {
 	err := cogCommand.Execute()
@@ -99,6 +101,7 @@ var cogCommand = &cobra.Command{
 		args = append(args,
 			"-co", "TILED=YES",
 			"-co", "BIGTIFF=YES",
+			"-co", fmt.Sprintf("NUM_THREADS=%d", numThreads),
 			"-of", "GTiff",
 		)
 		tmpf, err := ioutil.TempFile(tmpdir, "*.tif")
@@ -114,7 +117,7 @@ var cogCommand = &cobra.Command{
 			return fmt.Errorf("translate: %w", err)
 		}
 		if overviews {
-			err = outds.BuildOverviews()
+			err = outds.BuildOverviews(godal.ConfigOption(fmt.Sprintf("GDAL_NUM_THREADS=%d", numThreads)))
 			if err != nil {
 				return fmt.Errorf("build overviews: %w", err)
 			}
