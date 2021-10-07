@@ -81,7 +81,7 @@ var cogCommand = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf("osio.newadapter: %w", err)
 			}
-			err = godal.RegisterVSIAdapter("gs://", gsa)
+			err = godal.RegisterVSIHandler("gs://", gsa)
 			if err != nil {
 				return fmt.Errorf("godal.registervsi: %w", err)
 			}

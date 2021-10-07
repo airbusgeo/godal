@@ -44,12 +44,12 @@ func splitRanges() bool {
 	}
 }
 
+// GDALRegister_gcs is called by gdal when loading this so. It is not meant to be used directly from go.
+//
 //export GDALRegister_gcs
 func GDALRegister_gcs() {
 	ctx = context.Background()
-	opts := []osio.AdapterOption{
-		osio.SplitRanges(splitRanges()),
-	}
+	opts := []osio.AdapterOption{}
 	if bs := blockSize(); bs != "" {
 		opts = append(opts, osio.BlockSize(bs))
 	}
@@ -66,7 +66,7 @@ func GDALRegister_gcs() {
 		log.Printf("osio.newadapter() failed: %v", err)
 		return
 	}
-	err = godal.RegisterVSIAdapter("gs://", gcsa)
+	err = godal.RegisterVSIHandler("gs://", gcsa)
 	if err != nil {
 		log.Printf("godal.registervsiadapter() failed: %v", err)
 		return

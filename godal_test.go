@@ -2815,9 +2815,9 @@ func TestVSIFile(t *testing.T) {
 }
 
 func TestUnexpectedVSIAccess(t *testing.T) {
-	vpa := vpAdapter{datas: make(map[string]VSIReader)}
+	vpa := vpHandler{datas: make(map[string]KeySizerReaderAt)}
 	tifdat, _ := ioutil.ReadFile("testdata/test.tif")
-	vpa.datas["test.tif"] = mbufAdapter{tifdat}
+	vpa.datas["test.tif"] = mbufHandler{tifdat}
 	err := RegisterVSIHandler("broken://", vpa, VSIHandlerBufferSize(0), VSIHandlerStripPrefix(true))
 	assert.NoError(t, err)
 
@@ -2829,12 +2829,12 @@ func TestUnexpectedVSIAccess(t *testing.T) {
 	assert.Equal(t, 0, l)
 }
 
-type bufAdapter []byte
-type mbufAdapter struct {
-	bufAdapter
+type bufHandler []byte
+type mbufHandler struct {
+	bufHandler
 }
 
-func (b bufAdapter) ReadAt(buf []byte, off int64) (int, error) {
+func (b bufHandler) ReadAt(_ string, buf []byte, off int64) (int, error) {
 	if int(off) >= len(b) {
 		return 0, io.EOF
 	}
@@ -2844,39 +2844,58 @@ func (b bufAdapter) ReadAt(buf []byte, off int64) (int, error) {
 	}
 	return n, nil
 }
-func (mb mbufAdapter) ReadAtMulti(bufs [][]byte, offs []int64) ([]int, error) {
+func (mb mbufHandler) ReadAtMulti(_ string, bufs [][]byte, offs []int64) ([]int, error) {
 	ret := make([]int, len(bufs))
 	var err error
 	for i := range bufs {
-		ret[i], err = mb.ReadAt(bufs[i], offs[i])
+		ret[i], err = mb.bufHandler.ReadAt("", bufs[i], offs[i])
 		if err != nil {
 			return ret, err
 		}
 	}
 	return ret, nil
 }
-func (b bufAdapter) Size() int64 {
-	return int64(len(b))
+func (b bufHandler) Size(_ string) (int64, error) {
+	return int64(len(b)), nil
 }
 
-type vpAdapter struct {
-	datas map[string]VSIReader
+type vpHandler struct {
+	datas map[string]KeySizerReaderAt
+}
+type mvpHandler struct {
+	vpHandler
 }
 
-func (vp vpAdapter) VSIReader(k string) (VSIReader, error) {
+func (vp vpHandler) Size(k string) (int64, error) {
 	b, ok := vp.datas[k]
+	if !ok {
+		return 0, syscall.ENOENT
+	}
+	return b.Size(k)
+}
+
+func (vp vpHandler) ReadAt(k string, buf []byte, off int64) (int, error) {
+	b, ok := vp.datas[k]
+	if !ok {
+		return 0, syscall.ENOENT
+	}
+	return b.ReadAt(k, buf, off)
+}
+
+func (mvp mvpHandler) ReadAtMulti(k string, buf [][]byte, off []int64) ([]int, error) {
+	b, ok := mvp.datas[k]
 	if !ok {
 		return nil, syscall.ENOENT
 	}
-	return b, nil
+	return b.(KeyMultiReader).ReadAtMulti(k, buf, off)
 }
 
 func TestVSIPrefix(t *testing.T) {
 	tifdat, _ := ioutil.ReadFile("testdata/test.tif")
 
 	// stripPrefix false
-	vpa := vpAdapter{datas: make(map[string]VSIReader)}
-	vpa.datas["prefix://test.tif"] = mbufAdapter{tifdat}
+	vpa := vpHandler{datas: make(map[string]KeySizerReaderAt)}
+	vpa.datas["prefix://test.tif"] = mbufHandler{tifdat}
 	err := RegisterVSIHandler("prefix://", vpa, VSIHandlerStripPrefix(false))
 	assert.NoError(t, err)
 
@@ -2895,8 +2914,8 @@ func TestVSIPrefix(t *testing.T) {
 	}
 
 	// stripPrefix true
-	vpa = vpAdapter{datas: make(map[string]VSIReader)}
-	vpa.datas["test.tif"] = mbufAdapter{tifdat}
+	vpa = vpHandler{datas: make(map[string]KeySizerReaderAt)}
+	vpa.datas["test.tif"] = mbufHandler{tifdat}
 
 	err = RegisterVSIHandler("noprefix://", vpa, VSIHandlerStripPrefix(true))
 	assert.NoError(t, err)
@@ -2917,9 +2936,9 @@ func TestVSIPrefix(t *testing.T) {
 }
 
 func TestVSIPlugin(t *testing.T) {
-	vpa := vpAdapter{datas: make(map[string]VSIReader)}
+	vpa := vpHandler{datas: make(map[string]KeySizerReaderAt)}
 	tifdat, _ := ioutil.ReadFile("testdata/test.tif")
-	vpa.datas["test.tif"] = mbufAdapter{tifdat}
+	vpa.datas["test.tif"] = mbufHandler{tifdat}
 	err := RegisterVSIHandler("testmem://", vpa, VSIHandlerStripPrefix(true))
 	assert.NoError(t, err)
 	err = RegisterVSIHandler("testmem://", vpa, VSIHandlerStripPrefix(true))
@@ -2951,9 +2970,9 @@ func TestVSIPlugin(t *testing.T) {
 	}
 }
 func TestVSIPluginEx(t *testing.T) {
-	vpa := vpAdapter{datas: make(map[string]VSIReader)}
+	vpa := vpHandler{datas: make(map[string]KeySizerReaderAt)}
 	tifdat, _ := ioutil.ReadFile("testdata/test.tif")
-	vpa.datas["test.tif"] = mbufAdapter{tifdat}
+	vpa.datas["test.tif"] = mbufHandler{tifdat}
 	_ = RegisterVSIHandler("testmem2://", vpa, VSIHandlerBufferSize(10), VSIHandlerCacheSize(30), VSIHandlerStripPrefix(true))
 
 	ds, err := Open("testmem2://test.tif")
@@ -2977,9 +2996,9 @@ func TestVSIPluginEx(t *testing.T) {
 	}
 }
 func TestVSIPluginNoMulti(t *testing.T) {
-	vpa := vpAdapter{datas: make(map[string]VSIReader)}
+	vpa := vpHandler{datas: make(map[string]KeySizerReaderAt)}
 	tifdat, _ := ioutil.ReadFile("testdata/test.tif")
-	vpa.datas["test.tif"] = bufAdapter(tifdat)
+	vpa.datas["test.tif"] = bufHandler(tifdat)
 	_ = RegisterVSIHandler("testmem3://", vpa, VSIHandlerBufferSize(10), VSIHandlerCacheSize(30), VSIHandlerStripPrefix(true))
 
 	ds, err := Open("testmem3://test.tif")
@@ -3003,26 +3022,26 @@ func TestVSIPluginNoMulti(t *testing.T) {
 	}
 }
 
-type readErroringAdapter struct {
-	bufAdapter
+type readErroringHandler struct {
+	bufHandler
 }
-type bodyreadErroringAdapter struct {
-	bufAdapter
+type bodyreadErroringHandler struct {
+	bufHandler
 }
-type multireadErroringAdapter struct {
-	bufAdapter
+type multireadErroringHandler struct {
+	bufHandler
 }
 
-func (re readErroringAdapter) ReadAt(buf []byte, off int64) (int, error) {
+func (re readErroringHandler) ReadAt(key string, buf []byte, off int64) (int, error) {
 	return 0, fmt.Errorf("not implemented")
 }
-func (re bodyreadErroringAdapter) ReadAt(buf []byte, off int64) (int, error) {
+func (re bodyreadErroringHandler) ReadAt(key string, buf []byte, off int64) (int, error) {
 	if off >= 2230 { //2230 is the offset of the strile data in tt.tif
 		return 0, fmt.Errorf("read >414 not implemented")
 	}
-	return re.bufAdapter.ReadAt(buf, off)
+	return re.bufHandler.ReadAt(key, buf, off)
 }
-func (re multireadErroringAdapter) ReadAtMulti(bufs [][]byte, offs []int64) ([]int, error) {
+func (re multireadErroringHandler) ReadAtMulti(key string, bufs [][]byte, offs []int64) ([]int, error) {
 	return nil, fmt.Errorf("mr not implemented")
 }
 
@@ -3031,12 +3050,14 @@ func TestVSIErrors(t *testing.T) {
 	defer os.Remove(tt)
 	ds, _ := Create(GTiff, tt, 3, Byte, 2048, 2048, CreationOption("TILED=YES", "COMPRESS=LZW", "BLOCKXSIZE=128", "BLOCKYSIZE=128"))
 	ds.Close()
-	vpa := vpAdapter{datas: make(map[string]VSIReader)}
+	vpa := vpHandler{datas: make(map[string]KeySizerReaderAt)}
+	mvpa := mvpHandler{vpa}
 	tifdat, _ := ioutil.ReadFile(tt)
-	vpa.datas["test2.tif"] = readErroringAdapter{bufAdapter(tifdat)}
-	vpa.datas["test3.tif"] = multireadErroringAdapter{bufAdapter(tifdat)}
-	vpa.datas["test4.tif"] = bodyreadErroringAdapter{bufAdapter(tifdat)}
+	vpa.datas["test2.tif"] = readErroringHandler{bufHandler(tifdat)}
+	vpa.datas["test3.tif"] = multireadErroringHandler{bufHandler(tifdat)}
+	vpa.datas["test4.tif"] = bodyreadErroringHandler{bufHandler(tifdat)}
 	_ = RegisterVSIHandler("testmem4://", vpa, VSIHandlerBufferSize(0), VSIHandlerCacheSize(0), VSIHandlerStripPrefix(true))
+	_ = RegisterVSIHandler("mtestmem4://", mvpa, VSIHandlerBufferSize(0), VSIHandlerCacheSize(0), VSIHandlerStripPrefix(true))
 
 	_, err := Open("testmem4://test2.tif")
 	if err == nil {
@@ -3044,10 +3065,11 @@ func TestVSIErrors(t *testing.T) {
 	}
 	data := make([]byte, 300)
 
-	ds, err = Open("testmem4://test3.tif")
+	ds, err = Open("mtestmem4://test3.tif")
 	if err != nil {
 		t.Error(err)
 	}
+
 	err = ds.Read(126, 126, data, 10, 10)
 	if err == nil {
 		t.Error("error not raised")
@@ -3120,7 +3142,7 @@ func TestVSIGCS(t *testing.T) {
 		t.Error(err)
 	}
 	gcsa, _ := osio.NewAdapter(gcsh)
-	err = RegisterVSIAdapter("gdalgs://", gcsa, VSIHandlerStripPrefix(true))
+	err = RegisterVSIHandler("gdalgs://", gcsa, VSIHandlerStripPrefix(true))
 	if err != nil {
 		t.Error(err)
 	}
@@ -3157,7 +3179,7 @@ func TestVSIGCSNoAuth(t *testing.T) {
 	}
 	gcsh, _ := gcs.Handle(ctx, gcs.GCSClient(st))
 	gcsa, _ := osio.NewAdapter(gcsh)
-	err = RegisterVSIAdapter("gdalgcs://", gcsa, VSIHandlerStripPrefix(true))
+	err = RegisterVSIHandler("gdalgcs://", gcsa, VSIHandlerStripPrefix(true))
 	if err != nil {
 		t.Error(err)
 	}

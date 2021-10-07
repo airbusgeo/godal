@@ -31,10 +31,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"unsafe"
-
-	"github.com/airbusgeo/osio"
 )
 
 // DataType is a pixel data types
@@ -2683,53 +2680,51 @@ func (vf *VSIFile) Read(buf []byte) (int, error) {
 	return int(n), nil
 }
 
-// VSIReader is the interface that should be returned by VSIKeyReader for a given
-// key (i.e. filename)
+// KeySizerReaderAt is the interface expected when calling RegisterVSIHandler
+//
+// ReadAt() is a standard io.ReaderAt that takes a key (i.e. filename) as argument.
 //
 // Size() is used as a probe to determine wether the given key exists, and should return
 // an error if no such key exists. The actual file size may or may not be effectively used
 // depending on the underlying GDAL driver opening the file
 //
-// VSIReader may also optionally implement VSIMultiReader which will be used (only?) by
+// It may also optionally implement KeyMultiReader which will be used (only?) by
 // the GTiff driver when reading pixels. If not provided, this
 // VSI implementation will concurrently call ReadAt([]byte,int64)
-type VSIReader interface {
-	io.ReaderAt
-	Size() int64
+type KeySizerReaderAt interface {
+	ReadAt(key string, buf []byte, off int64) (int, error)
+	Size(key string) (int64, error)
 }
 
-// VSIMultiReader is an optional interface that can be implemented by VSIReader that
+// KeyMultiReader is an optional interface that can be implemented by KeyReaderAtSizer that
 // will be used (only?) by the GTiff driver when reading pixels. If not provided, this
-// VSI implementation will concurrently call ReadAt([]byte,int64)
-type VSIMultiReader interface {
-	ReadAtMulti(bufs [][]byte, offs []int64) ([]int, error)
-}
-
-// VSIKeyReader is the interface that must be provided to RegisterVSIHandler. It
-// should return a VSIReader for the given key.
-//
-// When registering a reader with
-//  RegisterVSIHandler("scheme://",handler)
-// calling Open("scheme://myfile.txt") will result in godal making calls to
-//  VSIReader("myfile.txt")
-type VSIKeyReader interface {
-	VSIReader(key string) (VSIReader, error)
+// VSI implementation will concurrently call ReadAt(key,[]byte,int64)
+type KeyMultiReader interface {
+	ReadAtMulti(key string, bufs [][]byte, offs []int64) ([]int, error)
 }
 
 //export _gogdalSizeCallback
-func _gogdalSizeCallback(key *C.char, errorString **C.char) C.longlong {
-	//log.Printf("GetSize called")
-	cbd := getGoGDALReader(key, errorString)
-	if cbd == nil {
-		return -1
+func _gogdalSizeCallback(ckey *C.char, errorString **C.char) C.longlong {
+	key := C.GoString(ckey)
+	cbd := getGoGDALReader(key)
+	if cbd.prefix > 0 {
+		key = key[cbd.prefix:]
 	}
-	return C.longlong(cbd.Size())
+	l, err := cbd.Size(key)
+	if err != nil {
+		*errorString = C.CString(err.Error())
+	}
+	return C.longlong(l)
 }
 
 //export _gogdalMultiReadCallback
-func _gogdalMultiReadCallback(key *C.char, nRanges C.int, pocbuffers unsafe.Pointer, coffsets unsafe.Pointer, clengths unsafe.Pointer, errorString **C.char) C.int {
-	cbd := getGoGDALReader(key, errorString)
+func _gogdalMultiReadCallback(ckey *C.char, nRanges C.int, pocbuffers unsafe.Pointer, coffsets unsafe.Pointer, clengths unsafe.Pointer, errorString **C.char) C.int {
+	key := C.GoString(ckey)
+	cbd := getGoGDALReader(key)
 	/* cbd == nil would be a bug elsewhere */
+	if cbd.prefix > 0 {
+		key = key[cbd.prefix:]
+	}
 	n := int(nRanges)
 	cbuffers := (*[1 << 28]unsafe.Pointer)(unsafe.Pointer(pocbuffers))[:n:n]
 	lengths := (*[1 << 28]C.size_t)(unsafe.Pointer(clengths))[:n:n]
@@ -2744,100 +2739,85 @@ func _gogdalMultiReadCallback(key *C.char, nRanges C.int, pocbuffers unsafe.Poin
 		goffsets[b] = int64(offsets[b])
 	}
 	var err error
-	if mcbd, ok := cbd.(VSIMultiReader); ok {
-		_, err = mcbd.ReadAtMulti(buffers, goffsets)
-		if err != nil && err != io.EOF {
-			*errorString = C.CString(err.Error())
-			ret = -1
-		}
-		return C.int(ret)
+	_, err = cbd.ReadAtMulti(key, buffers, goffsets)
+	if err != nil && err != io.EOF {
+		*errorString = C.CString(err.Error())
+		ret = -1
 	}
-	var wg sync.WaitGroup
-	wg.Add(n)
-	for b := range buffers {
-		go func(bidx int) {
-			defer wg.Done()
-			rlen, err := cbd.ReadAt(buffers[bidx], goffsets[bidx])
-			if err != nil && err != io.EOF {
-				if *errorString == nil {
-					*errorString = C.CString(err.Error())
-				}
-				atomic.StoreInt64(&ret, -1)
-			}
-			if rlen != int(lengths[bidx]) {
-				if *errorString == nil {
-					if err != nil {
-						*errorString = C.CString(err.Error())
-					} else {
-						*errorString = C.CString("short read")
-					}
-				}
-				atomic.StoreInt64(&ret, -1)
-			}
-		}(b)
-	}
-	wg.Wait()
 	return C.int(ret)
 }
 
 //export _gogdalReadCallback
-func _gogdalReadCallback(key *C.char, buffer unsafe.Pointer, off C.size_t, clen C.size_t, errorString **C.char) C.size_t {
+func _gogdalReadCallback(ckey *C.char, buffer unsafe.Pointer, off C.size_t, clen C.size_t, errorString **C.char) C.size_t {
 	l := int(clen)
-	cbd := getGoGDALReader(key, errorString)
-	/* cbd == nil would be a bug elsewhere */
+	key := C.GoString(ckey)
+	cbd := getGoGDALReader(key)
+	if cbd.prefix > 0 {
+		key = key[cbd.prefix:]
+	}
 	slice := (*[1 << 28]byte)(buffer)[:l:l]
-	rlen, err := cbd.ReadAt(slice, int64(off))
+	rlen, err := cbd.ReadAt(key, slice, int64(off))
 	if err != nil && err != io.EOF {
 		*errorString = C.CString(err.Error())
 	}
 	return C.size_t(rlen)
 }
 
-var handlers map[string]VSIKeyReader
+var handlers map[string]vsiHandler
 
-func getGoGDALReader(ckey *C.char, errorString **C.char) VSIReader {
-	key := C.GoString(ckey)
+func getGoGDALReader(key string) vsiHandler {
 	for prefix, handler := range handlers {
 		if strings.HasPrefix(key, prefix) {
-			hndl, err := handler.VSIReader(key)
-			if err != nil {
-				*errorString = C.CString(err.Error())
-				return nil
-			}
-			return hndl
+			return handler
 		}
 	}
-	*errorString = C.CString("handler not registered for prefix")
-	return nil
+	return vsiHandler{}
 }
 
-type osioAdapterWrapper struct {
-	*osio.Adapter
+type vsiHandler struct {
+	KeySizerReaderAt
+	prefix int
 }
 
-func (ga osioAdapterWrapper) VSIReader(key string) (VSIReader, error) {
-	return ga.Reader(key)
+func (sp vsiHandler) ReadAtMulti(key string, bufs [][]byte, offs []int64) ([]int, error) {
+	if mcbd, ok := sp.KeySizerReaderAt.(KeyMultiReader); ok {
+		return mcbd.ReadAtMulti(key, bufs, offs)
+	}
+	var wg sync.WaitGroup
+	wg.Add(len(bufs))
+	lens := make([]int, len(bufs))
+	var err error
+	for b := range bufs {
+		go func(bidx int) {
+			var berr error
+			defer wg.Done()
+			lens[bidx], berr = sp.ReadAt(key, bufs[bidx], offs[bidx])
+			if berr != nil && berr != io.EOF {
+				if err == nil {
+					err = berr
+				}
+			}
+			if lens[bidx] != int(len(bufs[bidx])) {
+				if err == nil {
+					if berr != nil {
+						err = berr
+					} else {
+						err = fmt.Errorf("short read")
+					}
+				}
+			}
+		}(b)
+	}
+	wg.Wait()
+	return lens, err
 }
 
-type stripPrefixWrapper struct {
-	VSIKeyReader
-	prefix string
-}
-
-func (sp stripPrefixWrapper) VSIReader(key string) (VSIReader, error) {
-	return sp.VSIKeyReader.VSIReader(key[len(sp.prefix):])
-}
-
-func RegisterVSIAdapter(prefix string, keyReader *osio.Adapter, opts ...VSIHandlerOption) error {
-	return RegisterVSIHandler(prefix, osioAdapterWrapper{keyReader}, opts...)
-}
-
-// RegisterVSIHandler registers keyReader on the given prefix.
-// When registering a reader with
+// RegisterVSIHandler registers an osio.Adapter on the given prefix.
+// When registering an adapter with
 //  RegisterVSIHandler("scheme://",handler)
 // calling Open("scheme://myfile.txt") will result in godal making calls to
-//  VSIKeyReader("myfile.txt").ReadAt(buf,offset)
-func RegisterVSIHandler(prefix string, keyReader VSIKeyReader, opts ...VSIHandlerOption) error {
+//  adapter.Reader("myfile.txt").ReadAt(buf,offset)
+func RegisterVSIHandler(prefix string, handler KeySizerReaderAt, opts ...VSIHandlerOption) error {
 	opt := vsiHandlerOpts{
 		bufferSize:  64 * 1024,
 		cacheSize:   2 * 64 * 1024,
@@ -2847,9 +2827,9 @@ func RegisterVSIHandler(prefix string, keyReader VSIKeyReader, opts ...VSIHandle
 		o.setVSIHandlerOpt(&opt)
 	}
 	if handlers == nil {
-		handlers = make(map[string]VSIKeyReader)
+		handlers = make(map[string]vsiHandler)
 	}
-	if handlers[prefix] != nil {
+	if _, ok := handlers[prefix]; ok {
 		return fmt.Errorf("handler already registered on prefix")
 	}
 	cgc := createCGOContext(nil, opt.errorHandler)
@@ -2858,9 +2838,9 @@ func RegisterVSIHandler(prefix string, keyReader VSIKeyReader, opts ...VSIHandle
 		return err
 	}
 	if opt.stripPrefix {
-		handlers[prefix] = stripPrefixWrapper{keyReader, prefix}
+		handlers[prefix] = vsiHandler{handler, len(prefix)}
 	} else {
-		handlers[prefix] = keyReader
+		handlers[prefix] = vsiHandler{handler, 0}
 	}
 	return nil
 }
