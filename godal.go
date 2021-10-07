@@ -2787,17 +2787,21 @@ func (sp vsiHandler) ReadAtMulti(key string, bufs [][]byte, offs []int64) ([]int
 	wg.Add(len(bufs))
 	lens := make([]int, len(bufs))
 	var err error
+	var errmu sync.Mutex
 	for b := range bufs {
 		go func(bidx int) {
 			var berr error
 			defer wg.Done()
 			lens[bidx], berr = sp.ReadAt(key, bufs[bidx], offs[bidx])
 			if berr != nil && berr != io.EOF {
+				errmu.Lock()
 				if err == nil {
 					err = berr
 				}
+				errmu.Unlock()
 			}
 			if lens[bidx] != int(len(bufs[bidx])) {
+				errmu.Lock()
 				if err == nil {
 					if berr != nil {
 						err = berr
@@ -2805,6 +2809,7 @@ func (sp vsiHandler) ReadAtMulti(key string, bufs [][]byte, offs []int64) ([]int
 						err = fmt.Errorf("short read")
 					}
 				}
+				errmu.Unlock()
 			}
 		}(b)
 	}
