@@ -78,6 +78,9 @@ type errorAndLoggingOption interface {
 	setErrorAndLoggingOpt(elo *errorAndLoggingOpts)
 }
 
+// ErrLogger is an option to override default error handling.
+//
+// See ErrorHandler.
 func ErrLogger(fn ErrorHandler) interface {
 	errorAndLoggingOption
 	BandCreateMaskOption
@@ -296,6 +299,7 @@ type multiError struct {
 	errs []error
 }
 
+// Error is the standard error interface
 func (me *multiError) Error() string {
 	w := bytes.NewBufferString(me.errs[0].Error())
 	for i := 1; i < len(me.errs); i++ {
@@ -305,6 +309,7 @@ func (me *multiError) Error() string {
 	return w.String()
 }
 
+// As is the standard error wrapping interface
 func (me *multiError) As(target interface{}) bool {
 	for _, err := range me.errs {
 		if errors.As(err, target) {
@@ -314,8 +319,9 @@ func (me *multiError) As(target interface{}) bool {
 	return false
 }
 
-func (merr *multiError) Is(target error) bool {
-	for _, err := range merr.errs {
+// Is is the standard error wrapping interface
+func (me *multiError) Is(target error) bool {
+	for _, err := range me.errs {
 		if errors.Is(err, target) {
 			return true
 		}

@@ -62,6 +62,11 @@ type createSpatialRefOpts struct {
 	errorHandler ErrorHandler
 }
 
+// CreateSpatialRefOption is an option that can be passed when creating a new spatial
+// reference object
+//
+// Available options are:
+//  - ErrLogger
 type CreateSpatialRefOption interface {
 	setCreateSpatialRefOpt(so *createSpatialRefOpts)
 }

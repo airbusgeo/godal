@@ -97,6 +97,11 @@ type setColorTableOpts struct {
 type fillBandOpts struct {
 	errorHandler ErrorHandler
 }
+
+// FillBandOption is an option that can be passed to Band.Fill()
+//
+// Available FillBandOptions are:
+//  - ErrLogger
 type FillBandOption interface {
 	setFillBandOpt(o *fillBandOpts)
 }
@@ -277,6 +282,11 @@ type BuildOverviewsOption interface {
 type clearOvrOpts struct {
 	errorHandler ErrorHandler
 }
+
+// ClearOverviewsOption is an option passed to Dataset.ClearOverviews
+//
+// Available options are:
+//  - ErrLogger
 type ClearOverviewsOption interface {
 	setClearOverviewsOpt(bo *clearOvrOpts)
 }
@@ -353,6 +363,11 @@ type OpenOption interface {
 type closeOpts struct {
 	errorHandler ErrorHandler
 }
+
+// CloseOption is an option passed to Dataset.Close()
+//
+// Available options are:
+//  - ErrLogger
 type CloseOption interface {
 	setCloseOpt(o *closeOpts)
 }
@@ -360,6 +375,12 @@ type CloseOption interface {
 type featureCountOpts struct {
 	errorHandler ErrorHandler
 }
+
+// FeatureCountOption is an option passed to Layer.FeatureCount()
+//
+//
+// Available options are:
+//  - ErrLogger
 type FeatureCountOption interface {
 	setFeatureCountOpt(fo *featureCountOpts)
 }
@@ -370,9 +391,21 @@ type simplifyOpts struct {
 type bufferOpts struct {
 	errorHandler ErrorHandler
 }
+
+// SimplifyOption is an option passed to Geometry.Simplify()
+//
+//
+// Available options are:
+//  - ErrLogger
 type SimplifyOption interface {
 	setSimplifyOpt(so *simplifyOpts)
 }
+
+// BufferOption is an option passed to Geometry.Buffer()
+//
+//
+// Available options are:
+//  - ErrLogger
 type BufferOption interface {
 	setBufferOpt(bo *bufferOpts)
 }
@@ -380,6 +413,12 @@ type BufferOption interface {
 type setGeometryOpts struct {
 	errorHandler ErrorHandler
 }
+
+// SetGeometryOption is an option passed to Feature.SetGeometry()
+//
+//
+// Available options are:
+//  - ErrLogger
 type SetGeometryOption interface {
 	setSetGeometryOpt(so *setGeometryOpts)
 }
@@ -387,12 +426,24 @@ type SetGeometryOption interface {
 type vsiOpenOpts struct {
 	errorHandler ErrorHandler
 }
+
+// VSIOpenOption is an option passed to VSIOpen()
+//
+//
+// Available options are:
+//  - ErrLogger
 type VSIOpenOption interface {
 	setVSIOpenOpt(vo *vsiOpenOpts)
 }
 type vsiUnlinkOpts struct {
 	errorHandler ErrorHandler
 }
+
+// VSIUnlinkOption is an option passed to VSIUnlink()
+//
+//
+// Available options are:
+//  - ErrLogger
 type VSIUnlinkOption interface {
 	setVSIUnlinkOpt(vo *vsiUnlinkOpts)
 }
@@ -400,12 +451,24 @@ type VSIUnlinkOption interface {
 type geometryWKTOpts struct {
 	errorHandler ErrorHandler
 }
+
+// GeometryWKTOption is an option passed to Geometry.WKT()
+//
+//
+// Available options are:
+//  - ErrLogger
 type GeometryWKTOption interface {
 	setGeometryWKTOpt(o *geometryWKTOpts)
 }
 type geometryWKBOpts struct {
 	errorHandler ErrorHandler
 }
+
+// GeometryWKBOption is an option passed to Geometry.WKB()
+//
+//
+// Available options are:
+//  - ErrLogger
 type GeometryWKBOption interface {
 	setGeometryWKBOpt(o *geometryWKBOpts)
 }
@@ -413,6 +476,11 @@ type GeometryWKBOption interface {
 type newGeometryOpts struct {
 	errorHandler ErrorHandler
 }
+
+// NewGeometryOption is an option passed when creating a geometry
+//
+// Available options are:
+//  - ErrLogger
 type NewGeometryOption interface {
 	setNewGeometryOpt(o *newGeometryOpts)
 }
@@ -420,12 +488,22 @@ type NewGeometryOption interface {
 type updateFeatureOpts struct {
 	errorHandler ErrorHandler
 }
+
+// UpdateFeatureOption is an option passed to Layer.UpdateFeature()
+//
+// Available options are:
+//  - ErrLogger
 type UpdateFeatureOption interface {
 	setUpdateFeatureOpt(o *updateFeatureOpts)
 }
 type deleteFeatureOpts struct {
 	errorHandler ErrorHandler
 }
+
+// DeleteFeatureOption is an option passed to Layer.DeleteFeature()
+//
+// Available options are:
+//  - ErrLogger
 type DeleteFeatureOption interface {
 	setDeleteFeatureOpt(o *deleteFeatureOpts)
 }
@@ -433,12 +511,22 @@ type DeleteFeatureOption interface {
 type geometryTransformOpts struct {
 	errorHandler ErrorHandler
 }
+
+// GeometryTransformOption is an option passed to Geometry.Transform()
+//
+// Available options are:
+//  - ErrLogger
 type GeometryTransformOption interface {
 	setGeometryTransformOpt(o *geometryTransformOpts)
 }
 type geometryReprojectOpts struct {
 	errorHandler ErrorHandler
 }
+
+// GeometryReprojectOption is an option passed to Geometry.Reproject()
+//
+// Available options are:
+//  - ErrLogger
 type GeometryReprojectOption interface {
 	setGeometryReprojectOpt(o *geometryReprojectOpts)
 }

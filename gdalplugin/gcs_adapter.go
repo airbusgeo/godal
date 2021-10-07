@@ -34,16 +34,6 @@ func numBlocks() int {
 	return ii
 }
 
-func splitRanges() bool {
-	s := strings.ToLower(strings.TrimSpace(os.Getenv("GODAL_SPLIT_CONSECUTIVE_RANGES")))
-	switch s {
-	case "", "0", "no", "false":
-		return false
-	default:
-		return true
-	}
-}
-
 // GDALRegister_gcs is called by gdal when loading this so. It is not meant to be used directly from go.
 //
 //export GDALRegister_gcs

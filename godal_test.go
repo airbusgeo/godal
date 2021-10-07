@@ -394,10 +394,10 @@ func TestHistogram(t *testing.T) {
 	_ = ds.Write(0, 0, buf, 16, 16)
 	bnd := ds.Bands()[0]
 
-	hist, err := bnd.Histogram()
+	_, err := bnd.Histogram()
 	assert.NoError(t, err)
 	ehc := eh()
-	hist, err = bnd.Histogram(ErrLogger(ehc.ErrorHandler))
+	hist, err := bnd.Histogram(ErrLogger(ehc.ErrorHandler))
 	assert.NoError(t, err)
 
 	ll := hist.Len()

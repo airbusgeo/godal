@@ -64,14 +64,20 @@ const (
 	CFloat64 = DataType(C.GDT_CFloat64)
 )
 
+// ErrorCategory wraps GDAL's error types
 type ErrorCategory int
 
 const (
-	CE_None    = ErrorCategory(C.CE_None)
-	CE_Debug   = ErrorCategory(C.CE_Debug)
+	// CE_None is not an error
+	CE_None = ErrorCategory(C.CE_None)
+	// CE_Debug is a debug level
+	CE_Debug = ErrorCategory(C.CE_Debug)
+	// CE_Warning is a warning levele
 	CE_Warning = ErrorCategory(C.CE_Warning)
+	// CE_Failure is an error
 	CE_Failure = ErrorCategory(C.CE_Failure)
-	CE_Fatal   = ErrorCategory(C.CE_Fatal)
+	// CE_Fatal is an unrecoverable error
+	CE_Fatal = ErrorCategory(C.CE_Fatal)
 )
 
 // String implements Stringer
