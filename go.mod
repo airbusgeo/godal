@@ -8,5 +8,5 @@ require (
 	github.com/airbusgeo/osio v0.1.1
 	github.com/spf13/cobra v1.2.1
 	github.com/stretchr/testify v1.7.0
-	google.golang.org/api v0.57.0
+	google.golang.org/api v0.58.0
 )
