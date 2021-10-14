@@ -3,7 +3,7 @@ module github.com/airbusgeo/godal
 go 1.15
 
 require (
-	cloud.google.com/go/storage v1.17.0
+	cloud.google.com/go/storage v1.18.1
 	github.com/airbusgeo/cogger v0.0.5
 	github.com/airbusgeo/osio v0.1.1
 	github.com/spf13/cobra v1.2.1
