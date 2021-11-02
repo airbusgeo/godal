@@ -10,10 +10,9 @@ cd gdal
 curl -sL https://github.com/OSGeo/gdal/archive/$GDALVERSION.tar.gz -o gdal.tar.gz
 mkdir gdal
 tar  xzf gdal.tar.gz -C gdal --strip-components 1
-cd gdal/gdal
-if [ ! -f configure ]; then
-    ./autogen.sh
-fi
+cd gdal
+if [ -d gdal ]; then cd gdal; fi
+if [ ! -f configure ]; then ./autogen.sh fi
 ./configure --prefix=/optgdal \
 	--enable-shared \
 	--disable-static \
