@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        gdal: [ 'release/3.1', 'release/3.2', 'release/3.3', 'master' ]
+        gdal: [ 'release/3.2', 'release/3.3', 'release/3.4', 'master' ]
     name: GDAL ${{ matrix.gdal }} build
     steps:
       - name: Checkout
@@ -93,7 +93,7 @@ jobs:
     strategy:
       matrix:
         go: [ '1.17', '1.16', '1.15' ]
-        gdal: [ 'release/3.1', 'release/3.2', 'release/3.3', 'master' ]
+        gdal: [ 'release/3.2', 'release/3.3', 'release/3.4', 'master' ]
     name: Go ${{ matrix.go }} + GDAL ${{ matrix.gdal }} test
     steps:
       - name: APT

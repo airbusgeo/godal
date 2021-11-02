@@ -2,7 +2,7 @@
 
 GDALVERSION=$1
 
-apt update && apt-get install -y libproj-dev libgeos-dev build-essential libsqlite3-dev curl pkgconf libjpeg-turbo8-dev sqlite3
+apt update && apt-get install -y autoconf libproj-dev libgeos-dev build-essential libsqlite3-dev curl pkgconf libjpeg-turbo8-dev sqlite3
 cd $HOME
 mkdir -p gdal
 cd gdal
@@ -11,6 +11,9 @@ curl -sL https://github.com/OSGeo/gdal/archive/$GDALVERSION.tar.gz -o gdal.tar.g
 mkdir gdal
 tar  xzf gdal.tar.gz -C gdal --strip-components 1
 cd gdal/gdal
+if [ ! -f configure ]; then
+    ./autogen.sh
+fi
 ./configure --prefix=/optgdal \
 	--enable-shared \
 	--disable-static \
