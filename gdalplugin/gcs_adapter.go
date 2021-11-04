@@ -51,6 +51,10 @@ func GDALRegister_gcs() {
 		log.Printf("osio.gcshandle() failed: %v", err)
 		return
 	}
+	sLog := os.Getenv("GODAL_LOG")
+	if sLog != "" && strings.ToUpper(os.Getenv("GODAL_LOG")) != "FALSE" {
+		opts = append(opts, osio.WithLogger(osio.StdLogger))
+	}
 	gcsa, err := osio.NewAdapter(gcsh, opts...)
 	if err != nil {
 		log.Printf("osio.newadapter() failed: %v", err)
