@@ -55,8 +55,8 @@ github.com/airbusgeo/cogger v0.0.5 h1:9oGJakA8ru45yBMkyK6RI/u5+YaBqfpkTf5lHObKPv
 github.com/airbusgeo/cogger v0.0.5/go.mod h1:kCWuN4IVKpUiLzGKrqsZHPYbN24nyyrRuAa/vX2eURk=
 github.com/airbusgeo/errs v0.0.2 h1:+7i9HLCgs8xWkGN7cIUMStVUA1d6F5AqpAlft6O4kM8=
 github.com/airbusgeo/errs v0.0.2/go.mod h1:w6O7kns8m5o+eQeWsbhU7usUNq2Rhmt4xQO+rVt9/Js=
-github.com/airbusgeo/osio v0.1.1 h1:KEhEXe99qLc/ut6hotCtspDpb2oqpqwvge/NmyBrZR8=
-github.com/airbusgeo/osio v0.1.1/go.mod h1:d4qlaDSgsMilFoi+/62vwFZStuYIHIDovYzIRjTK+Jw=
+github.com/airbusgeo/osio v0.1.2 h1:RgqVNbz5B5hs2ZWizE6AsdVLbRcDXBw4X3rCs8XAtlg=
+github.com/airbusgeo/osio v0.1.2/go.mod h1:d4qlaDSgsMilFoi+/62vwFZStuYIHIDovYzIRjTK+Jw=
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
 github.com/armon/circbuf v0.0.0-20150827004946-bbbad097214e/go.mod h1:3U/XgcO3hCbHZ8TKRvWD2dDTCfh9M9ya+I9JpbB7O8o=
 github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da/go.mod h1:Q73ZrmVTwzkszR9V5SSuryQ31EELlFMUz1kKyl939pY=
