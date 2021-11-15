@@ -51,8 +51,8 @@ dmitri.shuralyov.com/gpu/mtl v0.0.0-20190408044501-666a987793e9/go.mod h1:H6x//7
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
-github.com/airbusgeo/cogger v0.0.5 h1:9oGJakA8ru45yBMkyK6RI/u5+YaBqfpkTf5lHObKPvI=
-github.com/airbusgeo/cogger v0.0.5/go.mod h1:kCWuN4IVKpUiLzGKrqsZHPYbN24nyyrRuAa/vX2eURk=
+github.com/airbusgeo/cogger v0.0.6 h1:W1fM/t4NL+RtBSlHF6pfxPdArs8kLhaBZsJ4dVjgcDY=
+github.com/airbusgeo/cogger v0.0.6/go.mod h1:kCWuN4IVKpUiLzGKrqsZHPYbN24nyyrRuAa/vX2eURk=
 github.com/airbusgeo/errs v0.0.2 h1:+7i9HLCgs8xWkGN7cIUMStVUA1d6F5AqpAlft6O4kM8=
 github.com/airbusgeo/errs v0.0.2/go.mod h1:w6O7kns8m5o+eQeWsbhU7usUNq2Rhmt4xQO+rVt9/Js=
 github.com/airbusgeo/osio v0.1.2 h1:RgqVNbz5B5hs2ZWizE6AsdVLbRcDXBw4X3rCs8XAtlg=
