@@ -101,7 +101,8 @@ extern "C" {
   void godalSetColorTable(cctx *ctx, GDALRasterBandH bnd, GDALPaletteInterp interp, int nEntries, short *entries);
   void godalRasterHistogram(cctx *ctx, GDALRasterBandH bnd, double *min, double *max, int *buckets,
 						   unsigned long long **values, int bIncludeOutOfRange, int bApproxOK);
-  void godalComputeRasterStatistics(cctx *ctx, GDALRasterBandH bnd, int bApproxOK, double *pdfMin, double *pdfMax, double *pdfMean, double *pdfStdDev);
+  void computeRasterStatistics(cctx *ctx, GDALRasterBandH bnd, int bApproxOK, int bForce, double *pdfMin, double *pdfMax, double *pdfMean, double *pdfStdDev);
+  void godalComputeRasterStatistics(cctx *ctx, GDALRasterBandH bnd, int bApproxOK, int bForce, double *pdfMin, double *pdfMax, double *pdfMean, double *pdfStdDev);
 
   VSILFILE *godalVSIOpen(cctx *ctx, const char *name);
   void godalVSIUnlink(cctx *ctx, const char *name);

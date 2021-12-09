@@ -806,17 +806,34 @@ void godalRasterHistogram(cctx *ctx, GDALRasterBandH bnd, double *min, double *m
 	godalUnwrap();
 }
 
-
-void godalComputeRasterStatistics(cctx *ctx, GDALRasterBandH bnd, int bApproxOK, double *pdfMin, double *pdfMax, double *pdfMean, double *pdfStdDev){
+void computeRasterStatistics(cctx *ctx, GDALRasterBandH bnd, int bApproxOK, double *pdfMin, double *pdfMax, double *pdfMean, double *pdfStdDev){
   godalWrap(ctx);
   CPLErr ret = CE_None;
   if (bApproxOK == 1 ){
     ret = GDALComputeRasterStatistics(bnd, 1, pdfMin, pdfMax, pdfMean, pdfStdDev, nullptr, nullptr);
   } else {
-    ret = GDALComputeRasterStatistics(bnd, bApproxOK, pdfMin, pdfMax, pdfMean, pdfStdDev, nullptr, nullptr);
+    ret = GDALComputeRasterStatistics(bnd, 0, pdfMin, pdfMax, pdfMean, pdfStdDev, nullptr, nullptr);
   }
   if (ret != 0) {
     forceCPLError(ctx,ret);
+  }
+  godalUnwrap();
+}
+
+void godalComputeRasterStatistics(cctx *ctx, GDALRasterBandH bnd, int bApproxOK, int bForce, double *pdfMin, double *pdfMax, double *pdfMean, double *pdfStdDev){
+  godalWrap(ctx);
+  CPLErr ret = CE_None;
+  if (bForce == 0){
+    if (bApproxOK == 1) {
+      ret = GDALGetRasterStatistics(bnd, 1, 0, pdfMin, pdfMax, pdfMean, pdfStdDev);
+    } else{
+      ret = GDALGetRasterStatistics(bnd, 0, 0, pdfMin, pdfMax, pdfMean, pdfStdDev);
+    }
+    if (ret == CE_Warning){
+      computeRasterStatistics(ctx, bnd, bApproxOK, pdfMin, pdfMax, pdfMean, pdfStdDev);
+    }
+  }else{
+    computeRasterStatistics(ctx, bnd, bApproxOK, pdfMin, pdfMax, pdfMean, pdfStdDev);
   }
   godalUnwrap();
 }
