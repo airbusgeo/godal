@@ -444,9 +444,9 @@ func (band Band) Statistics(opts ...StatisticsOption) (Statistics, error) {
 		s.setStatisticsOpt(&sopt)
 	}
 	var min, max, mean, std C.double
-
 	cgc := createCGOContext(nil, sopt.errorHandler)
-	C.godalComputeRasterStatistics(cgc.cPointer(), band.handle(), (C.int)(sopt.approx), &min, &max, &mean, &std)
+	C.godalComputeRasterStatistics(cgc.cPointer(), band.handle(),
+		(C.int)(sopt.approx), (C.int)(sopt.bForce), &min, &max, &mean, &std)
 	if err := cgc.close(); err != nil {
 		return Statistics{}, err
 	}

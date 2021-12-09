@@ -21,6 +21,7 @@ type Statistics struct {
 
 type statisticsOpts struct {
 	approx       int
+	bForce       int
 	errorHandler ErrorHandler
 }
 
@@ -34,9 +35,22 @@ func (aoo approxOkOption) setStatisticsOpt(so *statisticsOpts) {
 	so.approx = 1
 }
 
-//Aproximate allows the statistics to be computed on overviews or a subset of all tiles.
+//StatisticsAproximate allows the statistics to be computed on overviews or a subset of all tiles.
 func StatisticsApproximate() interface {
 	StatisticsOption
 } {
 	return approxOkOption{}
+}
+
+type bForceOption struct{}
+
+func (boo bForceOption) setStatisticsOpt(so *statisticsOpts) {
+	so.bForce = 0
+}
+
+//Force allows the pre-computed statistics to be return (no new statistics is computed).
+func Force() interface {
+	StatisticsOption
+} {
+	return bForceOption{}
 }
