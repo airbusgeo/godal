@@ -806,6 +806,21 @@ void godalRasterHistogram(cctx *ctx, GDALRasterBandH bnd, double *min, double *m
 	godalUnwrap();
 }
 
+
+void godalComputeRasterStatistics(cctx *ctx, GDALRasterBandH bnd, int bApproxOK, double *pdfMin, double *pdfMax, double *pdfMean, double *pdfStdDev){
+  godalWrap(ctx);
+  CPLErr ret = CE_None;
+  if (bApproxOK == 1 ){
+    ret = GDALComputeRasterStatistics(bnd, 1, pdfMin, pdfMax, pdfMean, pdfStdDev, nullptr, nullptr);
+  } else {
+    ret = GDALComputeRasterStatistics(bnd, bApproxOK, pdfMin, pdfMax, pdfMean, pdfStdDev, nullptr, nullptr);
+  }
+  if (ret != 0) {
+    forceCPLError(ctx,ret);
+  }
+  godalUnwrap();
+}
+
 OGRGeometryH godalNewGeometryFromWKT(cctx *ctx, char *wkt, OGRSpatialReferenceH sr) {
 	godalWrap(ctx);
 	OGRGeometryH gptr = nullptr;
