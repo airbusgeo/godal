@@ -838,6 +838,16 @@ void godalComputeRasterStatistics(cctx *ctx, GDALRasterBandH bnd, int bApproxOK,
   godalUnwrap();
 }
 
+void godalSetRasterStatistics(cctx *ctx, GDALRasterBandH bnd, double dfMin, double dfMax, double dfMean, double dfStdDev){
+  godalWrap(ctx);
+  CPLErr ret = CE_None;
+  ret = GDALSetRasterStatistics(bnd, dfMin, dfMax, dfMean, dfStdDev);
+  if (ret != 0) {
+    forceCPLError(ctx,ret);
+  }
+  godalUnwrap();
+}
+
 OGRGeometryH godalNewGeometryFromWKT(cctx *ctx, char *wkt, OGRSpatialReferenceH sr) {
 	godalWrap(ctx);
 	OGRGeometryH gptr = nullptr;
