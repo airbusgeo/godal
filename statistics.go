@@ -56,12 +56,24 @@ func Force() interface {
 }
 
 //SetStatistics is an option that can passed to Band.SetStatistics()
-//Available SetStatisticsOptions ars:
+//Available options are:
 //  -ErrLogger
 type SetStatisticsOption interface {
 	setSetStatisticsOpt(sts *setStatisticsOpt)
 }
 
 type setStatisticsOpt struct {
+	errorHandler ErrorHandler
+}
+
+//ClearStatistics  is an option passed to Dataset.ClearStatistics
+//Available options are:
+//  -ErrLogger
+
+type ClearStatisticsOption interface {
+	setClearStatisticsOpt(sts *clearStatisticsOpt)
+}
+
+type clearStatisticsOpt struct {
 	errorHandler ErrorHandler
 }
