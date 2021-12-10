@@ -103,6 +103,7 @@ extern "C" {
 						   unsigned long long **values, int bIncludeOutOfRange, int bApproxOK);
   void computeRasterStatistics(cctx *ctx, GDALRasterBandH bnd, int bApproxOK, int bForce, double *pdfMin, double *pdfMax, double *pdfMean, double *pdfStdDev);
   void godalComputeRasterStatistics(cctx *ctx, GDALRasterBandH bnd, int bApproxOK, int bForce, double *pdfMin, double *pdfMax, double *pdfMean, double *pdfStdDev);
+  void godalSetRasterStatistics(cctx *ctx, GDALRasterBandH bnd, double dfMin, double dfMax, double dfMean, double dfStdDev);
 
   VSILFILE *godalVSIOpen(cctx *ctx, const char *name);
   void godalVSIUnlink(cctx *ctx, const char *name);
