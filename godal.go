@@ -989,6 +989,17 @@ func (ds *Dataset) ClearOverviews(opts ...ClearOverviewsOption) error {
 	return cgc.close()
 }
 
+// ClearStatistics delete dataset statisitics
+func (ds *Dataset) ClearStatistics(opts ...ClearStatisticsOption) error {
+	cls := &clearStatisticsOpt{}
+	for _, o := range opts {
+		o.setClearStatisticsOpt(cls)
+	}
+	cgc := createCGOContext(nil, cls.errorHandler)
+	C.godalClearRasterStatistics(cgc.cPointer(), ds.handle())
+	return cgc.close()
+}
+
 // Structure returns the dataset's Structure
 func (ds *Dataset) Structure() DatasetStructure {
 	var sx, sy, bsx, bsy, bandCount, dtype C.int
