@@ -848,6 +848,12 @@ void godalSetRasterStatistics(cctx *ctx, GDALRasterBandH bnd, double dfMin, doub
   godalUnwrap();
 }
 
+void godalClearRasterStatistics(cctx *ctx, GDALDatasetH ds){
+  godalWrap(ctx);
+  GDALDatasetClearStatistics(ds);
+  godalUnwrap();
+}
+
 OGRGeometryH godalNewGeometryFromWKT(cctx *ctx, char *wkt, OGRSpatialReferenceH sr) {
 	godalWrap(ctx);
 	OGRGeometryH gptr = nullptr;

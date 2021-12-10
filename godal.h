@@ -51,7 +51,6 @@ extern "C" {
   OGRLayerH *godalVectorLayers(GDALDatasetH ds);
 
   GDALRasterBandH* godalBandOverviews(GDALRasterBandH bnd);
-
   void godalSetRasterNoDataValue(cctx *ctx, GDALRasterBandH bnd, double nd);
   void godalSetDatasetNoDataValue(cctx *ctx, GDALDatasetH bnd, double nd);
   void godalDeleteRasterNoDataValue(cctx *ctx, GDALRasterBandH bnd);
@@ -104,6 +103,7 @@ extern "C" {
   void computeRasterStatistics(cctx *ctx, GDALRasterBandH bnd, int bApproxOK, int bForce, double *pdfMin, double *pdfMax, double *pdfMean, double *pdfStdDev);
   void godalComputeRasterStatistics(cctx *ctx, GDALRasterBandH bnd, int bApproxOK, int bForce, double *pdfMin, double *pdfMax, double *pdfMean, double *pdfStdDev);
   void godalSetRasterStatistics(cctx *ctx, GDALRasterBandH bnd, double dfMin, double dfMax, double dfMean, double dfStdDev);
+  void godalClearRasterStatistics(cctx *ctx, GDALDatasetH ds);
 
   VSILFILE *godalVSIOpen(cctx *ctx, const char *name);
   void godalVSIUnlink(cctx *ctx, const char *name);
