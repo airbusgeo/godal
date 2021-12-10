@@ -3461,14 +3461,13 @@ func TestStatistics(t *testing.T) {
 	defer ds.Close()
 	_ = ds.Write(0, 0, pix, 5, 5)
 	bnd := ds.Bands()[0]
-	bnd.SetNoData(-1)
+	_ = bnd.SetNoData(-1)
 	stats, err := bnd.Statistics()
 	assert.NoError(t, err)
 	assert.Equal(t, stats.Min, 0.004628147981618591)
 	assert.Equal(t, stats.Max, 0.9413284240888099)
 	assert.Equal(t, stats.Mean, 0.49851733776296375)
 	assert.Equal(t, stats.Std, 0.29242006895156775)
-
 	err = ds.ClearStatistics()
 	assert.NoError(t, err)
 	ehc := eh()
