@@ -133,6 +133,9 @@ func ErrLogger(fn ErrorHandler) interface {
 	VSIOpenOption
 	VSIUnlinkOption
 	WKTExportOption
+	StatisticsOption
+	SetStatisticsOption
+	ClearStatisticsOption
 } {
 	return errorCallback{fn}
 }
@@ -292,6 +295,18 @@ func (ec errorCallback) setVSIUnlinkOpt(o *vsiUnlinkOpts) {
 	o.errorHandler = ec.fn
 }
 func (ec errorCallback) setWKTExportOpt(o *srWKTOpts) {
+	o.errorHandler = ec.fn
+}
+
+func (ec errorCallback) setStatisticsOpt(o *statisticsOpts) {
+	o.errorHandler = ec.fn
+}
+
+func (ec errorCallback) setSetStatisticsOpt(o *setStatisticsOpt) {
+	o.errorHandler = ec.fn
+}
+
+func (ec errorCallback) setClearStatisticsOpt(o *clearStatisticsOpt) {
 	o.errorHandler = ec.fn
 }
 
