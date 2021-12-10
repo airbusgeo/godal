@@ -2642,7 +2642,7 @@ func TestFeatureAttributes(t *testing.T) {
 	glayers := `{
 	"type": "FeatureCollection",
 	"features": [
-		{ 
+		{
 			"type": "Feature",
 			"properties": {
 				"strCol":"foobar",
@@ -3453,4 +3453,54 @@ func TestSieveFilter(t *testing.T) {
 	err = Band{}.SieveFilter(3, ErrLogger(ehc.ErrorHandler))
 	assert.Error(t, err)
 	assert.Equal(t, 1, ehc.errs)
+}
+
+func TestStatistics(t *testing.T) {
+	pix := []float64{-1, -1, -1, 0.6929448751453636, 0.3442617943978775, 0.6796005832697952, 0.48097317160224917, 0.9372883166271916, 0.6247443946294147, 0.7456057365811705, 0.9413284240888099, 0.08613901802958557, 0.5266305051539506, 0.1505068869791304, 0.8412037495150991, 0.3387894941561428, 0.004628147981618591, 0.9130423979331878, 0.5091154139870835, 0.3176911347236041, 0.6509868373696832, 0.4953825665747823, 0.06736564255670885, 0.12063500171979136, -1}
+	ds, _ := Create(Memory, "", 1, Float64, 5, 5)
+	defer ds.Close()
+	_ = ds.Write(0, 0, pix, 5, 5)
+	bnd := ds.Bands()[0]
+	bnd.SetNoData(-1)
+	stats, err := bnd.Statistics()
+	assert.NoError(t, err)
+	assert.Equal(t, stats.Min, 0.004628147981618591)
+	assert.Equal(t, stats.Max, 0.9413284240888099)
+	assert.Equal(t, stats.Mean, 0.49851733776296375)
+	assert.Equal(t, stats.Std, 0.29242006895156775)
+
+	err = ds.ClearStatistics()
+	assert.NoError(t, err)
+	ehc := eh()
+	err = ds.ClearStatistics(ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
+	ehc = eh()
+	stats, err = bnd.Statistics(ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
+	stats, err = bnd.Statistics(StatisticsApproximate())
+	assert.NoError(t, err)
+	assert.Equal(t, stats.Min, 0.06736564255670885)
+	assert.Equal(t, stats.Max, 0.9413284240888099)
+	assert.Equal(t, stats.Mean, 0.44703502741188933)
+	assert.Equal(t, stats.Std, 0.29997861829094474)
+	_ = ds.ClearStatistics()
+	min := 0.06
+	max := 0.94
+	mean := 10.
+	std := 0.29
+	ehc = eh()
+	err = bnd.SetStatistics(min, max, mean, std, ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
+	stats, _ = bnd.Statistics(Force())
+	assert.Equal(t, stats.Min, 0.004628147981618591)
+	assert.Equal(t, stats.Max, 0.9413284240888099)
+	assert.Equal(t, stats.Mean, 0.49851733776296375)
+	assert.Equal(t, stats.Std, 0.29242006895156775)
+	_ = ds.ClearStatistics()
+	_ = bnd.SetStatistics(min, max, mean, std, ErrLogger(ehc.ErrorHandler))
+	stats, _ = bnd.Statistics(StatisticsApproximate(), Force())
+	assert.Equal(t, stats.Min, min)
+	assert.Equal(t, stats.Max, max)
+	assert.Equal(t, stats.Mean, mean)
+	assert.Equal(t, stats.Std, std)
 }
