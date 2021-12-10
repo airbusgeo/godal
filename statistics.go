@@ -54,3 +54,14 @@ func Force() interface {
 } {
 	return bForceOption{}
 }
+
+//SetStatistics is an option that can passed to Band.SetStatistics()
+//Available SetStatisticsOptions ars:
+//  -ErrLogger
+type SetStatisticsOption interface {
+	setSetStatisticsOpt(sts *setStatisticsOpt)
+}
+
+type setStatisticsOpt struct {
+	errorHandler ErrorHandler
+}
