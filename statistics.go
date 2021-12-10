@@ -25,6 +25,12 @@ type statisticsOpts struct {
 	errorHandler ErrorHandler
 }
 
+//StatisticsOption is an option that can be passed to Band.Statistics
+//
+//Available Statistics options are:
+// - Aproximate() to allow the satistics to be computed on overviews or a subset od all tiles.
+// - Force() default is 1. If Force() is passed, statistics will be returned if they have already been setted. If not they will computed.
+// - ErrLogger
 type StatisticsOption interface {
 	setStatisticsOpt(so *statisticsOpts)
 }
