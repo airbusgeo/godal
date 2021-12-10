@@ -439,7 +439,7 @@ func (band Band) Histogram(opts ...HistogramOption) (Histogram, error) {
 
 //Compute Min, Max, Mean & Standard deviation
 func (band Band) Statistics(opts ...StatisticsOption) (Statistics, error) {
-	sopt := statisticsOpts{}
+	sopt := statisticsOpts{bForce: 1}
 	for _, s := range opts {
 		s.setStatisticsOpt(&sopt)
 	}
@@ -457,6 +457,21 @@ func (band Band) Statistics(opts ...StatisticsOption) (Statistics, error) {
 		Std:  float64(std),
 	}
 	return s, nil
+}
+
+//Set statistics (Min, Max, Mean & STD)
+func (band Band) SetStatistics(min, max, mean, std float64, opts ...SetStatisticsOption) error {
+	stso := setStatisticsOpt{}
+	for _, opt := range opts {
+		opt.setSetStatisticsOpt(&stso)
+	}
+	cgc := createCGOContext(nil, stso.errorHandler)
+	C.godalSetRasterStatistics(cgc.cPointer(), band.handle(), C.double(min),
+		C.double(max), C.double(mean), C.double(std))
+	if err := cgc.close(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func cIntArray(in []int) *C.int {
