@@ -806,34 +806,22 @@ void godalRasterHistogram(cctx *ctx, GDALRasterBandH bnd, double *min, double *m
 	godalUnwrap();
 }
 
-void computeRasterStatistics(cctx *ctx, GDALRasterBandH bnd, int bApproxOK, double *pdfMin, double *pdfMax, double *pdfMean, double *pdfStdDev){
+void godalComputeRasterStatistics(cctx *ctx, GDALRasterBandH bnd, int bApprox, double *pdfMin, double *pdfMax, double *pdfMean, double *pdfStdDev){
   godalWrap(ctx);
   CPLErr ret = CE_None;
-  if (bApproxOK == 1 ){
-    ret = GDALComputeRasterStatistics(bnd, 1, pdfMin, pdfMax, pdfMean, pdfStdDev, nullptr, nullptr);
-  } else {
-    ret = GDALComputeRasterStatistics(bnd, 0, pdfMin, pdfMax, pdfMean, pdfStdDev, nullptr, nullptr);
-  }
+  ret = GDALComputeRasterStatistics(bnd, bApprox, pdfMin, pdfMax, pdfMean, pdfStdDev, nullptr, nullptr);
   if (ret != 0) {
     forceCPLError(ctx,ret);
   }
   godalUnwrap();
 }
 
-void godalComputeRasterStatistics(cctx *ctx, GDALRasterBandH bnd, int bApproxOK, int bForce, double *pdfMin, double *pdfMax, double *pdfMean, double *pdfStdDev){
+void godalGetRasterStatistics(cctx *ctx, GDALRasterBandH bnd, double *pdfMin, double *pdfMax, double *pdfMean, double *pdfStdDev){
   godalWrap(ctx);
   CPLErr ret = CE_None;
-  if (bForce == 0){
-    if (bApproxOK == 1) {
-      ret = GDALGetRasterStatistics(bnd, 1, 0, pdfMin, pdfMax, pdfMean, pdfStdDev);
-    } else{
-      ret = GDALGetRasterStatistics(bnd, 0, 0, pdfMin, pdfMax, pdfMean, pdfStdDev);
-    }
-    if (ret == CE_Warning){
-      computeRasterStatistics(ctx, bnd, bApproxOK, pdfMin, pdfMax, pdfMean, pdfStdDev);
-    }
-  }else{
-    computeRasterStatistics(ctx, bnd, bApproxOK, pdfMin, pdfMax, pdfMean, pdfStdDev);
+  ret = GDALGetRasterStatistics(bnd, 0, 0, pdfMin, pdfMax, pdfMean, pdfStdDev);
+  if (ret != 0) {
+    forceCPLError(ctx,ret);
   }
   godalUnwrap();
 }
@@ -850,7 +838,11 @@ void godalSetRasterStatistics(cctx *ctx, GDALRasterBandH bnd, double dfMin, doub
 
 void godalClearRasterStatistics(cctx *ctx, GDALDatasetH ds){
   godalWrap(ctx);
+#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 2, 0)
   GDALDatasetClearStatistics(ds);
+#else
+  CPLError("GDALDatasetClearStatistics not supported with gdal < 3.2")
+#endif
   godalUnwrap();
 }
 
