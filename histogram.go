@@ -85,6 +85,7 @@ func (aoo approximateOkOption) setHistogramOpt(ho *histogramOpts) {
 // Approximate allows the histogram algorithm to operate on a subset of the full resolution data
 func Approximate() interface {
 	HistogramOption
+	StatisticsOption
 } {
 	return approximateOkOption{}
 }

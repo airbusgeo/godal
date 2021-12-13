@@ -21,7 +21,6 @@ type Statistics struct {
 
 type statisticsOpts struct {
 	approx       int
-	bForce       int
 	errorHandler ErrorHandler
 }
 
@@ -29,36 +28,13 @@ type statisticsOpts struct {
 //
 //Available Statistics options are:
 // - Aproximate() to allow the satistics to be computed on overviews or a subset od all tiles.
-// - Force() default is 1. If Force() is passed, statistics will be returned if they have already been setted. If not they will computed.
 // - ErrLogger
 type StatisticsOption interface {
 	setStatisticsOpt(so *statisticsOpts)
 }
 
-type approxOkOption struct{}
-
-func (aoo approxOkOption) setStatisticsOpt(so *statisticsOpts) {
+func (aoo approximateOkOption) setStatisticsOpt(so *statisticsOpts) {
 	so.approx = 1
-}
-
-//StatisticsAproximate allows the statistics to be computed on overviews or a subset of all tiles.
-func StatisticsApproximate() interface {
-	StatisticsOption
-} {
-	return approxOkOption{}
-}
-
-type bForceOption struct{}
-
-func (boo bForceOption) setStatisticsOpt(so *statisticsOpts) {
-	so.bForce = 0
-}
-
-//Force allows the pre-computed statistics to be return (no new statistics is computed).
-func Force() interface {
-	StatisticsOption
-} {
-	return bForceOption{}
 }
 
 //SetStatistics is an option that can passed to Band.SetStatistics()
@@ -69,6 +45,17 @@ type SetStatisticsOption interface {
 }
 
 type setStatisticsOpt struct {
+	errorHandler ErrorHandler
+}
+
+//GetStatistics is an option that can passed to band.GetStatistics()
+//Available options are:
+//   -ErrLogger
+type GetStatisticsOption interface {
+	setGetStatisticsOpt(gts *getStatisticsOpt)
+}
+
+type getStatisticsOpt struct {
 	errorHandler ErrorHandler
 }
 
