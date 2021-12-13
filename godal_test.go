@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"os"
 	"path"
 	"path/filepath"
@@ -3456,50 +3457,70 @@ func TestSieveFilter(t *testing.T) {
 }
 
 func TestStatistics(t *testing.T) {
-	pix := []float64{-1, -1, -1, 0.6929448751453636, 0.3442617943978775, 0.6796005832697952, 0.48097317160224917, 0.9372883166271916, 0.6247443946294147, 0.7456057365811705, 0.9413284240888099, 0.08613901802958557, 0.5266305051539506, 0.1505068869791304, 0.8412037495150991, 0.3387894941561428, 0.004628147981618591, 0.9130423979331878, 0.5091154139870835, 0.3176911347236041, 0.6509868373696832, 0.4953825665747823, 0.06736564255670885, 0.12063500171979136, -1}
+	pix := []float64{-1, -1, -1, 0.23, 4.04, 3.96, 1.8, 2.5, 1.31, 0.8, 0.12,
+		3.43, 0.23, 3.31, 3.19, 2.09, 3.25, 3.21, 1.04, 2.3, 3.83, 0.97,
+		0.69, -1, -1}
 	ds, _ := Create(Memory, "", 1, Float64, 5, 5)
 	defer ds.Close()
 	_ = ds.Write(0, 0, pix, 5, 5)
 	bnd := ds.Bands()[0]
 	_ = bnd.SetNoData(-1)
-	stats, err := bnd.Statistics()
-	assert.NoError(t, err)
-	assert.Equal(t, stats.Min, 0.004628147981618591)
-	assert.Equal(t, stats.Max, 0.9413284240888099)
-	assert.Equal(t, stats.Mean, 0.49851733776296375)
-	assert.Equal(t, stats.Std, 0.29242006895156775)
-	err = ds.ClearStatistics()
-	assert.NoError(t, err)
-	ehc := eh()
-	err = ds.ClearStatistics(ErrLogger(ehc.ErrorHandler))
-	assert.NoError(t, err)
-	ehc = eh()
-	stats, err = bnd.Statistics(ErrLogger(ehc.ErrorHandler))
-	assert.NoError(t, err)
-	stats, err = bnd.Statistics(StatisticsApproximate())
-	assert.NoError(t, err)
-	assert.Equal(t, stats.Min, 0.06736564255670885)
-	assert.Equal(t, stats.Max, 0.9413284240888099)
-	assert.Equal(t, stats.Mean, 0.44703502741188933)
-	assert.Equal(t, stats.Std, 0.29997861829094474)
-	_ = ds.ClearStatistics()
-	min := 0.06
+	//Test Empty statistics
+	flag, stats, err := bnd.GetStatistics()
+	assert.Error(t, err)
+	assert.Equal(t, flag, false)
+	assert.Equal(t, stats.Min, 0.)
+	assert.Equal(t, stats.Max, 0.)
+	assert.Equal(t, stats.Mean, 0.)
+	assert.Equal(t, stats.Std, 0.)
+	// Test Pre computed statistics
+	min := 5.
 	max := 0.94
 	mean := 10.
 	std := 0.29
-	ehc = eh()
+	ehc := eh()
 	err = bnd.SetStatistics(min, max, mean, std, ErrLogger(ehc.ErrorHandler))
 	assert.NoError(t, err)
-	stats, _ = bnd.Statistics(Force())
-	assert.Equal(t, stats.Min, 0.004628147981618591)
-	assert.Equal(t, stats.Max, 0.9413284240888099)
-	assert.Equal(t, stats.Mean, 0.49851733776296375)
-	assert.Equal(t, stats.Std, 0.29242006895156775)
+	flag, stats, err = bnd.GetStatistics()
+	assert.NoError(t, err)
+	assert.Equal(t, flag, true)
+	assert.Equal(t, stats.Min, 5.)
+	assert.Equal(t, stats.Max, 0.94)
+	assert.Equal(t, stats.Mean, 10.)
+	assert.Equal(t, stats.Std, 0.29)
+	err = ds.ClearStatistics()
+	assert.NoError(t, err)
+	ehc = eh()
+	err = ds.ClearStatistics(ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
+	// Test exact computed statistics
+	ehc = eh()
+	stats, err = bnd.ComputeStatistics(ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
+	assert.Equal(t, stats.Min, 0.12)
+	assert.Equal(t, stats.Max, 4.04)
+	assert.Equal(t, math.Round(stats.Mean*100)/100, 2.11)
+	assert.Equal(t, math.Round(stats.Std*100)/100, 1.32)
+	flag, stats, err = bnd.GetStatistics()
+	assert.NoError(t, err)
+	assert.Equal(t, flag, true)
+	assert.Equal(t, stats.Min, 0.12)
+	assert.Equal(t, stats.Max, 4.04)
+	assert.Equal(t, math.Round(stats.Mean*100)/100, 2.12)
+	assert.Equal(t, math.Round(stats.Std*100)/100, 1.32)
 	_ = ds.ClearStatistics()
-	_ = bnd.SetStatistics(min, max, mean, std, ErrLogger(ehc.ErrorHandler))
-	stats, _ = bnd.Statistics(StatisticsApproximate(), Force())
-	assert.Equal(t, stats.Min, min)
-	assert.Equal(t, stats.Max, max)
-	assert.Equal(t, stats.Mean, mean)
-	assert.Equal(t, stats.Std, std)
+	// Test approximated computed statistics
+	stats, err = bnd.ComputeStatistics(Approximate())
+	assert.NoError(t, err)
+	assert.Equal(t, stats.Min, 0.12)
+	assert.Equal(t, stats.Max, 4.04)
+	assert.Equal(t, math.Round(stats.Mean*100)/100, 2.)
+	assert.Equal(t, math.Round(stats.Std*100)/100, 1.59)
+	flag, stats, err = bnd.GetStatistics()
+	assert.Error(t, err)
+	assert.Equal(t, flag, false)
+	assert.Equal(t, stats.Min, 0.)
+	assert.Equal(t, stats.Max, 0.)
+	assert.Equal(t, stats.Mean, 0.)
+	assert.Equal(t, stats.Std, 0.)
 }
