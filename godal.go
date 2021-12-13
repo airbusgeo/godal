@@ -437,16 +437,39 @@ func (band Band) Histogram(opts ...HistogramOption) (Histogram, error) {
 	return h, nil
 }
 
-//Compute Min, Max, Mean & Standard deviation
-func (band Band) Statistics(opts ...StatisticsOption) (Statistics, error) {
-	sopt := statisticsOpts{bForce: 1}
+//Statistics returns if present and flag is true.
+//Statisitics not returns if not present return and flag is false.
+func (band Band) GetStatistics(opts ...GetStatisticsOption) (bool, Statistics, error) {
+	gsto := getStatisticsOpt{}
+	for _, opt := range opts {
+		opt.setGetStatisticsOpt(&gsto)
+	}
+	cgc := createCGOContext(nil, gsto.errorHandler)
+	var min, max, mean, std C.double
+	C.godalGetRasterStatistics(cgc.cPointer(), band.handle(), &min,
+		&max, &mean, &std)
+	if err := cgc.close(); err != nil {
+		return false, Statistics{}, err
+	}
+	s := Statistics{
+		Min:  float64(min),
+		Max:  float64(max),
+		Mean: float64(mean),
+		Std:  float64(std),
+	}
+	return true, s, nil
+}
+
+//Statistics returns from exact computation or approximation.
+func (band Band) ComputeStatistics(opts ...StatisticsOption) (Statistics, error) {
+	sopt := statisticsOpts{}
 	for _, s := range opts {
 		s.setStatisticsOpt(&sopt)
 	}
 	var min, max, mean, std C.double
 	cgc := createCGOContext(nil, sopt.errorHandler)
 	C.godalComputeRasterStatistics(cgc.cPointer(), band.handle(),
-		(C.int)(sopt.approx), (C.int)(sopt.bForce), &min, &max, &mean, &std)
+		(C.int)(sopt.approx), &min, &max, &mean, &std)
 	if err := cgc.close(); err != nil {
 		return Statistics{}, err
 	}
