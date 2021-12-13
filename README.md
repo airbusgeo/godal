@@ -1,4 +1,3 @@
-
 # Golang bindings for GDAL
 [![Go Reference](https://pkg.go.dev/badge/github.com/airbusgeo/godal.svg)](https://pkg.go.dev/github.com/airbusgeo/godal)
 [![License](https://img.shields.io/github/license/airbusgeo/godal.svg)](https://github.com/airbusgeo/godal/blob/main/LICENSE)
