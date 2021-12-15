@@ -17,6 +17,7 @@ package godal
 // Statisitics on a given band.
 type Statistics struct {
 	Min, Max, Mean, Std float64
+	Approximate         bool
 }
 
 type statisticsOpts struct {
@@ -45,17 +46,6 @@ type SetStatisticsOption interface {
 }
 
 type setStatisticsOpt struct {
-	errorHandler ErrorHandler
-}
-
-//GetStatistics is an option that can passed to band.GetStatistics()
-//Available options are:
-//   -ErrLogger
-type GetStatisticsOption interface {
-	setGetStatisticsOpt(gts *getStatisticsOpt)
-}
-
-type getStatisticsOpt struct {
 	errorHandler ErrorHandler
 }
 
