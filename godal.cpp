@@ -816,16 +816,6 @@ void godalComputeRasterStatistics(cctx *ctx, GDALRasterBandH bnd, int bApprox, d
   godalUnwrap();
 }
 
-void godalGetRasterStatistics(cctx *ctx, GDALRasterBandH bnd, double *pdfMin, double *pdfMax, double *pdfMean, double *pdfStdDev){
-  godalWrap(ctx);
-  CPLErr ret = CE_None;
-  ret = GDALGetRasterStatistics(bnd, 0, 0, pdfMin, pdfMax, pdfMean, pdfStdDev);
-  if (ret != 0) {
-    forceCPLError(ctx,ret);
-  }
-  godalUnwrap();
-}
-
 void godalSetRasterStatistics(cctx *ctx, GDALRasterBandH bnd, double dfMin, double dfMax, double dfMean, double dfStdDev){
   godalWrap(ctx);
   CPLErr ret = CE_None;
