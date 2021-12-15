@@ -439,23 +439,38 @@ func (band Band) Histogram(opts ...HistogramOption) (Histogram, error) {
 
 //Statistics returns if present and flag is true.
 //Statisitics not returns if not present return and flag is false.
-func (band Band) GetStatistics(opts ...GetStatisticsOption) (bool, Statistics, error) {
-	gsto := getStatisticsOpt{}
-	for _, opt := range opts {
-		opt.setGetStatisticsOpt(&gsto)
+func (band Band) GetStatistics() (bool, Statistics, error) {
+	meta := band.Metadatas()
+	m := meta["STATISTICS_MEAN"]
+	sdev := meta["STATISTICS_STDDEV"]
+	if m == "" && sdev == "" {
+		return false, Statistics{}, nil
 	}
-	cgc := createCGOContext(nil, gsto.errorHandler)
-	var min, max, mean, std C.double
-	C.godalGetRasterStatistics(cgc.cPointer(), band.handle(), &min,
-		&max, &mean, &std)
-	if err := cgc.close(); err != nil {
+	var min, max, mean, std float64
+	var err error
+	min, err = strconv.ParseFloat(meta["STATISTICS_MINIMUM"], 64)
+	if err != nil {
 		return false, Statistics{}, err
 	}
+	max, err = strconv.ParseFloat(meta["STATISTICS_MAXIMUM"], 64)
+	if err != nil {
+		return false, Statistics{}, err
+	}
+	mean, err = strconv.ParseFloat(meta["STATISTICS_MEAN"], 64)
+	if err != nil {
+		return false, Statistics{}, err
+	}
+	std, err = strconv.ParseFloat(meta["STATISTICS_STDDEV"], 64)
+	if err != nil {
+		return false, Statistics{}, err
+	}
+	var approx bool = meta["STATISTICS_APPROXIMATE"] == "YES"
 	s := Statistics{
-		Min:  float64(min),
-		Max:  float64(max),
-		Mean: float64(mean),
-		Std:  float64(std),
+		Approximate: approx,
+		Min:         min,
+		Max:         max,
+		Mean:        mean,
+		Std:         std,
 	}
 	return true, s, nil
 }
@@ -473,11 +488,13 @@ func (band Band) ComputeStatistics(opts ...StatisticsOption) (Statistics, error)
 	if err := cgc.close(); err != nil {
 		return Statistics{}, err
 	}
+	var ap bool = sopt.approx != 0
 	s := Statistics{
-		Min:  float64(min),
-		Max:  float64(max),
-		Mean: float64(mean),
-		Std:  float64(std),
+		Min:         float64(min),
+		Max:         float64(max),
+		Mean:        float64(mean),
+		Std:         float64(std),
+		Approximate: ap,
 	}
 	return s, nil
 }
