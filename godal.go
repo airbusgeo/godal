@@ -421,7 +421,7 @@ func (band Band) Histogram(opts ...HistogramOption) (Histogram, error) {
 	cgc := createCGOContext(nil, hopt.errorHandler)
 
 	C.godalRasterHistogram(cgc.cPointer(), band.handle(), (*C.double)(&hopt.min), (*C.double)(&hopt.max), (*C.int)(&hopt.buckets),
-		&values, C.int(hopt.includeOutside), C.int(hopt.approx))
+		&values, C.int(hopt.includeOutside), C.int(hopt.approx), C.int(hopt.force))
 	if err := cgc.close(); err != nil {
 		return Histogram{}, err
 	}
