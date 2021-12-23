@@ -846,7 +846,7 @@ void godalClearRasterStatistics(cctx *ctx, GDALDatasetH ds){
 #if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 2, 0)
   GDALDatasetClearStatistics(ds);
 #else
-  CPLError("GDALDatasetClearStatistics not supported with gdal < 3.2")
+  CPLError(CE_Fatal, CPLE_NotSupported, "GDALDatasetClearStatistics not supported with gdal < 3.2")
 #endif
   godalUnwrap();
 }
