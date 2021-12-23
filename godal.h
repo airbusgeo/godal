@@ -120,7 +120,8 @@ extern "C" {
 
 	void test_godal_error_handling(cctx *ctx);
     void godalClearRasterStatistics(cctx *ctx, GDALDatasetH ds);
-    void godalComputeRasterStatistics(cctx *ctx, GDALRasterBandH bnd, int bApprox, double *pdfMin, double *pdfMax, double *pdfMean, double *pdfStdDev);
+    void godalComputeRasterStatistics(cctx *ctx, GDALRasterBandH bnd, int bApproxOK, double *pdfMin, double *pdfMax, double *pdfMean, double *pdfStdDev);
+    void godalGetRasterStatistics(cctx *ctx, GDALRasterBandH bnd, int bApproxOK, double *pdfMin, double *pdfMax, double *pdfMean, double *pdfStdDev);
     void godalSetRasterStatistics(cctx *ctx, GDALRasterBandH bnd, double dfMin, double dfMax, double dfMean, double dfStdDev);
 #ifdef __cplusplus
 }

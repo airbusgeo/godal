@@ -806,15 +806,30 @@ void godalRasterHistogram(cctx *ctx, GDALRasterBandH bnd, double *min, double *m
 	godalUnwrap();
 }
 
-void godalComputeRasterStatistics(cctx *ctx, GDALRasterBandH bnd, int bApprox, double *pdfMin, double *pdfMax, double *pdfMean, double *pdfStdDev){
+void godalComputeRasterStatistics(cctx *ctx, GDALRasterBandH bnd, int bApproxOK, double *pdfMin, double *pdfMax, double *pdfMean, double *pdfStdDev){
   godalWrap(ctx);
   CPLErr ret = CE_None;
-  ret = GDALComputeRasterStatistics(bnd, bApprox, pdfMin, pdfMax, pdfMean, pdfStdDev, nullptr, nullptr);
+  ret = GDALComputeRasterStatistics(bnd, bApproxOK, pdfMin, pdfMax, pdfMean, pdfStdDev, nullptr, nullptr);
   if (ret != 0) {
     forceCPLError(ctx,ret);
   }
   godalUnwrap();
 }
+
+void godalGetRasterStatistics(cctx *ctx, GDALRasterBandH bnd, int bApproxOK, double *pdfMin, double *pdfMax, double *pdfMean, double *pdfStdDev){
+  godalWrap(ctx);
+  CPLErr ret = CE_None;
+  if (bApproxOK == 1) {
+    ret = GDALGetRasterStatistics(bnd, 1, 0, pdfMin, pdfMax, pdfMean, pdfStdDev);
+  } else {
+    ret = GDALGetRasterStatistics(bnd, 0, 0, pdfMin, pdfMax, pdfMean, pdfStdDev);
+  }
+  if (ret != 0) {
+    forceCPLError(ctx,ret);
+  }
+  godalUnwrap();
+}
+
 
 void godalSetRasterStatistics(cctx *ctx, GDALRasterBandH bnd, double dfMin, double dfMax, double dfMean, double dfStdDev){
   godalWrap(ctx);
