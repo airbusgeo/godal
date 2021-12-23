@@ -3467,7 +3467,7 @@ func TestStatistics(t *testing.T) {
 	_ = bnd.SetNoData(-1)
 	// Test Empty statistics
 	flag, stats, err := bnd.GetStatistics()
-	assert.NoError(t, err)
+	assert.Error(t, err)
 	assert.Equal(t, false, flag)
 	assert.Equal(t, 0., stats.Min)
 	assert.Equal(t, 0., stats.Max)
@@ -3521,8 +3521,12 @@ func TestStatistics(t *testing.T) {
 	assert.Equal(t, 2., math.Round(stats.Mean*100)/100)
 	assert.Equal(t, 1.59, math.Round(stats.Std*100)/100)
 	assert.Equal(t, true, stats.Approximate)
+	// Test whether there is no Approximated stats
 	flag, stats, err = bnd.GetStatistics()
-	assert.NoError(t, err)
+	assert.Error(t, err)
+	assert.Equal(t, false, flag)
+	// Test whether there is Approximated stats
+	flag, stats, err = bnd.GetStatistics(Approximate())
 	assert.Equal(t, true, flag)
 	assert.Equal(t, 0.12, stats.Min)
 	assert.Equal(t, 4.04, stats.Max)
