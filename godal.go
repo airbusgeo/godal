@@ -437,40 +437,28 @@ func (band Band) Histogram(opts ...HistogramOption) (Histogram, error) {
 	return h, nil
 }
 
-//Statistics returns if present and flag is true.
-//Statisitics not returns if not present return and flag is false.
-func (band Band) GetStatistics() (bool, Statistics, error) {
-	meta := band.Metadatas()
-	m := meta["STATISTICS_MEAN"]
-	sdev := meta["STATISTICS_STDDEV"]
-	if m == "" && sdev == "" {
-		return false, Statistics{}, nil
+//Statistics returns if present and flag as true.
+//If approximated statistics already computed, approximated statistics are returned.
+//Return false and error if no statistics are availables.
+func (band Band) GetStatistics(opts ...StatisticsOption) (bool, Statistics, error) {
+	sopt := statisticsOpts{}
+	for _, s := range opts {
+		s.setStatisticsOpt(&sopt)
 	}
-	var min, max, mean, std float64
-	var err error
-	min, err = strconv.ParseFloat(meta["STATISTICS_MINIMUM"], 64)
-	if err != nil {
+	var min, max, mean, std C.double
+	cgc := createCGOContext(nil, sopt.errorHandler)
+	C.godalGetRasterStatistics(cgc.cPointer(), band.handle(),
+		(C.int)(sopt.approx), &min, &max, &mean, &std)
+	if err := cgc.close(); err != nil {
 		return false, Statistics{}, err
 	}
-	max, err = strconv.ParseFloat(meta["STATISTICS_MAXIMUM"], 64)
-	if err != nil {
-		return false, Statistics{}, err
-	}
-	mean, err = strconv.ParseFloat(meta["STATISTICS_MEAN"], 64)
-	if err != nil {
-		return false, Statistics{}, err
-	}
-	std, err = strconv.ParseFloat(meta["STATISTICS_STDDEV"], 64)
-	if err != nil {
-		return false, Statistics{}, err
-	}
-	var approx bool = meta["STATISTICS_APPROXIMATE"] == "YES"
+	var ap bool = sopt.approx != 0
 	s := Statistics{
-		Approximate: approx,
-		Min:         min,
-		Max:         max,
-		Mean:        mean,
-		Std:         std,
+		Approximate: ap,
+		Min:         float64(min),
+		Max:         float64(max),
+		Mean:        float64(mean),
+		Std:         float64(std),
 	}
 	return true, s, nil
 }
@@ -1430,6 +1418,7 @@ func (lv LibVersion) Major() int {
 
 //Minor return the GDAL minor version (e.g. "2" in 3.2.1)
 func (lv LibVersion) Minor() int {
+	fmt.Println()
 	return (int(lv) - lv.Major()*1000000) / 10000
 }
 
