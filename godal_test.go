@@ -3551,4 +3551,7 @@ func TestStatistics(t *testing.T) {
 	bnd = Band{}
 	err = bnd.SetStatistics(min, max, mean, std)
 	assert.Error(t, err)
+	// Test on null band for coverage
+	_, _, err = bnd.GetStatistics()
+	assert.Error(t, err)
 }
