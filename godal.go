@@ -447,10 +447,13 @@ func (band Band) GetStatistics(opts ...StatisticsOption) (bool, Statistics, erro
 	}
 	var min, max, mean, std C.double
 	cgc := createCGOContext(nil, sopt.errorHandler)
-	C.godalGetRasterStatistics(cgc.cPointer(), band.handle(),
+	ret := C.godalGetRasterStatistics(cgc.cPointer(), band.handle(),
 		(C.int)(sopt.approx), &min, &max, &mean, &std)
 	if err := cgc.close(); err != nil {
 		return false, Statistics{}, err
+	}
+	if ret == 0 {
+		return false, Statistics{}, nil
 	}
 	var ap bool = sopt.approx != 0
 	s := Statistics{
@@ -1418,7 +1421,6 @@ func (lv LibVersion) Major() int {
 
 //Minor return the GDAL minor version (e.g. "2" in 3.2.1)
 func (lv LibVersion) Minor() int {
-	fmt.Println()
 	return (int(lv) - lv.Major()*1000000) / 10000
 }
 
