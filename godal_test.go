@@ -3527,6 +3527,7 @@ func TestStatistics(t *testing.T) {
 	assert.Equal(t, false, flag)
 	// Test whether there is Approximated stats
 	flag, stats, err = bnd.GetStatistics(Approximate())
+	assert.NoError(t, err)
 	assert.Equal(t, true, flag)
 	assert.Equal(t, 0.12, stats.Min)
 	assert.Equal(t, 4.04, stats.Max)
@@ -3538,7 +3539,7 @@ func TestStatistics(t *testing.T) {
 	_ = ds.ClearStatistics()
 	_ = ds.Write(0, 0, pix, 5, 5)
 	bnd = ds.Bands()[0]
-	bnd.SetNoData(1)
+	_ = bnd.SetNoData(1)
 	stats, err = bnd.ComputeStatistics()
 	assert.Error(t, err)
 	assert.Equal(t, 0., stats.Min)
