@@ -3490,11 +3490,20 @@ func TestStatistics(t *testing.T) {
 	assert.Equal(t, 10., stats.Mean)
 	assert.Equal(t, 0.29, stats.Std)
 	assert.Equal(t, false, stats.Approximate)
+	runtimeVersion := Version()
 	err = ds.ClearStatistics()
-	assert.NoError(t, err)
+	if runtimeVersion.Major() <= 3 && runtimeVersion.Minor() < 2 {
+		assert.Error(t, err)
+	} else {
+		assert.NoError(t, err)
+	}
 	ehc = eh()
 	err = ds.ClearStatistics(ErrLogger(ehc.ErrorHandler))
-	assert.NoError(t, err)
+	if runtimeVersion.Major() <= 3 && runtimeVersion.Minor() < 2 {
+		assert.Error(t, err)
+	} else {
+		assert.NoError(t, err)
+	}
 	// Test exact computed statistics
 	ehc = eh()
 	stats, err = bnd.ComputeStatistics(ErrLogger(ehc.ErrorHandler))
