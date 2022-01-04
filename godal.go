@@ -437,10 +437,14 @@ func (band Band) Histogram(opts ...HistogramOption) (Histogram, error) {
 	return h, nil
 }
 
-//Statistics returns if present and flag as true.
-//If approximated statistics already computed, approximated statistics are returned.
-//Return false and error if no statistics are availables.
-func (band Band) GetStatistics(opts ...StatisticsOption) (bool, Statistics, error) {
+//GetStatistics returns if present and flag as true.
+//
+//Only cached statistics are returned and no new statistics are computed.
+//Return false and no error if no statistics are availables.
+//Available options are:
+// - Aproximate() to allow the satistics to be computed on overviews or a subset of all tiles.
+// - ErrLogger
+func (band Band) GetStatistics(opts ...StatisticsOption) (Statistics, bool, error) {
 	sopt := statisticsOpts{}
 	for _, s := range opts {
 		s.setStatisticsOpt(&sopt)
@@ -450,10 +454,10 @@ func (band Band) GetStatistics(opts ...StatisticsOption) (bool, Statistics, erro
 	ret := C.godalGetRasterStatistics(cgc.cPointer(), band.handle(),
 		(C.int)(sopt.approx), &min, &max, &mean, &std)
 	if err := cgc.close(); err != nil {
-		return false, Statistics{}, err
+		return Statistics{}, false, err
 	}
 	if ret == 0 {
-		return false, Statistics{}, nil
+		return Statistics{}, false, nil
 	}
 	var ap bool = sopt.approx != 0
 	s := Statistics{
@@ -463,10 +467,15 @@ func (band Band) GetStatistics(opts ...StatisticsOption) (bool, Statistics, erro
 		Mean:        float64(mean),
 		Std:         float64(std),
 	}
-	return true, s, nil
+	return s, true, nil
 }
 
-//Statistics returns from exact computation or approximation.
+//ComputeStatistics returns from exact computation or approximation.
+//
+//Band full scan might be necessary.
+//Available options are:
+// - Aproximate() to allow the satistics to be computed on overviews or a subset of all tiles.
+// - ErrLogger
 func (band Band) ComputeStatistics(opts ...StatisticsOption) (Statistics, error) {
 	sopt := statisticsOpts{}
 	for _, s := range opts {
@@ -490,7 +499,10 @@ func (band Band) ComputeStatistics(opts ...StatisticsOption) (Statistics, error)
 	return s, nil
 }
 
-//Set statistics (Min, Max, Mean & STD)
+//SetStatistics set statistics (Min, Max, Mean & STD).
+//
+//Available options are:
+//  -ErrLogger
 func (band Band) SetStatistics(min, max, mean, std float64, opts ...SetStatisticsOption) error {
 	stso := setStatisticsOpt{}
 	for _, opt := range opts {
@@ -1020,7 +1032,11 @@ func (ds *Dataset) ClearOverviews(opts ...ClearOverviewsOption) error {
 	return cgc.close()
 }
 
-// ClearStatistics delete dataset statisitics
+//ClearStatistics delete dataset statisitics
+//
+//Since GDAL 3.2
+//Available options are:
+//  -ErrLogger
 func (ds *Dataset) ClearStatistics(opts ...ClearStatisticsOption) error {
 	cls := &clearStatisticsOpt{}
 	for _, o := range opts {
