@@ -28,7 +28,7 @@ type statisticsOpts struct {
 //StatisticsOption is an option that can be passed to Band.Statistics
 //
 //Available Statistics options are:
-// - Aproximate() to allow the satistics to be computed on overviews or a subset od all tiles.
+// - Aproximate() to allow the satistics to be computed on overviews or a subset of all tiles.
 // - ErrLogger
 type StatisticsOption interface {
 	setStatisticsOpt(so *statisticsOpts)
@@ -52,7 +52,6 @@ type setStatisticsOpt struct {
 //ClearStatistics  is an option passed to Dataset.ClearStatistics
 //Available options are:
 //  -ErrLogger
-
 type ClearStatisticsOption interface {
 	setClearStatisticsOpt(sts *clearStatisticsOpt)
 }
