@@ -49,7 +49,7 @@ extern "C" {
 	//returns a null terminated list of bands. the caller must free the returned list
 	GDALRasterBandH *godalRasterBands(GDALDatasetH ds);
 	OGRLayerH *godalVectorLayers(GDALDatasetH ds);
-	
+
 	GDALRasterBandH* godalBandOverviews(GDALRasterBandH bnd);
 
 	void godalSetRasterNoDataValue(cctx *ctx, GDALRasterBandH bnd, double nd);
@@ -119,6 +119,10 @@ extern "C" {
 	GDALDatasetH godalBuildVRT(cctx *ctx, char *dstname, char **sources, char **switches);
 
 	void test_godal_error_handling(cctx *ctx);
+    void godalClearRasterStatistics(cctx *ctx, GDALDatasetH ds);
+    void godalComputeRasterStatistics(cctx *ctx, GDALRasterBandH bnd, int bApproxOK, double *pdfMin, double *pdfMax, double *pdfMean, double *pdfStdDev);
+    int godalGetRasterStatistics(cctx *ctx, GDALRasterBandH bnd, int bApproxOK, double *pdfMin, double *pdfMax, double *pdfMean, double *pdfStdDev);
+    void godalSetRasterStatistics(cctx *ctx, GDALRasterBandH bnd, double dfMin, double dfMax, double dfMean, double dfStdDev);
 #ifdef __cplusplus
 }
 #endif

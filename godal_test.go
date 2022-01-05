@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"os"
 	"path"
 	"path/filepath"
@@ -2642,7 +2643,7 @@ func TestFeatureAttributes(t *testing.T) {
 	glayers := `{
 	"type": "FeatureCollection",
 	"features": [
-		{ 
+		{
 			"type": "Feature",
 			"properties": {
 				"strCol":"foobar",
@@ -3453,4 +3454,115 @@ func TestSieveFilter(t *testing.T) {
 	err = Band{}.SieveFilter(3, ErrLogger(ehc.ErrorHandler))
 	assert.Error(t, err)
 	assert.Equal(t, 1, ehc.errs)
+}
+
+func TestStatistics(t *testing.T) {
+	pix := []float64{-1, -1, -1, 0.23, 4.04, 3.96, 1.8, 2.5, 1.31, 0.8, 0.12,
+		3.43, 0.23, 3.31, 3.19, 2.09, 3.25, 3.21, 1.04, 2.3, 3.83, 0.97,
+		0.69, -1, -1}
+	ds, _ := Create(Memory, "", 1, Float64, 5, 5)
+	defer ds.Close()
+	_ = ds.Write(0, 0, pix, 5, 5)
+	bnd := ds.Bands()[0]
+	_ = bnd.SetNoData(-1)
+	// Test Empty statistics
+	stats, flag, err := bnd.GetStatistics()
+	assert.NoError(t, err)
+	assert.Equal(t, false, flag)
+	assert.Equal(t, 0., stats.Min)
+	assert.Equal(t, 0., stats.Max)
+	assert.Equal(t, 0., stats.Mean)
+	assert.Equal(t, 0., stats.Std)
+	assert.Equal(t, false, stats.Approximate)
+	// Test Pre computed statistics
+	min := 5.
+	max := 0.94
+	mean := 10.
+	std := 0.29
+	ehc := eh()
+	err = bnd.SetStatistics(min, max, mean, std, ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
+	stats, flag, err = bnd.GetStatistics()
+	assert.NoError(t, err)
+	assert.Equal(t, true, flag)
+	assert.Equal(t, 5., stats.Min)
+	assert.Equal(t, 0.94, stats.Max)
+	assert.Equal(t, 10., stats.Mean)
+	assert.Equal(t, 0.29, stats.Std)
+	assert.Equal(t, false, stats.Approximate)
+	runtimeVersion := Version()
+	err = ds.ClearStatistics()
+	if runtimeVersion.Major() <= 3 && runtimeVersion.Minor() < 2 {
+		assert.Error(t, err)
+	} else {
+		assert.NoError(t, err)
+	}
+	ehc = eh()
+	err = ds.ClearStatistics(ErrLogger(ehc.ErrorHandler))
+	if runtimeVersion.Major() <= 3 && runtimeVersion.Minor() < 2 {
+		assert.Error(t, err)
+	} else {
+		assert.NoError(t, err)
+	}
+	// Test exact computed statistics
+	ehc = eh()
+	stats, err = bnd.ComputeStatistics(ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
+	assert.Equal(t, 0.12, stats.Min)
+	assert.Equal(t, 4.04, stats.Max)
+	assert.Equal(t, 2.12, math.Ceil(stats.Mean*100)/100)
+	assert.Equal(t, 1.32, math.Round(stats.Std*100)/100)
+	assert.Equal(t, false, stats.Approximate)
+	stats, flag, err = bnd.GetStatistics()
+	assert.NoError(t, err)
+	assert.Equal(t, true, flag)
+	assert.Equal(t, 0.12, stats.Min)
+	assert.Equal(t, 4.04, stats.Max)
+	assert.Equal(t, 2.12, math.Round(stats.Mean*100)/100)
+	assert.Equal(t, 1.32, math.Round(stats.Std*100)/100)
+	assert.Equal(t, false, stats.Approximate)
+	exact_stats := stats
+	_ = ds.ClearStatistics()
+	// Test approximated computed statistics
+	stats, err = bnd.ComputeStatistics(Approximate())
+	assert.NoError(t, err)
+	assert.Equal(t, exact_stats.Min, stats.Min)
+	assert.Equal(t, exact_stats.Max, stats.Max)
+	assert.NotEqual(t, exact_stats.Mean, stats.Mean)
+	assert.NotEqual(t, exact_stats.Std, stats.Std)
+	assert.Equal(t, true, stats.Approximate)
+	// Test whether there is no Approximated stats
+	stats, flag, err = bnd.GetStatistics()
+	assert.NoError(t, err)
+	assert.Equal(t, false, flag)
+	// Test whether there is Approximated stats
+	stats, flag, err = bnd.GetStatistics(Approximate())
+	assert.NoError(t, err)
+	assert.Equal(t, true, flag)
+	assert.Equal(t, 0.12, stats.Min)
+	assert.Equal(t, 4.04, stats.Max)
+	assert.Equal(t, 2., math.Round(stats.Mean*100)/100)
+	assert.Equal(t, 1.59, math.Round(stats.Std*100)/100)
+	// Test with full no data for coverage
+	pix = []float64{1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
+		1., 1., 1., 1., 1., 1., 1., 1.}
+	_ = ds.ClearStatistics()
+	_ = ds.Write(0, 0, pix, 5, 5)
+	bnd = ds.Bands()[0]
+	_ = bnd.SetNoData(1)
+	stats, err = bnd.ComputeStatistics()
+	assert.Error(t, err)
+	assert.Equal(t, 0., stats.Min)
+	assert.Equal(t, 0., stats.Max)
+	assert.Equal(t, 0., stats.Mean)
+	assert.Equal(t, 0., stats.Std)
+	assert.Equal(t, false, stats.Approximate)
+	_ = ds.ClearStatistics()
+	// Test null band for coverage
+	bnd = Band{}
+	err = bnd.SetStatistics(min, max, mean, std)
+	assert.Error(t, err)
+	// Test on null band for coverage
+	_, _, err = bnd.GetStatistics()
+	assert.Error(t, err)
 }
