@@ -2620,6 +2620,72 @@ func TestNewGeometry(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestNewGeometryFromGeoJSON(t *testing.T) {
+	jsonStr := `{ "type": "Polygon", "coordinates": [ [ [ -71.7, 44.9 ], [ -71.8, 45.1 ], [ -71.6, 45.2 ], [ -70.6, 45.3 ], [ -71.7, 44.9 ] ] ] }`
+
+	_, err := NewGeometryFromGeoJSON("babsaba")
+	assert.Error(t, err)
+	ehc := eh()
+	_, err = NewGeometryFromGeoJSON("babsaba", ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+
+	gp, err := NewGeometryFromGeoJSON(jsonStr)
+	assert.NoError(t, err)
+	assert.NotNil(t, gp)
+	ehc = eh()
+	gp, err = NewGeometryFromGeoJSON(jsonStr, ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
+
+	outJSON, err := gp.GeoJSON()
+	assert.NoError(t, err)
+	assert.Equal(t, jsonStr, outJSON)
+}
+
+func TestGeometryIntersects(t *testing.T) {
+	_, err := (&Geometry{}).Intersects(&Geometry{})
+	assert.Error(t, err)
+
+	ehc := eh()
+	_, err = (&Geometry{}).Intersects(&Geometry{}, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+
+	poly1Str := `{ "type": "Polygon", "coordinates": [ [ [ 0, 0 ], [ 1, 0 ], [ 1, 1 ], [ 0, 1 ], [ 0, 0 ] ] ] }`
+	poly2Str := `{ "type": "Polygon", "coordinates": [ [ [ 2, 0 ], [ 3, 0 ], [ 3, 1 ], [ 2, 1 ], [ 2, 0 ] ] ] }`
+
+	gp1, err := NewGeometryFromGeoJSON(poly1Str)
+	assert.NoError(t, err)
+	assert.NotNil(t, gp1)
+
+	gp2, err := NewGeometryFromGeoJSON(poly2Str)
+	assert.NoError(t, err)
+	assert.NotNil(t, gp2)
+
+	_, err = gp1.Intersects(&Geometry{})
+	assert.Error(t, err)
+
+	_, err = (&Geometry{}).Intersects(gp1)
+	assert.Error(t, err)
+
+	ehc = eh()
+	ret, err := gp1.Intersects(gp1)
+	assert.NoError(t, err)
+	assert.True(t, ret)
+
+	ehc = eh()
+	ret, err = gp1.Intersects(gp1, ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
+	assert.True(t, ret)
+
+	ret, err = gp1.Intersects(gp2)
+	assert.NoError(t, err)
+	assert.False(t, ret)
+
+	ehc = eh()
+	ret, err = gp1.Intersects(gp2, ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
+	assert.False(t, ret)
+}
+
 func TestGeomToGeoJSON(t *testing.T) {
 	sr, _ := NewSpatialRefFromEPSG(4326)
 	g, _ := NewGeometryFromWKT("POINT (10.123456789 10)", sr)

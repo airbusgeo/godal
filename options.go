@@ -410,6 +410,15 @@ type BufferOption interface {
 	setBufferOpt(bo *bufferOpts)
 }
 
+// IntersectsOption is an option passed to Geometry.Intersects()
+//
+//
+// Available options are:
+//  - ErrLogger
+type IntersectsOption interface {
+	setIntersectsOpt(bo *bufferOpts)
+}
+
 type setGeometryOpts struct {
 	errorHandler ErrorHandler
 }
