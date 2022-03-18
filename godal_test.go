@@ -2666,7 +2666,6 @@ func TestGeometryIntersects(t *testing.T) {
 	_, err = (&Geometry{}).Intersects(gp1)
 	assert.Error(t, err)
 
-	ehc = eh()
 	ret, err := gp1.Intersects(gp1)
 	assert.NoError(t, err)
 	assert.True(t, ret)
