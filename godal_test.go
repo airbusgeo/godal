@@ -157,8 +157,8 @@ func TestColorTable(t *testing.T) {
 	assert.NoError(t, err)
 	ct3 := bnd.ColorTable()
 	assert.Len(t, ct3.Entries, 0)
-	assert.Equal(t, CIUndefined, bnd.ColorInterp())
 }
+
 func TestCreate(t *testing.T) {
 	tmpname := tempfile()
 	defer os.Remove(tmpname)
