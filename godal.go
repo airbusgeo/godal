@@ -1722,6 +1722,18 @@ func (mo majorObject) SetMetadata(key, value string, opts ...MetadataOption) err
 	return cgc.close()
 }
 
+func (mo majorObject) ClearMetadata(opts ...MetadataOption) error {
+	mopts := metadataOpts{}
+	for _, opt := range opts {
+		opt.setMetadataOpt(&mopts)
+	}
+	cdom := C.CString(mopts.domain)
+	defer C.free(unsafe.Pointer(cdom))
+	cgc := createCGOContext(nil, mopts.errorHandler)
+	C.godalClearMetadata(cgc.cPointer(), mo.cHandle, cdom)
+	return cgc.close()
+}
+
 func (mo majorObject) MetadataDomains() []string {
 	strs := C.GDALGetMetadataDomainList(mo.cHandle)
 	return cStringArrayToSlice(strs)

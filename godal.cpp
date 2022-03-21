@@ -127,6 +127,14 @@ void godalSetMetadataItem(cctx *ctx, GDALMajorObjectH mo, char *ckey, char *cval
 	}
 	godalUnwrap();
 }
+void godalClearMetadata(cctx *ctx, GDALMajorObjectH mo, char *cdom) {
+	godalWrap(ctx);
+	CPLErr ret = GDALSetMetadata(mo,nullptr,cdom);
+	if(ret!=0) {
+		forceCPLError(ctx, ret);
+	}
+	godalUnwrap();
+}
 
 void godalSetRasterColorInterpretation(cctx *ctx, GDALRasterBandH bnd, GDALColorInterp ci) {
 	godalWrap(ctx);
