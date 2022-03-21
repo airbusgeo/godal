@@ -859,7 +859,6 @@ OGRGeometryH godalNewGeometryFromGeoJSON(cctx *ctx, char *geoJSON) {
 	godalWrap(ctx);
 	OGRGeometryH gptr = OGR_G_CreateGeometryFromJson(geoJSON);
 	if (gptr == nullptr) {
-		fprintf(stderr,"error occurred\n");
 		forceError(ctx);
 	}
 	if (failed(ctx) && gptr != nullptr) {
