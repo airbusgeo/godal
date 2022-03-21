@@ -36,6 +36,7 @@ extern "C" {
 		char **configOptions;
 	} cctx;
 	void godalSetMetadataItem(cctx *ctx, GDALMajorObjectH mo, char *ckey, char *cval, char *cdom);
+	void godalClearMetadata(cctx *ctx, GDALMajorObjectH mo, char *cdom);
 	GDALDatasetH godalOpen(cctx *ctx, const char *name, unsigned int nOpenFlags, const char *const *papszAllowedDrivers,
 						   const char *const *papszOpenOptions, const char *const *papszSiblingFiles);
 

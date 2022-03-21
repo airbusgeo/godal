@@ -158,17 +158,6 @@ func TestColorTable(t *testing.T) {
 	ct3 := bnd.ColorTable()
 	assert.Len(t, ct3.Entries, 0)
 	assert.Equal(t, CIUndefined, bnd.ColorInterp())
-
-	ds, _ = Open("testdata/test.tif")
-	defer ds.Close()
-	bnd = ds.Bands()[0]
-	err = bnd.SetColorTable(ct)
-	assert.Error(t, err) //read-only
-
-	ehc = eh()
-	err = bnd.SetColorTable(ct, ErrLogger(ehc.ErrorHandler))
-	assert.Error(t, err)
-	assert.Equal(t, 1, ehc.errs)
 }
 func TestCreate(t *testing.T) {
 	tmpname := tempfile()
@@ -610,31 +599,6 @@ func TestReadOnlyDataset(t *testing.T) {
 	ds, err = Open(fname)
 	require.NoError(t, err)
 	_ = os.Chmod(tmpdir, 0400)
-	err = ds.SetGeoTransform([6]float64{2, 3, 4, 5, 6, 7})
-	assert.Error(t, err)
-	/* gdal does not raise a read-only error for these :(
-	err = ds.SetMetadata("foo", "baz")
-	if err == nil {
-		t.Error("set metadata")
-	}
-	epsg4326, _ := NewSpatialRefFromEPSG(4326)
-	err = ds.SetSpatialRef(epsg4326)
-	if err == nil {
-		t.Error("set projection")
-	}
-	err = ds.Bands()[0].ClearNoData()
-	if err == nil {
-		t.Error("ro clear nodata")
-	}
-	err = ds.Bands()[0].SetColorInterp(CI_CyanBand)
-	if err == nil {
-		t.Error("ro colorinterp")
-	}
-	err = ds.SetNoData(34)
-	if err == nil {
-		t.Error("set ro nodata")
-	}
-	*/
 	_, err = ds.CreateMaskBand(0x02, ConfigOption("GDAL_TIFF_INTERNAL_MASK=YES"))
 	assert.Error(t, err)
 	ehc := eh()
@@ -1114,6 +1078,14 @@ func TestMetadata(t *testing.T) {
 	assert.Contains(t, domains, "")
 	assert.Contains(t, domains, "empty")
 	assert.Contains(t, domains, "baz")
+
+	err = ds.ClearMetadata(Domain("empty"))
+	assert.NoError(t, err)
+	mds = ds.Metadatas(Domain("empty"))
+	assert.Len(t, mds, 0)
+	ehc = eh()
+	err = ds.ClearMetadata(Domain("empty"), ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
 
 	ds.Close()
 	err = ds.SetMetadata("foo", "bar")
