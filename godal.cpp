@@ -857,10 +857,9 @@ void godalClearRasterStatistics(cctx *ctx, GDALDatasetH ds){
 
 OGRGeometryH godalNewGeometryFromGeoJSON(cctx *ctx, char *geoJSON) {
 	godalWrap(ctx);
-    fprintf(stderr,"received: '%s'\n", geoJSON);
 	OGRGeometryH gptr = OGR_G_CreateGeometryFromJson(geoJSON);
 	if (gptr == nullptr) {
-        fprintf(stderr,"error occurred\n");
+		fprintf(stderr,"error occurred\n");
 		forceError(ctx);
 	}
 	if (failed(ctx) && gptr != nullptr) {
