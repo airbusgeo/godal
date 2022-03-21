@@ -159,7 +159,7 @@ func (ec errorCallback) setBoundsOpt(o *boundsOpts) {
 func (ec errorCallback) setBufferOpt(o *bufferOpts) {
 	o.errorHandler = ec.fn
 }
-func (ec errorCallback) setIntersectsOpt(o *bufferOpts) {
+func (ec errorCallback) setIntersectsOpt(o *intersectsOpts) {
 	o.errorHandler = ec.fn
 }
 func (ec errorCallback) setBuildOverviewsOpt(o *buildOvrOpts) {

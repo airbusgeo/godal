@@ -2307,7 +2307,7 @@ func (g *Geometry) Buffer(distance float64, segments int, opts ...BufferOption) 
 // this is done in rigorous fashion otherwise TRUE is returned if the
 // envelopes (bounding boxes) of the two geometries overlap.
 func (g *Geometry) Intersects(other *Geometry, opts ...IntersectsOption) (bool, error) {
-	bo := &bufferOpts{}
+	bo := &intersectsOpts{}
 	for _, o := range opts {
 		o.setIntersectsOpt(bo)
 	}
