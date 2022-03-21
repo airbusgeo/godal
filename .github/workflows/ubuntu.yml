@@ -13,7 +13,7 @@ jobs:
       GODEBUG: cgocheck=2
     strategy:
       matrix:
-        go: [ '1.16', '1.15' ]
+        go: [ '1.17', '1.18' ]
     name: Go ${{ matrix.go }} + GDAL on ubuntu 20.04 test
     steps:
       - name: APT
@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        gdal: [ 'release/3.2', 'release/3.3', 'release/3.4', 'master' ]
+        gdal: [ 'release/3.2', 'release/3.3', 'release/3.4', 'release/3.5', 'master' ]
     name: GDAL ${{ matrix.gdal }} build
     steps:
       - name: Checkout
@@ -66,7 +66,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.16
+          go-version: 1.18
       - name: restore gdal lib
         id: cache-gdal
         uses: actions/cache@v2
@@ -92,8 +92,8 @@ jobs:
       GODEBUG: cgocheck=2
     strategy:
       matrix:
-        go: [ '1.17', '1.16', '1.15' ]
-        gdal: [ 'release/3.2', 'release/3.3', 'release/3.4', 'master' ]
+        go: [ '1.18', '1.17' ]
+        gdal: [ 'release/3.2', 'release/3.3', 'release/3.4', 'release/3.5', 'master' ]
     name: Go ${{ matrix.go }} + GDAL ${{ matrix.gdal }} test
     steps:
       - name: APT
@@ -127,7 +127,7 @@ jobs:
         env:
           PKG_CONFIG_PATH: /optgdal/lib/pkgconfig/
       - name: Send coverage
-        if: ${{ matrix.go == '1.17' && matrix.gdal == 'master' }}
+        if: ${{ matrix.go == '1.18' && matrix.gdal == 'master' }}
         uses: shogo82148/actions-goveralls@v1
         with:
           path-to-profile: profile.cov
