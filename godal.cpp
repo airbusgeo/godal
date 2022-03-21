@@ -685,6 +685,13 @@ OGRGeometryH godal_OGR_G_Buffer(cctx *ctx, OGRGeometryH in, double tolerance, in
 	return ret;
 }
 
+int godal_OGR_G_Intersects(cctx *ctx, OGRGeometryH geom1, OGRGeometryH geom2) {
+	godalWrap(ctx);
+	int ret = OGR_G_Intersects(geom1, geom2);
+	godalUnwrap();
+	return ret;
+}
+
 OGRLayerH godalCreateLayer(cctx *ctx, GDALDatasetH ds, char *name, OGRSpatialReferenceH sr, OGRwkbGeometryType gtype) {
 	godalWrap(ctx);
 	OGRLayerH ret = OGR_DS_CreateLayer(ds,name,sr,gtype,nullptr);
@@ -846,6 +853,20 @@ void godalClearRasterStatistics(cctx *ctx, GDALDatasetH ds){
   CPLError(CE_Failure, CPLE_NotSupported, "GDALDatasetClearStatistics not supported with gdal < 3.2");
 #endif
   godalUnwrap();
+}
+
+OGRGeometryH godalNewGeometryFromGeoJSON(cctx *ctx, char *geoJSON) {
+	godalWrap(ctx);
+	OGRGeometryH gptr = OGR_G_CreateGeometryFromJson(geoJSON);
+	if (gptr == nullptr) {
+		forceError(ctx);
+	}
+	if (failed(ctx) && gptr != nullptr) {
+		OGR_G_DestroyGeometry(gptr);
+		gptr = nullptr;
+	}
+	godalUnwrap();
+	return gptr;
 }
 
 OGRGeometryH godalNewGeometryFromWKT(cctx *ctx, char *wkt, OGRSpatialReferenceH sr) {

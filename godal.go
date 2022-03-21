@@ -2303,6 +2303,22 @@ func (g *Geometry) Buffer(distance float64, segments int, opts ...BufferOption) 
 	}, nil
 }
 
+// Intersects determines whether two geometries intersect. If GEOS is enabled, then
+// this is done in rigorous fashion otherwise TRUE is returned if the
+// envelopes (bounding boxes) of the two geometries overlap.
+func (g *Geometry) Intersects(other *Geometry, opts ...IntersectsOption) (bool, error) {
+	bo := &intersectsOpts{}
+	for _, o := range opts {
+		o.setIntersectsOpt(bo)
+	}
+	cgc := createCGOContext(nil, bo.errorHandler)
+	ret := C.godal_OGR_G_Intersects(cgc.cPointer(), g.handle, other.handle)
+	if err := cgc.close(); err != nil {
+		return false, err
+	}
+	return ret != 0, nil
+}
+
 //Empty retruens wether the underlying geometry is empty
 func (g *Geometry) Empty() bool {
 	e := C.OGR_G_IsEmpty(g.handle)
@@ -2579,6 +2595,23 @@ func (ds *Dataset) CreateLayer(name string, sr *SpatialRef, gtype GeometryType, 
 		}
 	}
 	return Layer{majorObject{C.GDALMajorObjectH(hndl)}}, nil
+}
+
+// NewGeometryFromGeoJSON creates a new Geometry from its GeoJSON representation
+func NewGeometryFromGeoJSON(geoJSON string, opts ...NewGeometryOption) (*Geometry, error) {
+	no := &newGeometryOpts{}
+	for _, o := range opts {
+		o.setNewGeometryOpt(no)
+	}
+
+	cgeoJSON := C.CString(geoJSON)
+	defer C.free(unsafe.Pointer(cgeoJSON))
+	cgc := createCGOContext(nil, no.errorHandler)
+	hndl := C.godalNewGeometryFromGeoJSON(cgc.cPointer(), (*C.char)(unsafe.Pointer(cgeoJSON)))
+	if err := cgc.close(); err != nil {
+		return nil, err
+	}
+	return &Geometry{isOwned: true, handle: hndl}, nil
 }
 
 // NewGeometryFromWKT creates a new Geometry from its WKT representation

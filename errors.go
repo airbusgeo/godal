@@ -111,6 +111,7 @@ func ErrLogger(fn ErrorHandler) interface {
 	GeometryWKTOption
 	GetGeoTransformOption
 	HistogramOption
+	IntersectsOption
 	MetadataOption
 	NewFeatureOption
 	NewGeometryOption
@@ -156,6 +157,9 @@ func (ec errorCallback) setBoundsOpt(o *boundsOpts) {
 }
 */
 func (ec errorCallback) setBufferOpt(o *bufferOpts) {
+	o.errorHandler = ec.fn
+}
+func (ec errorCallback) setIntersectsOpt(o *intersectsOpts) {
 	o.errorHandler = ec.fn
 }
 func (ec errorCallback) setBuildOverviewsOpt(o *buildOvrOpts) {

@@ -391,6 +391,9 @@ type simplifyOpts struct {
 type bufferOpts struct {
 	errorHandler ErrorHandler
 }
+type intersectsOpts struct {
+	errorHandler ErrorHandler
+}
 
 // SimplifyOption is an option passed to Geometry.Simplify()
 //
@@ -408,6 +411,15 @@ type SimplifyOption interface {
 //  - ErrLogger
 type BufferOption interface {
 	setBufferOpt(bo *bufferOpts)
+}
+
+// IntersectsOption is an option passed to Geometry.Intersects()
+//
+//
+// Available options are:
+//  - ErrLogger
+type IntersectsOption interface {
+	setIntersectsOpt(bo *intersectsOpts)
 }
 
 type setGeometryOpts struct {
