@@ -2996,7 +2996,44 @@ func RegisterVSIHandler(prefix string, handler KeySizerReaderAt, opts ...VSIHand
 	return nil
 }
 
-//BuildVRT runs the GDALBuildVRT function and creates a VRT dataset from a list of datasets
+//BuildDatasetVRT runs the GDALBuildVRT function and creates a VRT dataset from a list of datasets
+func BuildDatasetsVRT(dstVRTName string, sourceDatasets []*Dataset, switches []string, opts ...BuildVRTOption) (*Dataset, error) {
+	bvo := buildVRTOpts{}
+	for _, o := range opts {
+		o.setBuildVRTOpt(&bvo)
+	}
+	if bvo.resampling != Nearest {
+		switches = append(switches, "-r", bvo.resampling.String())
+	}
+	for _, b := range bvo.bands {
+		switches = append(switches, "-b", fmt.Sprintf("%d", b))
+	}
+	for _, oo := range bvo.openOptions {
+		switches = append(switches, "-oo", oo)
+	}
+	cswitches := sliceToCStringArray(switches)
+	defer cswitches.free()
+
+	cname := unsafe.Pointer(C.CString(dstVRTName))
+	defer C.free(cname)
+
+	cSources := (*C.GDALDatasetH)(C.malloc(C.size_t(len(sourceDatasets)+1) * C.size_t(unsafe.Sizeof((C.GDALDatasetH)(nil)))))
+	garr := (*[1 << 30]C.GDALDatasetH)(unsafe.Pointer(cSources))[0 : len(sourceDatasets)+1 : len(sourceDatasets)+1]
+	for i := range sourceDatasets {
+		garr[i] = sourceDatasets[i].handle()
+	}
+	garr[len(sourceDatasets)] = nil
+
+	cgc := createCGOContext(bvo.config, bvo.errorHandler)
+	hndl := C.godalBuildVRT(cgc.cPointer(), (*C.char)(cname), nil, cSources,
+		cswitches.cPointer())
+	if err := cgc.close(); err != nil {
+		return nil, err
+	}
+	return &Dataset{majorObject{C.GDALMajorObjectH(hndl)}}, nil
+}
+
+//BuildVRT runs the GDALBuildVRT function and creates a VRT dataset from a list of dataset filenames
 func BuildVRT(dstVRTName string, sourceDatasets []string, switches []string, opts ...BuildVRTOption) (*Dataset, error) {
 	bvo := buildVRTOpts{}
 	for _, o := range opts {
@@ -3021,7 +3058,7 @@ func BuildVRT(dstVRTName string, sourceDatasets []string, switches []string, opt
 	defer csources.free()
 
 	cgc := createCGOContext(bvo.config, bvo.errorHandler)
-	hndl := C.godalBuildVRT(cgc.cPointer(), (*C.char)(cname), csources.cPointer(),
+	hndl := C.godalBuildVRT(cgc.cPointer(), (*C.char)(cname), csources.cPointer(), nil,
 		cswitches.cPointer())
 	if err := cgc.close(); err != nil {
 		return nil, err

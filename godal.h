@@ -119,7 +119,7 @@ extern "C" {
 	void godalGeometryTransformTo(cctx *ctx, OGRGeometryH geom, OGRSpatialReferenceH sr);
 	void godalGeometryTransform(cctx *ctx, OGRGeometryH geom, OGRCoordinateTransformationH trn, OGRSpatialReferenceH dst);
 
-	GDALDatasetH godalBuildVRT(cctx *ctx, char *dstname, char **sources, char **switches);
+	GDALDatasetH godalBuildVRT(cctx *ctx, char *dstName, char **sources, GDALDatasetH *dsSources, char **switches);
 
 	void test_godal_error_handling(cctx *ctx);
     void godalClearRasterStatistics(cctx *ctx, GDALDatasetH ds);
