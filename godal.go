@@ -2997,19 +2997,16 @@ func RegisterVSIHandler(prefix string, handler KeySizerReaderAt, opts ...VSIHand
 }
 
 //BuildDatasetVRT runs the GDALBuildVRT function and creates a VRT dataset from a list of datasets
-func BuildDatasetsVRT(dstVRTName string, sourceDatasets []*Dataset, switches []string, opts ...BuildVRTOption) (*Dataset, error) {
-	bvo := buildVRTOpts{}
+func BuildDatasetsVRT(dstVRTName string, sourceDatasets []*Dataset, switches []string, opts ...BuildDatasetsVRTOption) (*Dataset, error) {
+	bvo := buildDatasetsVRTOpts{}
 	for _, o := range opts {
-		o.setBuildVRTOpt(&bvo)
+		o.setBuildDatasetsVRTOpt(&bvo)
 	}
 	if bvo.resampling != Nearest {
 		switches = append(switches, "-r", bvo.resampling.String())
 	}
 	for _, b := range bvo.bands {
 		switches = append(switches, "-b", fmt.Sprintf("%d", b))
-	}
-	for _, oo := range bvo.openOptions {
-		switches = append(switches, "-oo", oo)
 	}
 	cswitches := sliceToCStringArray(switches)
 	defer cswitches.free()

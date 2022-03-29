@@ -610,6 +610,7 @@ func Bands(bnds ...int) interface {
 	BuildOverviewsOption
 	RasterizeGeometryOption
 	BuildVRTOption
+	BuildDatasetsVRTOption
 } {
 	ib := make([]int, len(bnds))
 	for i := range bnds {
@@ -628,6 +629,9 @@ func (bo bandOpt) setRasterizeGeometryOpt(o *rasterizeGeometryOpts) {
 	o.bands = bo.bnds
 }
 func (bo bandOpt) setBuildVRTOpt(bvo *buildVRTOpts) {
+	bvo.bands = bo.bnds
+}
+func (bo bandOpt) setBuildDatasetsVRTOpt(bvo *buildDatasetsVRTOpts) {
 	bvo.bands = bo.bnds
 }
 
@@ -840,6 +844,7 @@ func ConfigOption(cfgs ...string) interface {
 	DatasetIOOption
 	BandIOOption
 	BuildVRTOption
+	BuildDatasetsVRTOption
 	errorAndLoggingOption
 } {
 	return configOpt{cfgs}
@@ -884,6 +889,9 @@ func (co configOpt) setBandIOOpt(oo *bandIOOpts) {
 func (co configOpt) setBuildVRTOpt(bvo *buildVRTOpts) {
 	bvo.config = append(bvo.config, co.config...)
 }
+func (co configOpt) setBuildDatasetsVRTOpt(bvo *buildDatasetsVRTOpts) {
+	bvo.config = append(bvo.config, co.config...)
+}
 func (co configOpt) setErrorAndLoggingOpt(elo *errorAndLoggingOpts) {
 	elo.config = append(elo.config, co.config...)
 }
@@ -918,6 +926,7 @@ func Resampling(alg ResamplingAlg) interface {
 	DatasetIOOption
 	BandIOOption
 	BuildVRTOption
+	BuildDatasetsVRTOption
 } {
 	return resamplingOpt{alg}
 }
@@ -931,6 +940,9 @@ func (ro resamplingOpt) setBandIOOpt(io *bandIOOpts) {
 	io.resampling = ro.m
 }
 func (ro resamplingOpt) setBuildVRTOpt(bvo *buildVRTOpts) {
+	bvo.resampling = ro.m
+}
+func (ro resamplingOpt) setBuildDatasetsVRTOpt(bvo *buildDatasetsVRTOpts) {
 	bvo.resampling = ro.m
 }
 
@@ -1207,6 +1219,23 @@ type buildVRTOpts struct {
 //  - Resampling
 type BuildVRTOption interface {
 	setBuildVRTOpt(bvo *buildVRTOpts)
+}
+
+type buildDatasetsVRTOpts struct {
+	config       []string
+	bands        []int
+	resampling   ResamplingAlg
+	errorHandler ErrorHandler
+}
+
+// BuildDatasetsVRTOption is an option that can be passed to BuildVRT
+//
+// Available BuildDatasetsVRTOptions are:
+//  - ConfigOption
+//  - Bands
+//  - Resampling
+type BuildDatasetsVRTOption interface {
+	setBuildDatasetsVRTOpt(bvo *buildDatasetsVRTOpts)
 }
 
 type vsiHandlerOpts struct {
