@@ -3070,5 +3070,6 @@ func (cgc cgoContext) close() error {
 		defer unregisterErrorHandler(int(cgc.cctx.handlerIdx))
 		return getErrorHandler(int(cgc.cctx.handlerIdx)).err
 	}
+	C.free(unsafe.Pointer(cgc.cctx))
 	return nil
 }
