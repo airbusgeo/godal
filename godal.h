@@ -59,6 +59,7 @@ extern "C" {
 	void godalSetRasterColorInterpretation(cctx *ctx, GDALRasterBandH bnd, GDALColorInterp ci);
 	GDALRasterBandH godalCreateMaskBand(cctx *ctx, GDALRasterBandH bnd, int flags);
 	GDALRasterBandH godalCreateDatasetMaskBand(cctx *ctx, GDALDatasetH ds, int flags);
+	OGRSpatialReferenceH godalCreateUserSpatialRef(cctx *ctx, char *userInput);
 	OGRSpatialReferenceH godalCreateWKTSpatialRef(cctx *ctx, char *wkt);
 	OGRSpatialReferenceH godalCreateProj4SpatialRef(cctx *ctx, char *proj);
 	OGRSpatialReferenceH godalCreateEPSGSpatialRef(cctx *ctx, int epsgCode);

@@ -1828,6 +1828,22 @@ func (sr *SpatialRef) Close() {
 }
 
 // NewSpatialRefFromWKT creates a SpatialRef from an opengis WKT description
+func NewSpatialRef(userInput string, opts ...CreateSpatialRefOption) (*SpatialRef, error) {
+	cso := &createSpatialRefOpts{}
+	for _, o := range opts {
+		o.setCreateSpatialRefOpt(cso)
+	}
+	cstr := C.CString(userInput)
+	defer C.free(unsafe.Pointer(cstr))
+	cgc := createCGOContext(nil, cso.errorHandler)
+	hndl := C.godalCreateUserSpatialRef(cgc.cPointer(), (*C.char)(unsafe.Pointer(cstr)))
+	if err := cgc.close(); err != nil {
+		return nil, err
+	}
+	return &SpatialRef{handle: hndl, isOwned: true}, nil
+}
+
+// NewSpatialRefFromWKT creates a SpatialRef from an opengis WKT description
 func NewSpatialRefFromWKT(wkt string, opts ...CreateSpatialRefOption) (*SpatialRef, error) {
 	cso := &createSpatialRefOpts{}
 	for _, o := range opts {
