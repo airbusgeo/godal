@@ -1827,7 +1827,9 @@ func (sr *SpatialRef) Close() {
 	sr.handle = nil
 }
 
-// NewSpatialRefFromWKT creates a SpatialRef from an opengis WKT description
+// NewSpatialRef creates a SpatialRef from any "user" projection string, e.g.
+// "epsg:4326", "+proj=lonlat", wkt, wkt2 or projjson (as supported by
+// gdal's OSRCreateFromUserInput
 func NewSpatialRef(userInput string, opts ...CreateSpatialRefOption) (*SpatialRef, error) {
 	cso := &createSpatialRefOpts{}
 	for _, o := range opts {
