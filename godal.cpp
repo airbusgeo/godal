@@ -208,24 +208,66 @@ void godalDatasetSetSpatialRef(cctx *ctx, GDALDatasetH ds, OGRSpatialReferenceH 
 	godalUnwrap();
 }
 
+char *exportToWKT(cctx *ctx, OGRSpatialReferenceH sr) {
+	char *pszSRS = nullptr;
+	OGRErr gret = OSRExportToWkt(sr,&pszSRS);
+	if (gret!=OGRERR_NONE && !failed(ctx)) {
+		forceOGRError(ctx, gret);
+	}
+	if(failed(ctx)) {
+		CPLFree(pszSRS);
+		pszSRS=nullptr;
+	}
+
+	/*TODO: handle wkt2 retry
+	if (gret!=OGRERR_NONE || failed(ctx)) {
+		CPLFree(pszSRS);
+		pszSRS = nullptr;
+		const char *const apszOptions[] = {"FORMAT=WKT2", nullptr};
+		gret = oOutputSRS.exportToWkt(&pszSRS, apszOptions);
+		if (gret!=OGRERR_NONE || failed(ctx)) {
+			forceOGRError(ctx, gret);
+			godalUnwrap();
+			return;
+		}
+	}
+	*/
+	return pszSRS;
+}
+
 void godalSetProjection(cctx *ctx, GDALDatasetH ds, char *wkt) {
 	godalWrap(ctx);
-	CPLErr ret = GDALSetProjection(ds,wkt);
+	OGRSpatialReferenceH sr = OSRNewSpatialReference(nullptr);
+	OSRSetAxisMappingStrategy(sr, OAMS_TRADITIONAL_GIS_ORDER);
+
+	OGRErr gret = OSRSetFromUserInput(sr,wkt);
+	if (gret!=OGRERR_NONE || failed(ctx)) {
+		forceOGRError(ctx,gret);
+		godalUnwrap();
+		OSRDestroySpatialReference(sr);
+		return;
+	}
+	char *pszSRS = exportToWKT(ctx, sr);
+	if(failed(ctx)) {
+		godalUnwrap();
+		CPLFree(pszSRS);
+		OSRDestroySpatialReference(sr);
+		return;
+	}
+	CPLErr ret = GDALSetProjection(ds,pszSRS);
+	CPLFree(pszSRS);
 	if (ret!=0) {
 		forceCPLError(ctx,ret);
 	}
 	godalUnwrap();
+	OSRDestroySpatialReference(sr);
 }
 
 char *godalExportToWKT(cctx *ctx, OGRSpatialReferenceH sr) {
 	godalWrap(ctx);
-	char *wkt = nullptr;
-	OGRErr gret = OSRExportToWkt(sr, &wkt);
-	if (gret!=0) {
-		forceOGRError(ctx,gret);
-	}
+	char *pszSRS = exportToWKT(ctx, sr);
 	godalUnwrap();
-	return wkt;
+	return pszSRS;
 }
 
 OGRSpatialReferenceH godalCreateWKTSpatialRef(cctx *ctx, char *wkt){
@@ -265,6 +307,22 @@ OGRSpatialReferenceH godalCreateEPSGSpatialRef(cctx *ctx, int epsgCode) {
 	OGRSpatialReferenceH sr = OSRNewSpatialReference(nullptr);
 	OSRSetAxisMappingStrategy(sr, OAMS_TRADITIONAL_GIS_ORDER);
 	OGRErr gret = OSRImportFromEPSG(sr, epsgCode);
+	if(gret!=0) {
+		forceOGRError(ctx,gret);
+	}
+	godalUnwrap();
+	if( failed(ctx) ) {
+		OSRDestroySpatialReference(sr);
+		return nullptr;
+	}
+	return sr;
+}
+
+OGRSpatialReferenceH godalCreateUserSpatialRef(cctx *ctx, char *userInput) {
+	godalWrap(ctx);
+	OGRSpatialReferenceH sr = OSRNewSpatialReference(nullptr);
+	OSRSetAxisMappingStrategy(sr, OAMS_TRADITIONAL_GIS_ORDER);
+	OGRErr gret = OSRSetFromUserInput(sr, userInput);
 	if(gret!=0) {
 		forceOGRError(ctx,gret);
 	}

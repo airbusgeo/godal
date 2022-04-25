@@ -1422,6 +1422,19 @@ func TestProjection(t *testing.T) {
 		t.Error(pj)
 	}
 
+	_, err = NewSpatialRef("+proj=lonlat")
+	assert.NoError(t, err)
+	_, err = NewSpatialRef("epsg:3857")
+	assert.NoError(t, err)
+	_, err = NewSpatialRef(epsg4326)
+	assert.NoError(t, err)
+	_, err = NewSpatialRef("this won't work")
+	assert.Error(t, err)
+	_, err = NewSpatialRef("this won't work", ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+	_, err = NewSpatialRef("+proj=lonlat", ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
+
 	_, err = NewSpatialRefFromProj4("invalid string")
 	assert.Error(t, err)
 	ehc = eh()
@@ -1469,6 +1482,10 @@ func TestProjection(t *testing.T) {
 	err = ds.SetProjection("invalid wkt")
 	assert.Error(t, err)
 	err = ds.SetProjection(epsg4326)
+	assert.NoError(t, err)
+	err = ds.SetProjection("epsg:32618")
+	assert.NoError(t, err)
+	err = ds.SetProjection("+proj=lonlat")
 	assert.NoError(t, err)
 
 	ehc = eh()
@@ -1624,13 +1641,13 @@ func TestGeometryTransform(t *testing.T) {
 
 	gp.Close()
 
-	gp, _ = NewGeometryFromWKT("POINT (10 90)", sr)
+	gp, _ = NewGeometryFromWKT("POINT (10 91)", sr)
 	err = gp.Reproject(srm)
 	assert.Error(t, err)
 	gp.Close()
 
 	ehc = eh()
-	gp, _ = NewGeometryFromWKT("POINT (10 90)", sr, ErrLogger(ehc.ErrorHandler))
+	gp, _ = NewGeometryFromWKT("POINT (10 91)", sr, ErrLogger(ehc.ErrorHandler))
 	err = gp.Reproject(srm)
 	assert.Error(t, err)
 	gp.Close()
@@ -1651,13 +1668,13 @@ func TestGeometryTransform(t *testing.T) {
 	assert.NoError(t, err)
 	gp.Close()
 
-	gp, _ = NewGeometryFromWKT("POINT (10 90)", sr)
+	gp, _ = NewGeometryFromWKT("POINT (10 91)", sr)
 	err = gp.Transform(trn)
 	assert.Error(t, err)
 	gp.Close()
 
 	ehc = eh()
-	gp, _ = NewGeometryFromWKT("POINT (10 90)", sr)
+	gp, _ = NewGeometryFromWKT("POINT (10 91)", sr)
 	err = gp.Transform(trn, ErrLogger(ehc.ErrorHandler))
 	assert.Error(t, err)
 	gp.Close()
@@ -1666,7 +1683,7 @@ func TestGeometryTransform(t *testing.T) {
 func TestProjBounds(t *testing.T) {
 	sr4326, _ := NewSpatialRefFromEPSG(4326)
 	sr3857, _ := NewSpatialRefFromEPSG(3857)
-	box, err := NewGeometryFromWKT("POLYGON((-180 -90,-180 90,180 90,180 -90,-180 -90))", sr4326)
+	box, err := NewGeometryFromWKT("POLYGON((-180 -91,-180 90,180 90,180 -90,-180 -91))", sr4326)
 	assert.NoError(t, err)
 	_, err = box.Bounds(sr3857)
 	assert.Error(t, err)
