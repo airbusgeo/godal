@@ -1982,9 +1982,21 @@ func (trn *Transform) TransformEx(x []float64, y []float64, z []float64, success
 	return nil
 }
 
+// EPSGTreatsAsLatLong returns TRUE if EPSG feels the SpatialRef should be treated as having lat/long coordinate ordering.
+func (sr *SpatialRef) EPSGTreatsAsLatLong() bool {
+	ret := C.OSREPSGTreatsAsLatLong(sr.handle)
+	return ret != 0
+}
+
 // Geographic returns wether the SpatialRef is geographic
 func (sr *SpatialRef) Geographic() bool {
 	ret := C.OSRIsGeographic(sr.handle)
+	return ret != 0
+}
+
+// Projected returns wether the SpatialRef is projected
+func (sr *SpatialRef) Projected() bool {
+	ret := C.OSRIsProjected(sr.handle)
 	return ret != 0
 }
 
@@ -2006,6 +2018,17 @@ func (sr *SpatialRef) SemiMinor() (float64, error) {
 		return float64(sm), fmt.Errorf("ogr error %d", err)
 	}
 	return float64(sm), nil
+}
+
+// AttrValue Fetch indicated attribute of named node from within the WKT tree.
+func (sr *SpatialRef) AttrValue(name string, child int) (string, bool) {
+	cstr := C.CString(name)
+	defer C.free(unsafe.Pointer(cstr))
+	cret := C.OSRGetAttrValue(sr.handle, cstr, C.int(child))
+	if cret != nil {
+		return C.GoString(cret), true
+	}
+	return "", false
 }
 
 // AuthorityName is used to query an AUTHORITY[] node from within the WKT tree, and fetch the authority name value.
@@ -2046,6 +2069,15 @@ func (sr *SpatialRef) AuthorityCode(target string) string {
 // AutoIdentifyEPSG sets EPSG authority info if possible.
 func (sr *SpatialRef) AutoIdentifyEPSG() error {
 	ogrerr := C.OSRAutoIdentifyEPSG(sr.handle)
+	if ogrerr != 0 {
+		return fmt.Errorf("ogr error %d", ogrerr)
+	}
+	return nil
+}
+
+// Validate SRS tokens.
+func (sr *SpatialRef) Validate() error {
+	ogrerr := C.OSRValidate(sr.handle)
 	if ogrerr != 0 {
 		return fmt.Errorf("ogr error %d", ogrerr)
 	}
