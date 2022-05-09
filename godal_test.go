@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 	"syscall"
 	"testing"
+	"time"
 
 	"cloud.google.com/go/storage"
 	"github.com/airbusgeo/osio"
@@ -2914,7 +2915,15 @@ func TestFeatureAttributes(t *testing.T) {
 		NewFieldDefinition("intCol", FTInt),
 		NewFieldDefinition("int64Col", FTInt64),
 		NewFieldDefinition("floatCol", FTReal),
-		NewFieldDefinition("ignored", FieldType(FTInt64List)),
+		NewFieldDefinition("intListCol", FTIntList),
+		NewFieldDefinition("int64ListCol", FTInt64List),
+		NewFieldDefinition("floatListCol", FTRealList),
+		NewFieldDefinition("stringListCol", FTStringList),
+		NewFieldDefinition("binaryCol", FTBinary),
+		NewFieldDefinition("dateCol", FTDate),
+		NewFieldDefinition("timeCol", FTTime),
+		NewFieldDefinition("dateTimeCol", FTDateTime),
+		NewFieldDefinition("unknownCol", FTUnknown),
 	)
 	assert.NoError(t, err)
 
@@ -2923,27 +2932,87 @@ func TestFeatureAttributes(t *testing.T) {
 	assert.NoError(t, err)
 	fc, _ := lyr.FeatureCount()
 	assert.Equal(t, fc, 1)
+	nf.SetGeometryColumnName("no_error")
+	nf.SetFID(0)
 	attrs := nf.Fields()
+	assert.Error(t, nf.SetFieldValue(attrs["strCol"], 0))
+	assert.Error(t, nf.SetFieldValue(attrs["intCol"], ""))
+	assert.Error(t, nf.SetFieldValue(attrs["int64Col"], ""))
+	assert.Error(t, nf.SetFieldValue(attrs["floatCol"], ""))
+	assert.Error(t, nf.SetFieldValue(attrs["intListCol"], ""))
+	assert.Error(t, nf.SetFieldValue(attrs["int64ListCol"], ""))
+	assert.Error(t, nf.SetFieldValue(attrs["floatListCol"], ""))
+	assert.Error(t, nf.SetFieldValue(attrs["stringListCol"], ""))
+	assert.Error(t, nf.SetFieldValue(attrs["binaryCol"], ""))
+	assert.Error(t, nf.SetFieldValue(attrs["dateCol"], ""))
+	assert.Error(t, nf.SetFieldValue(attrs["timeCol"], ""))
+	assert.Error(t, nf.SetFieldValue(attrs["dateTimeCol"], ""))
+	assert.Error(t, nf.SetFieldValue(attrs["unknownCol"], ""))
+	assert.NoError(t, nf.SetFieldValue(attrs["strCol"], "foo"))
+	assert.NoError(t, nf.SetFieldValue(attrs["intCol"], 1))
+	assert.NoError(t, nf.SetFieldValue(attrs["int64Col"], int64(2)))
+	assert.NoError(t, nf.SetFieldValue(attrs["floatCol"], 3.0))
+	assert.NoError(t, nf.SetFieldValue(attrs["intListCol"], []int{1, 2, 3}))
+	assert.NoError(t, nf.SetFieldValue(attrs["int64ListCol"], []int64{1, 2, 3}))
+	assert.NoError(t, nf.SetFieldValue(attrs["floatListCol"], []float64{1, 2, 3}))
+	assert.NoError(t, nf.SetFieldValue(attrs["stringListCol"], []string{"1", "2", "3"}))
+	assert.NoError(t, nf.SetFieldValue(attrs["binaryCol"], []byte("foo")))
+	date := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+	assert.NoError(t, nf.SetFieldValue(attrs["dateCol"], date))
+	assert.NoError(t, nf.SetFieldValue(attrs["timeCol"], date))
+	assert.NoError(t, nf.SetFieldValue(attrs["dateTimeCol"], date))
+	// Reload fields from feature to check if they have been properly set
+	attrs = nf.Fields()
 	sfield := attrs["strCol"]
+	assert.True(t, sfield.IsSet())
 	assert.Equal(t, FTString, sfield.Type())
-	assert.Equal(t, "", sfield.String())
+	assert.Equal(t, "foo", sfield.String())
 	assert.Equal(t, int64(0), sfield.Int())
 	assert.Equal(t, 0.0, sfield.Float())
+	assert.Nil(t, sfield.IntList())
+	assert.Nil(t, sfield.FloatList())
+	assert.Nil(t, sfield.StringList())
+	assert.Nil(t, sfield.Bytes())
+	assert.Nil(t, sfield.DateTime())
 	sfield = attrs["intCol"]
 	assert.Equal(t, FTInt, sfield.Type())
-	assert.Equal(t, "0", sfield.String())
-	assert.Equal(t, int64(0), sfield.Int())
-	assert.Equal(t, 0.0, sfield.Float())
+	assert.Equal(t, "1", sfield.String())
+	assert.Equal(t, int64(1), sfield.Int())
+	assert.Equal(t, 1.0, sfield.Float())
 	sfield = attrs["int64Col"]
 	assert.Equal(t, FTInt64, sfield.Type())
-	assert.Equal(t, "0", sfield.String())
-	assert.Equal(t, int64(0), sfield.Int())
-	assert.Equal(t, 0.0, sfield.Float())
+	assert.Equal(t, "2", sfield.String())
+	assert.Equal(t, int64(2), sfield.Int())
+	assert.Equal(t, 2.0, sfield.Float())
 	sfield = attrs["floatCol"]
 	assert.Equal(t, FTReal, sfield.Type())
-	assert.Equal(t, "0.000000", sfield.String())
-	assert.Equal(t, int64(0), sfield.Int())
-	assert.Equal(t, 0.0, sfield.Float())
+	assert.Equal(t, "3.000000", sfield.String())
+	assert.Equal(t, int64(3), sfield.Int())
+	assert.Equal(t, 3.0, sfield.Float())
+	sfield = attrs["intListCol"]
+	assert.Equal(t, FTIntList, sfield.Type())
+	assert.Equal(t, []int64{1, 2, 3}, sfield.IntList())
+	sfield = attrs["int64ListCol"]
+	assert.Equal(t, FTInt64List, sfield.Type())
+	assert.Equal(t, []int64{1, 2, 3}, sfield.IntList())
+	sfield = attrs["floatListCol"]
+	assert.Equal(t, FTRealList, sfield.Type())
+	assert.Equal(t, []float64{1, 2, 3}, sfield.FloatList())
+	sfield = attrs["stringListCol"]
+	assert.Equal(t, FTStringList, sfield.Type())
+	assert.Equal(t, []string{"1", "2", "3"}, sfield.StringList())
+	sfield = attrs["binaryCol"]
+	assert.Equal(t, FTBinary, sfield.Type())
+	assert.Equal(t, []byte("foo"), sfield.Bytes())
+	sfield = attrs["dateCol"]
+	assert.Equal(t, FTDate, sfield.Type())
+	assert.Equal(t, date, *sfield.DateTime())
+	sfield = attrs["timeCol"]
+	assert.Equal(t, FTTime, sfield.Type())
+	assert.Equal(t, date, *sfield.DateTime())
+	sfield = attrs["dateTimeCol"]
+	assert.Equal(t, FTDateTime, sfield.Type())
+	assert.Equal(t, date, *sfield.DateTime())
 
 	nf, err = lyr.NewFeature(nil)
 	assert.NoError(t, err)

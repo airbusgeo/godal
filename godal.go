@@ -31,6 +31,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 	"unsafe"
 )
 
@@ -525,6 +526,14 @@ func cIntArray(in []int) *C.int {
 	return (*C.int)(unsafe.Pointer(&ret[0]))
 }
 
+func cLongArray(in []int64) *C.longlong {
+	ret := make([]C.longlong, len(in))
+	for i := range in {
+		ret[i] = C.longlong(in[i])
+	}
+	return (*C.longlong)(unsafe.Pointer(&ret[0]))
+}
+
 func cDoubleArray(in []float64) *C.double {
 	ret := make([]C.double, len(in))
 	for i := range in {
@@ -581,6 +590,42 @@ func cStringArrayToSlice(in **C.char) []string {
 		ret = append(ret, C.GoString(cStrs[i]))
 		i++
 	}
+}
+
+func cIntArrayToSlice(in *C.int, length C.int) []int64 {
+	if in == nil {
+		return nil
+	}
+	cSlice := (*[1 << 28]C.int)(unsafe.Pointer(in))[:length:length]
+	slice := make([]int64, length)
+	for i, cval := range cSlice {
+		slice[i] = int64(cval)
+	}
+	return slice
+}
+
+func cLongArrayToSlice(in *C.longlong, length C.int) []int64 {
+	if in == nil {
+		return nil
+	}
+	cSlice := (*[1 << 28]C.longlong)(unsafe.Pointer(in))[:length:length]
+	slice := make([]int64, length)
+	for i, cval := range cSlice {
+		slice[i] = int64(cval)
+	}
+	return slice
+}
+
+func cDoubleArrayToSlice(in *C.double, length C.int) []float64 {
+	if in == nil {
+		return nil
+	}
+	cSlice := (*[1 << 28]C.double)(unsafe.Pointer(in))[:length:length]
+	slice := make([]float64, length)
+	for i, cval := range cSlice {
+		slice[i] = float64(cval)
+	}
+	return slice
 }
 
 //PaletteInterp defines the color interpretation of a ColorTable
@@ -2224,6 +2269,8 @@ const (
 	FTDateTime = FieldType(C.OFTDateTime)
 	//FTInt64List is a List of 64bit integers.
 	FTInt64List = FieldType(C.OFTInteger64List)
+	//FTUnknown allow to handle deprecated types like WideString or WideStringList
+	FTUnknown = FieldType(C.OFTMaxType + 1)
 )
 
 //FieldDefinition defines a single attribute
@@ -2627,13 +2674,117 @@ func (f *Feature) SetGeometry(geom *Geometry, opts ...SetGeometryOption) error {
 	return cgc.close()
 }
 
+//SetGeometryColumnName set the name of feature first geometry field.
+func (f *Feature) SetGeometryColumnName(name string) {
+	cname := C.CString(name)
+	defer C.free(unsafe.Pointer(cname))
+	gfdef := C.OGR_F_GetGeomFieldDefnRef(f.handle, C.int(0))
+	if gfdef != nil {
+		C.OGR_GFld_SetName(gfdef, (*C.char)(unsafe.Pointer(cname)))
+	}
+}
+
+//SetFID set feature identifier
+func (f *Feature) SetFID(fid int) {
+	// OGR error returned is always none, so we don't handle it
+	C.OGR_F_SetFID(f.handle, C.GIntBig(fid))
+}
+
+//SetFieldValue set feature's field value
+func (f *Feature) SetFieldValue(field Field, value interface{}) error {
+	switch field.ftype {
+	case FTInt:
+		intValue, ok := value.(int)
+		if !ok {
+			return errors.New("value for this field must be of type 'int'")
+		}
+		C.OGR_F_SetFieldInteger(f.handle, C.int(field.index), C.int(intValue))
+	case FTInt64:
+		int64Value, ok := value.(int64)
+		if !ok {
+			return errors.New("value for this field must be of type 'int64'")
+		}
+		C.OGR_F_SetFieldInteger64(f.handle, C.int(field.index), C.longlong(int64Value))
+	case FTReal:
+		floatValue, ok := value.(float64)
+		if !ok {
+			return errors.New("value for this field must be of type 'float64'")
+		}
+		C.OGR_F_SetFieldDouble(f.handle, C.int(field.index), C.double(floatValue))
+	case FTString:
+		stringValue, ok := value.(string)
+		if !ok {
+			return errors.New("value for this field must be of type 'string'")
+		}
+		cval := C.CString(stringValue)
+		defer C.free(unsafe.Pointer(cval))
+		C.OGR_F_SetFieldString(f.handle, C.int(field.index), cval)
+	case FTDate, FTTime, FTDateTime:
+		timeValue, ok := value.(time.Time)
+		if !ok {
+			return errors.New("value for this field must be of type 'time.Time'")
+		}
+		C.OGR_F_SetFieldDateTime(
+			f.handle,
+			C.int(field.index),
+			C.int(timeValue.Year()),
+			C.int(timeValue.Month()),
+			C.int(timeValue.Day()),
+			C.int(timeValue.Hour()),
+			C.int(timeValue.Minute()),
+			C.int(timeValue.Second()),
+			C.int(1), // TODO Time zone is not properly handled
+		)
+	case FTIntList:
+		intListValue, ok := value.([]int)
+		if !ok {
+			return errors.New("value for this field must be of type '[]int'")
+		}
+		C.OGR_F_SetFieldIntegerList(f.handle, C.int(field.index), C.int(len(intListValue)), cIntArray(intListValue))
+	case FTInt64List:
+		int64ListValue, ok := value.([]int64)
+		if !ok {
+			return errors.New("value for this field must be of type '[]int64'")
+		}
+		C.OGR_F_SetFieldInteger64List(f.handle, C.int(field.index), C.int(len(int64ListValue)), cLongArray(int64ListValue))
+	case FTRealList:
+		float64ListValue, ok := value.([]float64)
+		if !ok {
+			return errors.New("value for this field must be of type '[]float64'")
+		}
+		C.OGR_F_SetFieldDoubleList(f.handle, C.int(field.index), C.int(len(float64ListValue)), cDoubleArray(float64ListValue))
+	case FTStringList:
+		stringListValue, ok := value.([]string)
+		if !ok {
+			return errors.New("value for this field must be of type '[]float64'")
+		}
+		cArray := sliceToCStringArray(stringListValue)
+		C.OGR_F_SetFieldStringList(f.handle, C.int(field.index), cArray.cPointer())
+		cArray.free()
+	case FTBinary:
+		bytesValue, ok := value.([]byte)
+		if !ok {
+			return errors.New("value for this field must be of type '[]byte'")
+		}
+		C.OGR_F_SetFieldBinary(f.handle, C.int(field.index), C.int(len(bytesValue)), unsafe.Pointer(&bytesValue[0]))
+	default:
+		return errors.New("setting value is not implemented for this type of field")
+	}
+
+	return nil
+}
+
 //Field is a Feature attribute
 type Field struct {
-	ftype    FieldType
-	intVal   int64
-	floatVal float64
-	strVal   string
-	//byteVal  []byte
+	index int
+	isSet bool
+	ftype FieldType
+	val   interface{}
+}
+
+//IsSet returns if the field has ever been assigned a value or not.
+func (fld Field) IsSet() bool {
+	return fld.isSet
 }
 
 //Type returns the field's native type
@@ -2645,11 +2796,11 @@ func (fld Field) Type() FieldType {
 func (fld Field) Int() int64 {
 	switch fld.ftype {
 	case FTInt, FTInt64:
-		return fld.intVal
+		return fld.val.(int64)
 	case FTReal:
-		return int64(fld.floatVal)
+		return int64(fld.val.(float64))
 	case FTString:
-		ii, _ := strconv.Atoi(fld.strVal)
+		ii, _ := strconv.Atoi(fld.val.(string))
 		return int64(ii)
 	default:
 		return 0
@@ -2660,11 +2811,11 @@ func (fld Field) Int() int64 {
 func (fld Field) Float() float64 {
 	switch fld.ftype {
 	case FTInt, FTInt64:
-		return float64(fld.intVal)
+		return float64(fld.val.(int64))
 	case FTReal:
-		return fld.floatVal
+		return fld.val.(float64)
 	case FTString:
-		ii, _ := strconv.ParseFloat(fld.strVal, 64)
+		ii, _ := strconv.ParseFloat(fld.val.(string), 64)
 		return ii
 	default:
 		return 0
@@ -2675,13 +2826,63 @@ func (fld Field) Float() float64 {
 func (fld Field) String() string {
 	switch fld.ftype {
 	case FTInt, FTInt64:
-		return fmt.Sprintf("%d", fld.intVal)
+		return fmt.Sprintf("%d", fld.val.(int64))
 	case FTReal:
-		return fmt.Sprintf("%f", fld.floatVal)
+		return fmt.Sprintf("%f", fld.val.(float64))
 	case FTString:
-		return fld.strVal
+		return fld.val.(string)
 	default:
 		return ""
+	}
+}
+
+//Bytes returns the field as a byte slice
+func (fld Field) Bytes() []byte {
+	switch fld.ftype {
+	case FTBinary:
+		return fld.val.([]byte)
+	default:
+		return nil
+	}
+}
+
+//DateTime returns the field as a date time
+func (fld Field) DateTime() *time.Time {
+	switch fld.ftype {
+	case FTDate, FTTime, FTDateTime:
+		return fld.val.(*time.Time)
+	default:
+		return nil
+	}
+}
+
+//IntList returns the field as a list of integer
+func (fld Field) IntList() []int64 {
+	switch fld.ftype {
+	case FTIntList, FTInt64List:
+		return fld.val.([]int64)
+	default:
+		return nil
+	}
+}
+
+//FloatList returns the field as a list of float64
+func (fld Field) FloatList() []float64 {
+	switch fld.ftype {
+	case FTRealList:
+		return fld.val.([]float64)
+	default:
+		return nil
+	}
+}
+
+//StringList returns the field as a list of string
+func (fld Field) StringList() []string {
+	switch fld.ftype {
+	case FTStringList:
+		return fld.val.([]string)
+	default:
+		return nil
 	}
 }
 
@@ -2696,49 +2897,89 @@ func (f *Feature) Fields() map[string]Field {
 		fdefn := C.OGR_F_GetFieldDefnRef(f.handle, fid)
 		fname := C.GoString(C.OGR_Fld_GetNameRef(fdefn))
 		ftype := C.OGR_Fld_GetType(fdefn)
-		fld := Field{}
+		fld := Field{
+			index: int(fid),
+			isSet: C.OGR_F_IsFieldSet(f.handle, fid) != 0,
+		}
 		switch ftype {
 		case C.OFTInteger:
 			fld.ftype = FTInt
-			fld.intVal = int64(C.OGR_F_GetFieldAsInteger64(f.handle, fid))
+			fld.val = int64(C.OGR_F_GetFieldAsInteger64(f.handle, fid))
 		case C.OFTInteger64:
 			fld.ftype = FTInt64
-			fld.intVal = int64(C.OGR_F_GetFieldAsInteger64(f.handle, fid))
+			fld.val = int64(C.OGR_F_GetFieldAsInteger64(f.handle, fid))
 		case C.OFTReal:
 			fld.ftype = FTReal
-			fld.floatVal = float64(C.OGR_F_GetFieldAsDouble(f.handle, fid))
+			fld.val = float64(C.OGR_F_GetFieldAsDouble(f.handle, fid))
 		case C.OFTString:
 			fld.ftype = FTString
-			fld.strVal = C.GoString(C.OGR_F_GetFieldAsString(f.handle, fid))
-			/*
-				case C.OFTBinary:
-					fallthrough
-					//fld.ftype = FTBinary
-					//var ll C.int
-					//cdata := C.OGR_F_GetFieldAsBinary(f.handle, fid, &ll)
-					//fld.byteVal = C.GoBytes(unsafe.Pointer(cdata), ll)
-				case C.OFTDate:
-					fallthrough
-				case C.OFTTime:
-					fallthrough
-				case C.OFTDateTime:
-					fallthrough
-				case C.OFTInteger64List:
-					fallthrough
-				case C.OFTIntegerList:
-					fallthrough
-				case C.OFTStringList:
-					fallthrough
-				case C.OFTRealList:
-					fallthrough
-			*/
+			fld.val = C.GoString(C.OGR_F_GetFieldAsString(f.handle, fid))
+		case C.OFTDate:
+			fld.ftype = FTDate
+			fld.val = f.getFieldAsDateTime(fid)
+		case C.OFTTime:
+			fld.ftype = FTTime
+			fld.val = f.getFieldAsDateTime(fid)
+		case C.OFTDateTime:
+			fld.ftype = FTDateTime
+			fld.val = f.getFieldAsDateTime(fid)
+		case C.OFTIntegerList:
+			fld.ftype = FTIntList
+			var length C.int
+			cArray := C.OGR_F_GetFieldAsIntegerList(f.handle, fid, &length)
+			fld.val = cIntArrayToSlice(cArray, length)
+		case C.OFTInteger64List:
+			fld.ftype = FTInt64List
+			var length C.int
+			cArray := C.OGR_F_GetFieldAsInteger64List(f.handle, fid, &length)
+			fld.val = cLongArrayToSlice(cArray, length)
+		case C.OFTRealList:
+			fld.ftype = FTRealList
+			var length C.int
+			cArray := C.OGR_F_GetFieldAsDoubleList(f.handle, fid, &length)
+			fld.val = cDoubleArrayToSlice(cArray, length)
+		case C.OFTStringList:
+			fld.ftype = FTStringList
+			cArray := C.OGR_F_GetFieldAsStringList(f.handle, fid)
+			fld.val = cStringArrayToSlice(cArray)
+		case C.OFTBinary:
+			fld.ftype = FTBinary
+			var length C.int
+			cArray := C.OGR_F_GetFieldAsBinary(f.handle, fid, &length)
+			var slice []byte
+			if cArray != nil {
+				slice = C.GoBytes(unsafe.Pointer(cArray), length)
+			}
+			fld.val = slice
 		default:
-			//TODO
-			continue
+			// Only deprecated field types like FTWideString & WideStringList should be handled by default case
+			fld.ftype = FTUnknown
 		}
 		retm[fname] = fld
 	}
 	return retm
+}
+
+// Fetch field as date and time
+func (f *Feature) getFieldAsDateTime(index C.int) *time.Time {
+	var year, month, day, hour, minute, second, tzFlag int
+	ret := C.OGR_F_GetFieldAsDateTime(
+		f.handle,
+		index,
+		(*C.int)(unsafe.Pointer(&year)),
+		(*C.int)(unsafe.Pointer(&month)),
+		(*C.int)(unsafe.Pointer(&day)),
+		(*C.int)(unsafe.Pointer(&hour)),
+		(*C.int)(unsafe.Pointer(&minute)),
+		(*C.int)(unsafe.Pointer(&second)),
+		(*C.int)(unsafe.Pointer(&tzFlag)),
+	)
+	if ret != 0 {
+		// TODO Time zone is not properly handled
+		t := time.Date(year, time.Month(month), day, hour, minute, second, 0, time.UTC)
+		return &t
+	}
+	return nil
 }
 
 //Close releases resources associated to a feature
