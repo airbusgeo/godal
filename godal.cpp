@@ -741,6 +741,15 @@ void godalFeatureSetGeometry(cctx *ctx, OGRFeatureH feat, OGRGeometryH geom) {
 	godalUnwrap();
 }
 
+void godal_OGR_G_AddGeometry(cctx *ctx, OGRGeometryH geom, OGRGeometryH subGeom) {
+	godalWrap(ctx);
+	OGRErr gret = OGR_G_AddGeometry(geom,subGeom);
+	if(gret!=0){
+		forceOGRError(ctx,gret);
+	}
+	godalUnwrap();
+}
+
 OGRGeometryH godal_OGR_G_Simplify(cctx *ctx, OGRGeometryH in, double tolerance) {
 	godalWrap(ctx);
 	OGRGeometryH ret = OGR_G_Simplify(in,tolerance);
@@ -761,9 +770,39 @@ OGRGeometryH godal_OGR_G_Buffer(cctx *ctx, OGRGeometryH in, double tolerance, in
 	return ret;
 }
 
+OGRGeometryH godal_OGR_G_Difference(cctx *ctx, OGRGeometryH geom1, OGRGeometryH geom2) {
+	godalWrap(ctx);
+	OGRGeometryH ret = OGR_G_Difference(geom1, geom2);
+	if(ret==nullptr) {
+		forceError(ctx);
+	}
+	godalUnwrap();
+	return ret;
+}
+
+OGRGeometryH godal_OGR_G_GetGeometryRef(cctx *ctx, OGRGeometryH in, int subGeomIndex) {
+	godalWrap(ctx);
+	OGRGeometryH ret = OGR_G_GetGeometryRef(in, subGeomIndex);
+	if(ret==nullptr) {
+		forceError(ctx);
+	}
+	godalUnwrap();
+	return ret;
+}
+
 int godal_OGR_G_Intersects(cctx *ctx, OGRGeometryH geom1, OGRGeometryH geom2) {
 	godalWrap(ctx);
 	int ret = OGR_G_Intersects(geom1, geom2);
+	godalUnwrap();
+	return ret;
+}
+
+OGRGeometryH godal_OGR_G_Union(cctx *ctx, OGRGeometryH geom1, OGRGeometryH geom2) {
+	godalWrap(ctx);
+	OGRGeometryH ret = OGR_G_Union(geom1, geom2);
+	if(ret==nullptr) {
+		forceError(ctx);
+	}
 	godalUnwrap();
 	return ret;
 }
@@ -1052,6 +1091,20 @@ char* godalExportGeometryGeoJSON(cctx *ctx, OGRGeometryH in, int precision) {
 	}
 	godalUnwrap();
 	return gj;
+}
+
+char* godalExportGeometryGML(cctx *ctx, OGRGeometryH in, char **switches) {
+	godalWrap(ctx);
+	char *gml = OGR_G_ExportToGMLEx(in, switches);
+	if(gml==nullptr) {
+		forceError(ctx);
+	}
+	if (failed(ctx) && gml!=nullptr) {
+		CPLFree(gml);
+		gml=nullptr;
+	}
+	godalUnwrap();
+	return gml;
 }
 
 void godalGeometryTransformTo(cctx *ctx, OGRGeometryH geom, OGRSpatialReferenceH sr) {

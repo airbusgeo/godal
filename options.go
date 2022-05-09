@@ -385,14 +385,35 @@ type FeatureCountOption interface {
 	setFeatureCountOpt(fo *featureCountOpts)
 }
 
+type addGeometryOpts struct {
+	errorHandler ErrorHandler
+}
 type simplifyOpts struct {
 	errorHandler ErrorHandler
 }
 type bufferOpts struct {
 	errorHandler ErrorHandler
 }
+type differenceOpts struct {
+	errorHandler ErrorHandler
+}
 type intersectsOpts struct {
 	errorHandler ErrorHandler
+}
+type subGeometryOpts struct {
+	errorHandler ErrorHandler
+}
+type unionOpts struct {
+	errorHandler ErrorHandler
+}
+
+// AddGeometryOption is an option passed to Geometry.AddGeometry()
+//
+//
+// Available options are:
+//  - ErrLogger
+type AddGeometryOption interface {
+	setAddGeometryOpt(ao *addGeometryOpts)
 }
 
 // SimplifyOption is an option passed to Geometry.Simplify()
@@ -413,6 +434,15 @@ type BufferOption interface {
 	setBufferOpt(bo *bufferOpts)
 }
 
+// DifferenceOption is an option passed to Geometry.Difference()
+//
+//
+// Available options are:
+//  - ErrLogger
+type DifferenceOption interface {
+	setDifferenceOpt(do *differenceOpts)
+}
+
 // IntersectsOption is an option passed to Geometry.Intersects()
 //
 //
@@ -420,6 +450,24 @@ type BufferOption interface {
 //  - ErrLogger
 type IntersectsOption interface {
 	setIntersectsOpt(bo *intersectsOpts)
+}
+
+// SubGeometryOption is an option passed to Geometry.SubGeometry()
+//
+//
+// Available options are:
+//  - ErrLogger
+type SubGeometryOption interface {
+	setSubGeometryOpt(so *subGeometryOpts)
+}
+
+// UnionOption is an option passed to Geometry.Union()
+//
+//
+// Available options are:
+//  - ErrLogger
+type UnionOption interface {
+	setUnionOpt(uo *unionOpts)
 }
 
 type setGeometryOpts struct {
@@ -1207,6 +1255,18 @@ type geojsonOpts struct {
 //GeoJSONOption is an option that can be passed to Geometry.GeoJSON
 type GeoJSONOption interface {
 	setGeojsonOpt(gjo *geojsonOpts)
+}
+
+type gmlOpts struct {
+	errorHandler ErrorHandler
+}
+
+// GMLOption is an option passed to Geometry.GML()
+//
+// Available options are:
+//  - ErrLogger
+type GMLOption interface {
+	setGMLOpt(o *gmlOpts)
 }
 
 type significantDigits int

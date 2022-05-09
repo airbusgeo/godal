@@ -2160,23 +2160,39 @@ func (ds *Dataset) RasterizeGeometry(g *Geometry, opts ...RasterizeGeometryOptio
 type GeometryType uint32
 
 const (
-	//GTUnknown is a GeomtryType
+	//GTUnknown is a GeometryType
 	GTUnknown = GeometryType(C.wkbUnknown)
-	//GTPoint is a GeomtryType
+	//GTPoint is a GeometryType
 	GTPoint = GeometryType(C.wkbPoint)
-	//GTLineString is a GeomtryType
+	//GTPoint25D is a GeometryType
+	GTPoint25D = GeometryType(C.wkbPoint25D)
+	//GTLinearRing is a GeometryType
+	GTLinearRing = GeometryType(C.wkbLinearRing)
+	//GTLineString is a GeometryType
 	GTLineString = GeometryType(C.wkbLineString)
-	//GTPolygon is a GeomtryType
+	//GTLineString25D is a GeometryType
+	GTLineString25D = GeometryType(C.wkbLineString25D)
+	//GTPolygon is a GeometryType
 	GTPolygon = GeometryType(C.wkbPolygon)
-	//GTMultiPoint is a GeomtryType
+	//GTPolygon25D is a GeometryType
+	GTPolygon25D = GeometryType(C.wkbPolygon25D)
+	//GTMultiPoint is a GeometryType
 	GTMultiPoint = GeometryType(C.wkbMultiPoint)
-	//GTMultiLineString is a GeomtryType
+	//GTMultiPoint25D is a GeometryType
+	GTMultiPoint25D = GeometryType(C.wkbMultiPoint25D)
+	//GTMultiLineString is a GeometryType
 	GTMultiLineString = GeometryType(C.wkbMultiLineString)
-	//GTMultiPolygon is a GeomtryType
+	//GTMultiLineString25D is a GeometryType
+	GTMultiLineString25D = GeometryType(C.wkbMultiLineString25D)
+	//GTMultiPolygon is a GeometryType
 	GTMultiPolygon = GeometryType(C.wkbMultiPolygon)
-	//GTGeometryCollection is a GeomtryType
+	//GTMultiPolygon25D is a GeometryType
+	GTMultiPolygon25D = GeometryType(C.wkbMultiPolygon25D)
+	//GTGeometryCollection is a GeometryType
 	GTGeometryCollection = GeometryType(C.wkbGeometryCollection)
-	//GTNone is a GeomtryType
+	//GTGeometryCollection25D is a GeometryType
+	GTGeometryCollection25D = GeometryType(C.wkbGeometryCollection25D)
+	//GTNone is a GeometryType
 	GTNone = GeometryType(C.wkbNone)
 )
 
@@ -2373,6 +2389,25 @@ type Geometry struct {
 	handle  C.OGRGeometryH
 }
 
+// Area computes the area for geometries of type LinearRing, Polygon or MultiPolygon (returns zero for other types).
+// The area is in square units of the spatial reference system in use.
+func (g *Geometry) Area() float64 {
+	return float64(C.OGR_G_Area(g.handle))
+}
+
+// GeometryCount fetch the number of elements in a geometry or number of geometries in container.
+// Only geometries of type Polygon, MultiPoint, MultiLineString, MultiPolygon or GeometryCollection may return a valid value.
+// Other geometry types will silently return 0.
+// For a polygon, the returned number is the number of rings (exterior ring + interior rings).
+func (g *Geometry) GeometryCount() int {
+	return int(C.OGR_G_GetGeometryCount(g.handle))
+}
+
+// Type fetch geometry type.
+func (g *Geometry) Type() GeometryType {
+	return GeometryType(C.OGR_G_GetGeometryType(g.handle))
+}
+
 //Simplify simplifies the geometry with the given tolerance
 func (g *Geometry) Simplify(tolerance float64, opts ...SimplifyOption) (*Geometry, error) {
 	so := &simplifyOpts{}
@@ -2407,6 +2442,73 @@ func (g *Geometry) Buffer(distance float64, segments int, opts ...BufferOption) 
 	}, nil
 }
 
+// Difference generates a new geometry which is the region of this geometry with the region of the other geometry removed.
+func (g *Geometry) Difference(other *Geometry, opts ...DifferenceOption) (*Geometry, error) {
+	// If other geometry is nil, GDAL crashes
+	if other == nil || other.handle == nil {
+		return nil, errors.New("other geometry is empty")
+	}
+	do := &differenceOpts{}
+	for _, o := range opts {
+		o.setDifferenceOpt(do)
+	}
+	cgc := createCGOContext(nil, do.errorHandler)
+	hndl := C.godal_OGR_G_Difference(cgc.cPointer(), g.handle, other.handle)
+	if err := cgc.close(); err != nil {
+		return nil, err
+	}
+	return &Geometry{
+		isOwned: true,
+		handle:  hndl,
+	}, nil
+}
+
+// AddGeometry add a geometry to a geometry container.
+func (g *Geometry) AddGeometry(subGeom *Geometry, opts ...AddGeometryOption) error {
+	ago := &addGeometryOpts{}
+	for _, o := range opts {
+		o.setAddGeometryOpt(ago)
+	}
+	cgc := createCGOContext(nil, ago.errorHandler)
+	C.godal_OGR_G_AddGeometry(cgc.cPointer(), g.handle, subGeom.handle)
+	return cgc.close()
+}
+
+// ForceToMultiPolygon convert to multipolygon.
+func (g *Geometry) ForceToMultiPolygon() *Geometry {
+	hndl := C.OGR_G_ForceToMultiPolygon(g.handle)
+	return &Geometry{
+		isOwned: true,
+		handle:  hndl,
+	}
+}
+
+// ForceToPolygon convert to polygon.
+func (g *Geometry) ForceToPolygon() *Geometry {
+	hndl := C.OGR_G_ForceToPolygon(g.handle)
+	return &Geometry{
+		isOwned: true,
+		handle:  hndl,
+	}
+}
+
+// SubGeometry Fetch geometry from a geometry container.
+func (g *Geometry) SubGeometry(subGeomIndex int, opts ...SubGeometryOption) (*Geometry, error) {
+	so := &subGeometryOpts{}
+	for _, o := range opts {
+		o.setSubGeometryOpt(so)
+	}
+	cgc := createCGOContext(nil, so.errorHandler)
+	hndl := C.godal_OGR_G_GetGeometryRef(cgc.cPointer(), g.handle, C.int(subGeomIndex))
+	if err := cgc.close(); err != nil {
+		return nil, err
+	}
+	return &Geometry{
+		isOwned: true,
+		handle:  hndl,
+	}, nil
+}
+
 // Intersects determines whether two geometries intersect. If GEOS is enabled, then
 // this is done in rigorous fashion otherwise TRUE is returned if the
 // envelopes (bounding boxes) of the two geometries overlap.
@@ -2423,10 +2525,43 @@ func (g *Geometry) Intersects(other *Geometry, opts ...IntersectsOption) (bool, 
 	return ret != 0, nil
 }
 
-//Empty retruens wether the underlying geometry is empty
+// Union generates a new geometry which is the region of union of the two geometries operated on.
+func (g *Geometry) Union(other *Geometry, opts ...UnionOption) (*Geometry, error) {
+	// If other geometry is nil, GDAL crashes
+	if other == nil || other.handle == nil {
+		return nil, errors.New("other geometry is empty")
+	}
+	uo := &unionOpts{}
+	for _, o := range opts {
+		o.setUnionOpt(uo)
+	}
+	cgc := createCGOContext(nil, uo.errorHandler)
+	hndl := C.godal_OGR_G_Union(cgc.cPointer(), g.handle, other.handle)
+	if err := cgc.close(); err != nil {
+		return nil, err
+	}
+	return &Geometry{
+		isOwned: true,
+		handle:  hndl,
+	}, nil
+}
+
+//Contains tests if this geometry contains the other geometry.
+func (g *Geometry) Contains(other *Geometry) bool {
+	ret := C.OGR_G_Contains(g.handle, other.handle)
+	return ret != 0
+}
+
+//Empty returns true if the geometry is empty
 func (g *Geometry) Empty() bool {
-	e := C.OGR_G_IsEmpty(g.handle)
-	return e != 0
+	ret := C.OGR_G_IsEmpty(g.handle)
+	return ret != 0
+}
+
+//Valid returns true is the geometry is valid
+func (g *Geometry) Valid() bool {
+	ret := C.OGR_G_IsValid(g.handle)
+	return ret != 0
 }
 
 //Bounds returns the geometry's envelope in the order minx,miny,maxx,maxy
@@ -2889,7 +3024,24 @@ func (g *Geometry) GeoJSON(opts ...GeoJSONOption) (string, error) {
 	wkt := C.GoString(gjdata)
 	C.CPLFree(unsafe.Pointer(gjdata))
 	return wkt, nil
+}
 
+// GML returns the geometry in GML format.
+func (g *Geometry) GML(switches []string, opts ...GMLOption) (string, error) {
+	cswitches := sliceToCStringArray(switches)
+	defer cswitches.free()
+	eo := &gmlOpts{}
+	for _, o := range opts {
+		o.setGMLOpt(eo)
+	}
+	cgc := createCGOContext(nil, eo.errorHandler)
+	cgml := C.godalExportGeometryGML(cgc.cPointer(), g.handle, cswitches.cPointer())
+	if err := cgc.close(); err != nil {
+		return "", err
+	}
+	gml := C.GoString(cgml)
+	C.CPLFree(unsafe.Pointer(cgml))
+	return gml, nil
 }
 
 //VSIFile is a handler around gdal's vsi handlers
