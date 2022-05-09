@@ -1488,6 +1488,14 @@ func TestProjection(t *testing.T) {
 	err = ds.SetProjection("+proj=lonlat")
 	assert.NoError(t, err)
 
+	err = ds.SetProjection("")
+	assert.NoError(t, err)
+
+	pj = ds.Projection()
+	if pj != "" {
+		t.Errorf("proj not empty: %s", pj)
+	}
+
 	ehc = eh()
 	err = ds.SetProjection("invalid wkt", ErrLogger(ehc.ErrorHandler))
 	assert.Error(t, err)

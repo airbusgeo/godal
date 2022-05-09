@@ -237,6 +237,15 @@ char *exportToWKT(cctx *ctx, OGRSpatialReferenceH sr) {
 
 void godalSetProjection(cctx *ctx, GDALDatasetH ds, char *wkt) {
 	godalWrap(ctx);
+	if(wkt==nullptr||*wkt==0) {
+		CPLErr ret = GDALSetSpatialRef(ds,nullptr);
+		if (ret != 0)
+		{
+			forceCPLError(ctx, ret);
+		}
+		godalUnwrap();
+		return;
+	}
 	OGRSpatialReferenceH sr = OSRNewSpatialReference(nullptr);
 	OSRSetAxisMappingStrategy(sr, OAMS_TRADITIONAL_GIS_ORDER);
 
@@ -247,15 +256,7 @@ void godalSetProjection(cctx *ctx, GDALDatasetH ds, char *wkt) {
 		OSRDestroySpatialReference(sr);
 		return;
 	}
-	char *pszSRS = exportToWKT(ctx, sr);
-	if(failed(ctx)) {
-		godalUnwrap();
-		CPLFree(pszSRS);
-		OSRDestroySpatialReference(sr);
-		return;
-	}
-	CPLErr ret = GDALSetProjection(ds,pszSRS);
-	CPLFree(pszSRS);
+	CPLErr ret = GDALSetSpatialRef(ds,sr);
 	if (ret!=0) {
 		forceCPLError(ctx,ret);
 	}
