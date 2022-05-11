@@ -680,13 +680,13 @@ func (ds *Dataset) Bands() []Band {
 
 // Bounds returns the dataset's bounding box in the order
 //  [MinX, MinY, MaxX, MaxY]
-func (ds *Dataset) Bounds(opts ...BoundsOption) ([4]float64, error) {
+func (ds *Dataset) Bounds(opts ...BoundsOption) (Bounds, error) {
 
 	bo := boundsOpts{}
 	for _, o := range opts {
 		o.setBoundsOpt(&bo)
 	}
-	ret := [4]float64{}
+	ret := Bounds{}
 	st := ds.Structure()
 	gt, err := ds.GeoTransform()
 	if err != nil {
@@ -2286,6 +2286,46 @@ func (layer Layer) handle() C.OGRLayerH {
 	return C.OGRLayerH(layer.majorObject.cHandle)
 }
 
+// Name returns the layer name
+func (layer Layer) Name() string {
+	return C.GoString(C.OGR_L_GetName(layer.handle()))
+}
+
+// Type returns the layer geometry type.
+func (layer Layer) Type() GeometryType {
+	return GeometryType(C.OGR_L_GetGeomType(layer.handle()))
+}
+
+//Bounds returns the layer's envelope in the order minx,miny,maxx,maxy
+func (layer Layer) Bounds(opts ...BoundsOption) (Bounds, error) {
+	bo := boundsOpts{}
+	for _, o := range opts {
+		o.setBoundsOpt(&bo)
+	}
+	var env C.OGREnvelope
+	cgc := createCGOContext(nil, bo.errorHandler)
+	C.godalLayerGetExtent(cgc.cPointer(), layer.handle(), &env)
+	if err := cgc.close(); err != nil {
+		return Bounds{}, err
+	}
+	bnds := Bounds{
+		float64(env.MinX),
+		float64(env.MinY),
+		float64(env.MaxX),
+		float64(env.MaxY),
+	}
+	if bo.sr == nil {
+		return bnds, nil
+	}
+	sr := layer.SpatialRef()
+	defer sr.Close()
+	bnds, err := reprojectBounds(bnds, sr, bo.sr)
+	if err != nil {
+		return Bounds{}, err
+	}
+	return bnds, nil
+}
+
 // FeatureCount returns the number of features in the layer
 func (layer Layer) FeatureCount(opts ...FeatureCountOption) (int, error) {
 	fco := &featureCountOpts{}
@@ -2390,14 +2430,14 @@ func (g *Geometry) Empty() bool {
 }
 
 //Bounds returns the geometry's envelope in the order minx,miny,maxx,maxy
-func (g *Geometry) Bounds(opts ...BoundsOption) ([4]float64, error) {
+func (g *Geometry) Bounds(opts ...BoundsOption) (Bounds, error) {
 	bo := boundsOpts{}
 	for _, o := range opts {
 		o.setBoundsOpt(&bo)
 	}
 	var env C.OGREnvelope
 	C.OGR_G_GetEnvelope(g.handle, &env)
-	bnds := [4]float64{
+	bnds := Bounds{
 		float64(env.MinX),
 		float64(env.MinY),
 		float64(env.MaxX),
@@ -2588,6 +2628,20 @@ func (layer Layer) NextFeature() *Feature {
 		return nil
 	}
 	return &Feature{hndl}
+}
+
+// CopyFeature copy a feature on Layer
+func (layer Layer) CopyFeature(feat *Feature, opts ...CopyFeatureOption) error {
+	cfo := copyFeatureOpts{}
+	for _, opt := range opts {
+		opt.setCopyFeatureOpt(&cfo)
+	}
+	cgc := createCGOContext(nil, cfo.errorHandler)
+	C.godalLayerCopyFeature(cgc.cPointer(), layer.handle(), feat.handle)
+	if err := cgc.close(); err != nil {
+		return err
+	}
+	return nil
 }
 
 // NewFeature creates a feature on Layer

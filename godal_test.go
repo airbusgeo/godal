@@ -446,10 +446,10 @@ func TestSize(t *testing.T) {
 		bounds, err = ds.Bounds(ErrLogger(ehc.ErrorHandler))
 		assert.NoError(t, err)
 	*/
-	assert.Equal(t, [4]float64{45, 25, 55, 35}, bounds)
+	assert.Equal(t, Bounds{45, 25, 55, 35}, bounds)
 	bounds, err = ds.Bounds(srm)
 	assert.NoError(t, err)
-	assert.NotEqual(t, [4]float64{45, 25, 55, 35}, bounds)
+	assert.NotEqual(t, Bounds{45, 25, 55, 35}, bounds)
 	_, err = ds.Bounds(&SpatialRef{})
 	assert.Error(t, err)
 
@@ -462,10 +462,10 @@ func TestSize(t *testing.T) {
 	assert.NoError(t, err)
 	bounds, err = mds.Bounds()
 	assert.NoError(t, err)
-	assert.Equal(t, [4]float64{35, 35, 45, 45}, bounds)
+	assert.Equal(t, Bounds{35, 35, 45, 45}, bounds)
 	bounds, err = mds.Bounds(srm)
 	assert.NoError(t, err)
-	assert.NotEqual(t, [4]float64{35, 35, 45, 45}, bounds)
+	assert.NotEqual(t, Bounds{35, 35, 45, 45}, bounds)
 	mds.Close()
 
 }
@@ -2447,12 +2447,34 @@ func TestVectorLayer(t *testing.T) {
 	assert.Error(t, ds.Write(0, 0, buf, 3, 3))
 	assert.Error(t, ds.Write(0, 0, buf, 3, 3, ErrLogger(ehc.ErrorHandler)))
 
+	sr3857, _ := NewSpatialRefFromEPSG(3857)
+	defer sr3857.Close()
+
+	layer := ds.Layers()[0]
+	assert.Equal(t, layer.Name(), "test")
+	assert.Equal(t, layer.Type(), GTPolygon)
+	bounds, err := layer.Bounds()
+	assert.NoError(t, err)
+	assert.Equal(t, bounds, Bounds{100.0, 0.0, 101.0, 1.0})
+	_, err = layer.Bounds(sr3857)
+	assert.NoError(t, err)
+	_, err = layer.Bounds(&SpatialRef{})
+	assert.Error(t, err)
+	_, err = Layer{}.Bounds(ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+
 	assert.Nil(t, ds.LayerByName("none"))
 	testLayer := ds.LayerByName("test")
 	assert.NotNil(t, testLayer)
 	vds, _ := CreateVector(Memory, "")
-	_, err = vds.CopyLayer(*testLayer, "copied")
+	copiedLayer, err := vds.CopyLayer(*testLayer, "copied")
 	assert.NoError(t, err)
+	testLayer.ResetReading()
+	feature := testLayer.NextFeature()
+	err = copiedLayer.CopyFeature(feature)
+	assert.NoError(t, err)
+	err = copiedLayer.CopyFeature(&Feature{}, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
 	_, err = vds.CopyLayer(Layer{}, "empty", ErrLogger(ehc.ErrorHandler))
 	assert.Error(t, err)
 	_ = vds.Close()
@@ -2481,8 +2503,6 @@ func TestVectorLayer(t *testing.T) {
 
 	sr4326, _ := NewSpatialRefFromEPSG(4326)
 	defer sr4326.Close()
-	sr3857, _ := NewSpatialRefFromEPSG(3857)
-	defer sr3857.Close()
 	l2, err := dds.CreateLayer("t2", sr4326, GTPoint)
 	assert.NoError(t, err)
 	assert.True(t, sr4326.IsSame(l2.SpatialRef()))
@@ -2508,7 +2528,7 @@ func TestVectorLayer(t *testing.T) {
 		og := ff.Geometry()
 		if i == 1 {
 			bounds, _ := og.Bounds()
-			assert.Equal(t, [4]float64{100, 0, 101, 1}, bounds)
+			assert.Equal(t, Bounds{100, 0, 101, 1}, bounds)
 			b3857, err := og.Bounds(sr3857)
 			assert.NoError(t, err)
 			assert.NotEqual(t, bounds, b3857)
@@ -3648,4 +3668,16 @@ func TestStatistics(t *testing.T) {
 	// Test on null band for coverage
 	_, _, err = bnd.GetStatistics()
 	assert.Error(t, err)
+}
+
+func TestBounds(t *testing.T) {
+	bounds := Bounds{0.0, 100.0, 1.0, 101.0}
+	assert.Equal(t, bounds.MinX(), 0.0)
+	assert.Equal(t, bounds.MinY(), 100.0)
+	assert.Equal(t, bounds.MaxX(), 1.0)
+	assert.Equal(t, bounds.MaxY(), 101.0)
+
+	otherBounds := Bounds{2.0, 102.0, 3.0, 103.0}
+	unionBounds := bounds.Union(otherBounds)
+	assert.Equal(t, unionBounds, Bounds{0.0, 100.0, 3.0, 103.0})
 }

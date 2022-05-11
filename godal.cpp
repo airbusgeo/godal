@@ -788,6 +788,17 @@ OGRLayerH godalCopyLayer(cctx *ctx, GDALDatasetH ds, OGRLayerH layer, char *name
 	return ret;
 }
 
+void godalLayerGetExtent(cctx *ctx, OGRLayerH layer, OGREnvelope *envelope) {
+	godalWrap(ctx);
+	OGRErr gret = OGR_L_GetExtent(layer, envelope, 1);
+	if (gret != OGRERR_NONE) {
+		forceOGRError(ctx,gret);
+	} else if(envelope==nullptr) {
+		forceError(ctx);
+	}
+	godalUnwrap();
+}
+
 void godalLayerFeatureCount(cctx *ctx, OGRLayerH layer, int *count) {
 	godalWrap(ctx);
 	GIntBig gcount = OGR_L_GetFeatureCount(layer, 1);
@@ -1063,6 +1074,15 @@ void godalGeometryTransform(cctx *ctx, OGRGeometryH geom, OGRCoordinateTransform
 	godalUnwrap();
 }
 
+void godalLayerCopyFeature(cctx *ctx, OGRLayerH layer, OGRFeatureH feat) {
+	godalWrap(ctx);
+	OGRErr oe = OGR_L_CreateFeature(layer,feat);
+	if(oe != OGRERR_NONE) {
+		forceOGRError(ctx,oe);
+	}
+	godalUnwrap();
+}
+
 OGRFeatureH godalLayerNewFeature(cctx *ctx, OGRLayerH layer, OGRGeometryH geom) {
 	godalWrap(ctx);
 	OGRFeatureH hFeature = OGR_F_Create( OGR_L_GetLayerDefn( layer ) );
@@ -1075,7 +1095,7 @@ OGRFeatureH godalLayerNewFeature(cctx *ctx, OGRLayerH layer, OGRGeometryH geom) 
 	if (hFeature!=nullptr && geom!=nullptr) {
 		oe = OGR_F_SetGeometry(hFeature,geom);
 		if (oe != OGRERR_NONE) {
-			oe = OGR_L_SetFeature(layer,hFeature);
+			oe = OGR_L_CreateFeature(layer,hFeature);
 		}
 	}
 	if(oe != OGRERR_NONE) {

@@ -45,15 +45,15 @@ func (sr *SpatialRef) setBoundsOpt(o *boundsOpts) {
 }
 
 type boundsOpts struct {
-	sr *SpatialRef
-	//TODO: errorHandler ErrorHandler
+	sr           *SpatialRef
+	errorHandler ErrorHandler
 }
 
 // BoundsOption is an option that can be passed to Dataset.Bounds or Geometry.Bounds
 //
 // Available options are:
 //  - *SpatialRef
-//  - TODO: ErrLogger
+//  - ErrLogger
 type BoundsOption interface {
 	setBoundsOpt(o *boundsOpts)
 }
@@ -71,7 +71,7 @@ type CreateSpatialRefOption interface {
 	setCreateSpatialRefOpt(so *createSpatialRefOpts)
 }
 
-func reprojectBounds(bnds [4]float64, src, dst *SpatialRef) ([4]float64, error) {
+func reprojectBounds(bnds Bounds, src, dst *SpatialRef) (Bounds, error) {
 	var ret [4]float64
 	trn, err := NewTransform(src, dst)
 	if err != nil {

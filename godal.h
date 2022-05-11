@@ -92,8 +92,10 @@ extern "C" {
 	void godalFillNoData(cctx *ctx, GDALRasterBandH in, GDALRasterBandH mask, int maxDistance, int iterations, char **opts);
 	void godalSieveFilter(cctx *ctx, GDALRasterBandH bnd, GDALRasterBandH mask, GDALRasterBandH dst, int sizeThreshold, int connectedNess);
 
+	void godalLayerGetExtent(cctx *ctx, OGRLayerH layer, OGREnvelope *envelope);
 	void godalLayerFeatureCount(cctx *ctx, OGRLayerH layer, int *count);
 	void godalLayerSetFeature(cctx *ctx, OGRLayerH layer, OGRFeatureH feat);
+	void godalLayerCopyFeature(cctx *ctx, OGRLayerH layer, OGRFeatureH feat);
 	OGRFeatureH godalLayerNewFeature(cctx *ctx, OGRLayerH layer, OGRGeometryH geom);
 	void godalLayerDeleteFeature(cctx *ctx, OGRLayerH layer, OGRFeatureH feat);
 	void godalFeatureSetGeometry(cctx *ctx, OGRFeatureH feat, OGRGeometryH geom);
