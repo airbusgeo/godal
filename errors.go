@@ -91,6 +91,7 @@ func ErrLogger(fn ErrorHandler) interface {
 	BuildVRTOption
 	ClearOverviewsOption
 	CloseOption
+	CopyLayerOption
 	CreateLayerOption
 	CreateSpatialRefOption
 	DatasetCreateMaskOption
@@ -173,6 +174,9 @@ func (ec errorCallback) setClearOverviewsOpt(o *clearOvrOpts) {
 	o.errorHandler = ec.fn
 }
 func (ec errorCallback) setCloseOpt(o *closeOpts) {
+	o.errorHandler = ec.fn
+}
+func (ec errorCallback) setCopyLayerOpt(o *copyLayerOpts) {
 	o.errorHandler = ec.fn
 }
 func (ec errorCallback) setCreateLayerOpt(o *createLayerOpts) {
