@@ -2076,10 +2076,10 @@ func (sr *SpatialRef) AutoIdentifyEPSG() error {
 }
 
 // Validate SRS tokens.
-func (sr *SpatialRef) Validate(opts ...ValidateOption) error {
-	vo := validateOpts{}
+func (sr *SpatialRef) Validate(opts ...SpatialRefValidateOption) error {
+	vo := spatialRefValidateOpts{}
 	for _, opt := range opts {
-		opt.setValidateOpt(&vo)
+		opt.setSpatialRefValidateOpt(&vo)
 	}
 	cgc := createCGOContext(nil, vo.errorHandler)
 	C.godalValidateSpatialRef(cgc.cPointer(), sr.handle)

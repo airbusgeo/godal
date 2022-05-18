@@ -128,9 +128,9 @@ func ErrLogger(fn ErrorHandler) interface {
 	SetSpatialRefOption
 	SieveFilterOption
 	SimplifyOption
+	SpatialRefValidateOption
 	TransformOption
 	UpdateFeatureOption
-	ValidateOption
 	VSIHandlerOption
 	VSIOpenOption
 	VSIUnlinkOption
@@ -284,14 +284,14 @@ func (ec errorCallback) setSieveFilterOpt(sfo *sieveFilterOpts) {
 func (ec errorCallback) setSimplifyOpt(o *simplifyOpts) {
 	o.errorHandler = ec.fn
 }
+func (ec errorCallback) setSpatialRefValidateOpt(o *spatialRefValidateOpts) {
+	o.errorHandler = ec.fn
+}
 func (ec errorCallback) setTransformOpt(o *trnOpts) {
 	o.errorHandler = ec.fn
 }
 func (ec errorCallback) setUpdateFeatureOpt(o *updateFeatureOpts) {
 	o.errorHandler = ec.fn
-}
-func (ec errorCallback) setValidateOpt(vo *validateOpts) {
-	vo.errorHandler = ec.fn
 }
 func (ec errorCallback) setVSIHandlerOpt(o *vsiHandlerOpts) {
 	o.errorHandler = ec.fn
