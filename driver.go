@@ -40,6 +40,8 @@ const (
 	HFA DriverName = "HFA"
 	//Mitab is a mapinfo mif/tab file
 	Mitab DriverName = "Mitab"
+	//CSV comma-separated values driver
+	CSV DriverName = "CSV"
 )
 
 type driverMapping struct {
@@ -99,6 +101,10 @@ var driverMappings = map[DriverName]driverMapping{
 	Mitab: {
 		vectorName:     "Mapinfo File",
 		vectorRegister: "RegisterOGRTAB",
+	},
+	CSV: {
+		vectorName:     "CSV",
+		vectorRegister: "RegisterOGRCSV",
 	},
 }
 
