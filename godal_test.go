@@ -1536,6 +1536,7 @@ func TestNilSpatialRef(t *testing.T) {
 	assert.False(t, sr.IsSame(epsg4326))
 	assert.False(t, epsg4326.IsSame(sr))
 	assert.False(t, sr.Geographic())
+	assert.False(t, sr.Projected())
 	_, err := sr.SemiMajor()
 	assert.NoError(t, err)
 	_, err = sr.SemiMajor()
@@ -1554,12 +1555,9 @@ func TestProjMisc(t *testing.T) {
 	ds, _ := Open("testdata/test.tif")
 	sr := ds.SpatialRef()
 	epsg4326, _ := NewSpatialRefFromEPSG(4326)
-	if !epsg4326.IsSame(sr) {
-		t.Error("isSame failed")
-	}
-	if !epsg4326.Geographic() {
-		t.Error("not geographic")
-	}
+	assert.True(t, epsg4326.IsSame(sr), "isSame failed")
+	assert.True(t, epsg4326.Geographic(), "not geographic")
+	assert.True(t, epsg4326.EPSGTreatsAsLatLong())
 	sm, err := sr.SemiMajor()
 	assert.NoError(t, err)
 	assert.Equal(t, 6.378137e+06, sm)
@@ -1578,12 +1576,25 @@ func TestProjMisc(t *testing.T) {
 	assert.Equal(t, "9122", au)
 	au = sr.AuthorityCode("FOOBAR")
 	assert.Equal(t, "", au)
+	attr, ok := sr.AttrValue("GEOGCS", 0)
+	assert.True(t, ok)
+	assert.Equal(t, "WGS 84", attr)
+	attr, ok = sr.AttrValue("GEOGCS", 9999)
+	assert.False(t, ok)
 
 	err = sr.AutoIdentifyEPSG()
 	assert.NoError(t, err)
 
+	epsg32632, err := NewSpatialRefFromEPSG(32632)
+	assert.NoError(t, err)
+	assert.NoError(t, sr.Validate())
+	assert.True(t, epsg32632.Projected())
+	assert.False(t, epsg32632.EPSGTreatsAsLatLong())
+
 	l, err := NewSpatialRefFromWKT(`LOCAL_CS[,UNIT["m",1]]`)
 	assert.NoError(t, err)
+	ehc := eh()
+	assert.Error(t, l.Validate(ErrLogger(ehc.ErrorHandler)))
 	err = l.AutoIdentifyEPSG()
 	assert.Error(t, err)
 	_, err = l.SemiMajor()

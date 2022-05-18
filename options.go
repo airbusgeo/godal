@@ -1083,6 +1083,18 @@ func Values(vals ...float64) interface {
 	return floatValues{vals}
 }
 
+type spatialRefValidateOpts struct {
+	errorHandler ErrorHandler
+}
+
+// SpatialRefValidateOption is an option that can be passed to SpatialRef.Validate()
+//
+// Available SpatialRefValidateOptions are:
+//  - ErrLogger
+type SpatialRefValidateOption interface {
+	setSpatialRefValidateOpt(o *spatialRefValidateOpts)
+}
+
 type rasterizeOpts struct {
 	create       []string
 	config       []string

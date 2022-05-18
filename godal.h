@@ -63,6 +63,7 @@ extern "C" {
 	OGRSpatialReferenceH godalCreateWKTSpatialRef(cctx *ctx, char *wkt);
 	OGRSpatialReferenceH godalCreateProj4SpatialRef(cctx *ctx, char *proj);
 	OGRSpatialReferenceH godalCreateEPSGSpatialRef(cctx *ctx, int epsgCode);
+	void godalValidateSpatialRef(cctx *ctx, OGRSpatialReferenceH sr);
 	char* godalExportToWKT(cctx *ctx, OGRSpatialReferenceH sr);
 	OGRCoordinateTransformationH godalNewCoordinateTransformation(cctx *ctx,  OGRSpatialReferenceH src, OGRSpatialReferenceH dst);
 	void godalDatasetSetSpatialRef(cctx *ctx, GDALDatasetH ds, OGRSpatialReferenceH sr);
