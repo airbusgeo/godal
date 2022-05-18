@@ -778,6 +778,15 @@ OGRLayerH godalCreateLayer(cctx *ctx, GDALDatasetH ds, char *name, OGRSpatialRef
 	return ret;
 }
 
+OGRLayerH godalCopyLayer(cctx *ctx, GDALDatasetH ds, OGRLayerH layer, char *name) {
+	godalWrap(ctx);
+	OGRLayerH ret = OGR_DS_CopyLayer(ds,layer, name,nullptr);
+	if(ret==nullptr) {
+		forceError(ctx);
+	}
+	godalUnwrap();
+	return ret;
+}
 
 void godalLayerFeatureCount(cctx *ctx, OGRLayerH layer, int *count) {
 	godalWrap(ctx);

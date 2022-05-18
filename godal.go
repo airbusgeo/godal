@@ -2661,6 +2661,33 @@ func (ds *Dataset) CreateLayer(name string, sr *SpatialRef, gtype GeometryType, 
 	return Layer{majorObject{C.GDALMajorObjectH(hndl)}}, nil
 }
 
+// CopyLayer Duplicate an existing layer.
+func (ds *Dataset) CopyLayer(source Layer, name string, opts ...CopyLayerOption) (Layer, error) {
+	co := copyLayerOpts{}
+	for _, opt := range opts {
+		opt.setCopyLayerOpt(&co)
+	}
+	cname := C.CString(name)
+	defer C.free(unsafe.Pointer(cname))
+	cgc := createCGOContext(nil, co.errorHandler)
+	hndl := C.godalCopyLayer(cgc.cPointer(), ds.handle(), source.handle(), (*C.char)(unsafe.Pointer(cname)))
+	if err := cgc.close(); err != nil {
+		return Layer{}, err
+	}
+	return Layer{majorObject{C.GDALMajorObjectH(hndl)}}, nil
+}
+
+// LayerByName fetch a layer by name. Returns nil if not found.
+func (ds *Dataset) LayerByName(name string) *Layer {
+	cname := C.CString(name)
+	defer C.free(unsafe.Pointer(cname))
+	hndl := C.GDALDatasetGetLayerByName(ds.handle(), (*C.char)(unsafe.Pointer(cname)))
+	if hndl == nil {
+		return nil
+	}
+	return &Layer{majorObject{C.GDALMajorObjectH(hndl)}}
+}
+
 // NewGeometryFromGeoJSON creates a new Geometry from its GeoJSON representation
 func NewGeometryFromGeoJSON(geoJSON string, opts ...NewGeometryOption) (*Geometry, error) {
 	no := &newGeometryOpts{}

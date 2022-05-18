@@ -2447,6 +2447,16 @@ func TestVectorLayer(t *testing.T) {
 	assert.Error(t, ds.Write(0, 0, buf, 3, 3))
 	assert.Error(t, ds.Write(0, 0, buf, 3, 3, ErrLogger(ehc.ErrorHandler)))
 
+	assert.Nil(t, ds.LayerByName("none"))
+	testLayer := ds.LayerByName("test")
+	assert.NotNil(t, testLayer)
+	vds, _ := CreateVector(Memory, "")
+	_, err = vds.CopyLayer(*testLayer, "copied")
+	assert.NoError(t, err)
+	_, err = vds.CopyLayer(Layer{}, "empty", ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+	_ = vds.Close()
+
 	dds, err := ds.VectorTranslate("", []string{"-of", "MEMORY"})
 	if err != nil {
 		t.Fatal(err)

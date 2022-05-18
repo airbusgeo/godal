@@ -1178,6 +1178,15 @@ type CreateLayerOption interface {
 	setCreateLayerOpt(clo *createLayerOpts)
 }
 
+type copyLayerOpts struct {
+	errorHandler ErrorHandler
+}
+
+// CopyLayerOption is an option that can be passed to Dataset.CreateLayer()
+type CopyLayerOption interface {
+	setCopyLayerOpt(clo *copyLayerOpts)
+}
+
 type geojsonOpts struct {
 	precision    int
 	errorHandler ErrorHandler
