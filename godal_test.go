@@ -1585,7 +1585,8 @@ func TestProjMisc(t *testing.T) {
 
 	l, err := NewSpatialRefFromWKT(`LOCAL_CS[,UNIT["m",1]]`)
 	assert.NoError(t, err)
-	assert.Error(t, l.Validate())
+	ehc := eh()
+	assert.Error(t, l.Validate(ErrLogger(ehc.ErrorHandler)))
 	err = l.AutoIdentifyEPSG()
 	assert.Error(t, err)
 	_, err = l.SemiMajor()

@@ -2076,12 +2076,14 @@ func (sr *SpatialRef) AutoIdentifyEPSG() error {
 }
 
 // Validate SRS tokens.
-func (sr *SpatialRef) Validate() error {
-	ogrerr := C.OSRValidate(sr.handle)
-	if ogrerr != 0 {
-		return fmt.Errorf("ogr error %d", ogrerr)
+func (sr *SpatialRef) Validate(opts ...ValidateOption) error {
+	vo := validateOpts{}
+	for _, opt := range opts {
+		opt.setValidateOpt(&vo)
 	}
-	return nil
+	cgc := createCGOContext(nil, vo.errorHandler)
+	C.godalValidateSpatialRef(cgc.cPointer(), sr.handle)
+	return cgc.close()
 }
 
 // Rasterize wraps GDALRasterize()

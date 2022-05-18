@@ -334,6 +334,15 @@ OGRSpatialReferenceH godalCreateUserSpatialRef(cctx *ctx, char *userInput) {
 	return sr;
 }
 
+void godalValidateSpatialRef(cctx *ctx, OGRSpatialReferenceH sr) {
+	godalWrap(ctx);
+	OGRErr gret = OSRValidate(sr);
+	if(gret!=0) {
+		forceOGRError(ctx,gret);
+	}
+	godalUnwrap();
+}
+
 OGRCoordinateTransformationH godalNewCoordinateTransformation(cctx *ctx, OGRSpatialReferenceH src, OGRSpatialReferenceH dst) {
 	godalWrap(ctx);
 	OGRCoordinateTransformationH tr = OCTNewCoordinateTransformation(src,dst);

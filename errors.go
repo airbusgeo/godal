@@ -130,6 +130,7 @@ func ErrLogger(fn ErrorHandler) interface {
 	SimplifyOption
 	TransformOption
 	UpdateFeatureOption
+	ValidateOption
 	VSIHandlerOption
 	VSIOpenOption
 	VSIUnlinkOption
@@ -288,6 +289,9 @@ func (ec errorCallback) setTransformOpt(o *trnOpts) {
 }
 func (ec errorCallback) setUpdateFeatureOpt(o *updateFeatureOpts) {
 	o.errorHandler = ec.fn
+}
+func (ec errorCallback) setValidateOpt(vo *validateOpts) {
+	vo.errorHandler = ec.fn
 }
 func (ec errorCallback) setVSIHandlerOpt(o *vsiHandlerOpts) {
 	o.errorHandler = ec.fn
