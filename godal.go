@@ -2286,6 +2286,46 @@ func (layer Layer) handle() C.OGRLayerH {
 	return C.OGRLayerH(layer.majorObject.cHandle)
 }
 
+// Name returns the layer name
+func (layer Layer) Name() string {
+	return C.GoString(C.OGR_L_GetName(layer.handle()))
+}
+
+// Type returns the layer geometry type.
+func (layer Layer) Type() GeometryType {
+	return GeometryType(C.OGR_L_GetGeomType(layer.handle()))
+}
+
+//Bounds returns the layer's envelope in the order minx,miny,maxx,maxy
+func (layer Layer) Bounds(opts ...BoundsOption) ([4]float64, error) {
+	bo := boundsOpts{}
+	for _, o := range opts {
+		o.setBoundsOpt(&bo)
+	}
+	var env C.OGREnvelope
+	cgc := createCGOContext(nil, bo.errorHandler)
+	C.godalLayerGetExtent(cgc.cPointer(), layer.handle(), &env)
+	if err := cgc.close(); err != nil {
+		return [4]float64{}, err
+	}
+	bnds := [4]float64{
+		float64(env.MinX),
+		float64(env.MinY),
+		float64(env.MaxX),
+		float64(env.MaxY),
+	}
+	if bo.sr == nil {
+		return bnds, nil
+	}
+	sr := layer.SpatialRef()
+	defer sr.Close()
+	bnds, err := reprojectBounds(bnds, sr, bo.sr)
+	if err != nil {
+		return [4]float64{}, err
+	}
+	return bnds, nil
+}
+
 // FeatureCount returns the number of features in the layer
 func (layer Layer) FeatureCount(opts ...FeatureCountOption) (int, error) {
 	fco := &featureCountOpts{}
@@ -2588,6 +2628,20 @@ func (layer Layer) NextFeature() *Feature {
 		return nil
 	}
 	return &Feature{hndl}
+}
+
+// CreateFeature copy a feature on Layer
+func (layer Layer) CreateFeature(feat *Feature, opts ...CreateFeatureOption) error {
+	cfo := createFeatureOpts{}
+	for _, opt := range opts {
+		opt.setCreateFeatureOpt(&cfo)
+	}
+	cgc := createCGOContext(nil, cfo.errorHandler)
+	C.godalLayerCreateFeature(cgc.cPointer(), layer.handle(), feat.handle)
+	if err := cgc.close(); err != nil {
+		return err
+	}
+	return nil
 }
 
 // NewFeature creates a feature on Layer

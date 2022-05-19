@@ -85,13 +85,14 @@ func ErrLogger(fn ErrorHandler) interface {
 	errorAndLoggingOption
 	BandCreateMaskOption
 	BandIOOption
-	//BoundsOption
+	BoundsOption
 	BufferOption
 	BuildOverviewsOption
 	BuildVRTOption
 	ClearOverviewsOption
 	CloseOption
 	CopyLayerOption
+	CreateFeatureOption
 	CreateLayerOption
 	CreateSpatialRefOption
 	DatasetCreateMaskOption
@@ -152,12 +153,9 @@ func (ec errorCallback) setBandCreateMaskOpt(o *bandCreateMaskOpts) {
 func (ec errorCallback) setBandIOOpt(o *bandIOOpts) {
 	o.errorHandler = ec.fn
 }
-
-/*
 func (ec errorCallback) setBoundsOpt(o *boundsOpts) {
 	o.errorHandler = ec.fn
 }
-*/
 func (ec errorCallback) setBufferOpt(o *bufferOpts) {
 	o.errorHandler = ec.fn
 }
@@ -178,6 +176,9 @@ func (ec errorCallback) setCloseOpt(o *closeOpts) {
 }
 func (ec errorCallback) setCopyLayerOpt(o *copyLayerOpts) {
 	o.errorHandler = ec.fn
+}
+func (ec errorCallback) setCreateFeatureOpt(cfo *createFeatureOpts) {
+	cfo.errorHandler = ec.fn
 }
 func (ec errorCallback) setCreateLayerOpt(o *createLayerOpts) {
 	o.errorHandler = ec.fn
