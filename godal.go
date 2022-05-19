@@ -2630,14 +2630,14 @@ func (layer Layer) NextFeature() *Feature {
 	return &Feature{hndl}
 }
 
-// CopyFeature copy a feature on Layer
-func (layer Layer) CopyFeature(feat *Feature, opts ...CopyFeatureOption) error {
-	cfo := copyFeatureOpts{}
+// CreateFeature copy a feature on Layer
+func (layer Layer) CreateFeature(feat *Feature, opts ...CreateFeatureOption) error {
+	cfo := createFeatureOpts{}
 	for _, opt := range opts {
-		opt.setCopyFeatureOpt(&cfo)
+		opt.setCreateFeatureOpt(&cfo)
 	}
 	cgc := createCGOContext(nil, cfo.errorHandler)
-	C.godalLayerCopyFeature(cgc.cPointer(), layer.handle(), feat.handle)
+	C.godalLayerCreateFeature(cgc.cPointer(), layer.handle(), feat.handle)
 	if err := cgc.close(); err != nil {
 		return err
 	}

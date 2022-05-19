@@ -95,7 +95,7 @@ extern "C" {
 	void godalLayerGetExtent(cctx *ctx, OGRLayerH layer, OGREnvelope *envelope);
 	void godalLayerFeatureCount(cctx *ctx, OGRLayerH layer, int *count);
 	void godalLayerSetFeature(cctx *ctx, OGRLayerH layer, OGRFeatureH feat);
-	void godalLayerCopyFeature(cctx *ctx, OGRLayerH layer, OGRFeatureH feat);
+	void godalLayerCreateFeature(cctx *ctx, OGRLayerH layer, OGRFeatureH feat);
 	OGRFeatureH godalLayerNewFeature(cctx *ctx, OGRLayerH layer, OGRGeometryH geom);
 	void godalLayerDeleteFeature(cctx *ctx, OGRLayerH layer, OGRFeatureH feat);
 	void godalFeatureSetGeometry(cctx *ctx, OGRFeatureH feat, OGRGeometryH geom);

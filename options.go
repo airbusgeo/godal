@@ -1156,16 +1156,16 @@ type DatasetVectorTranslateOption interface {
 	setDatasetVectorTranslateOpt(dwo *dsVectorTranslateOpts)
 }
 
-type copyFeatureOpts struct {
+type createFeatureOpts struct {
 	errorHandler ErrorHandler
 }
 
-//CopyFeatureOption is an option that can be passed to Layer.CopyFeature
+//CreateFeatureOption is an option that can be passed to Layer.CreateFeature
 //
 // Available options are:
 //  - none yet
-type CopyFeatureOption interface {
-	setCopyFeatureOpt(cfo *copyFeatureOpts)
+type CreateFeatureOption interface {
+	setCreateFeatureOpt(cfo *createFeatureOpts)
 }
 
 type newFeatureOpts struct {

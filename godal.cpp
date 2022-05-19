@@ -1074,7 +1074,7 @@ void godalGeometryTransform(cctx *ctx, OGRGeometryH geom, OGRCoordinateTransform
 	godalUnwrap();
 }
 
-void godalLayerCopyFeature(cctx *ctx, OGRLayerH layer, OGRFeatureH feat) {
+void godalLayerCreateFeature(cctx *ctx, OGRLayerH layer, OGRFeatureH feat) {
 	godalWrap(ctx);
 	OGRErr oe = OGR_L_CreateFeature(layer,feat);
 	if(oe != OGRERR_NONE) {
@@ -1094,7 +1094,7 @@ OGRFeatureH godalLayerNewFeature(cctx *ctx, OGRLayerH layer, OGRGeometryH geom) 
 	OGRErr oe=OGRERR_NONE;
 	if (hFeature!=nullptr && geom!=nullptr) {
 		oe = OGR_F_SetGeometry(hFeature,geom);
-		if (oe != OGRERR_NONE) {
+		if (oe == OGRERR_NONE) {
 			oe = OGR_L_CreateFeature(layer,hFeature);
 		}
 	}
