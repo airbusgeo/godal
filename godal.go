@@ -680,13 +680,13 @@ func (ds *Dataset) Bands() []Band {
 
 // Bounds returns the dataset's bounding box in the order
 //  [MinX, MinY, MaxX, MaxY]
-func (ds *Dataset) Bounds(opts ...BoundsOption) (Bounds, error) {
+func (ds *Dataset) Bounds(opts ...BoundsOption) ([4]float64, error) {
 
 	bo := boundsOpts{}
 	for _, o := range opts {
 		o.setBoundsOpt(&bo)
 	}
-	ret := Bounds{}
+	ret := [4]float64{}
 	st := ds.Structure()
 	gt, err := ds.GeoTransform()
 	if err != nil {
@@ -2297,7 +2297,7 @@ func (layer Layer) Type() GeometryType {
 }
 
 //Bounds returns the layer's envelope in the order minx,miny,maxx,maxy
-func (layer Layer) Bounds(opts ...BoundsOption) (Bounds, error) {
+func (layer Layer) Bounds(opts ...BoundsOption) ([4]float64, error) {
 	bo := boundsOpts{}
 	for _, o := range opts {
 		o.setBoundsOpt(&bo)
@@ -2306,9 +2306,9 @@ func (layer Layer) Bounds(opts ...BoundsOption) (Bounds, error) {
 	cgc := createCGOContext(nil, bo.errorHandler)
 	C.godalLayerGetExtent(cgc.cPointer(), layer.handle(), &env)
 	if err := cgc.close(); err != nil {
-		return Bounds{}, err
+		return [4]float64{}, err
 	}
-	bnds := Bounds{
+	bnds := [4]float64{
 		float64(env.MinX),
 		float64(env.MinY),
 		float64(env.MaxX),
@@ -2321,7 +2321,7 @@ func (layer Layer) Bounds(opts ...BoundsOption) (Bounds, error) {
 	defer sr.Close()
 	bnds, err := reprojectBounds(bnds, sr, bo.sr)
 	if err != nil {
-		return Bounds{}, err
+		return [4]float64{}, err
 	}
 	return bnds, nil
 }
@@ -2430,14 +2430,14 @@ func (g *Geometry) Empty() bool {
 }
 
 //Bounds returns the geometry's envelope in the order minx,miny,maxx,maxy
-func (g *Geometry) Bounds(opts ...BoundsOption) (Bounds, error) {
+func (g *Geometry) Bounds(opts ...BoundsOption) ([4]float64, error) {
 	bo := boundsOpts{}
 	for _, o := range opts {
 		o.setBoundsOpt(&bo)
 	}
 	var env C.OGREnvelope
 	C.OGR_G_GetEnvelope(g.handle, &env)
-	bnds := Bounds{
+	bnds := [4]float64{
 		float64(env.MinX),
 		float64(env.MinY),
 		float64(env.MaxX),

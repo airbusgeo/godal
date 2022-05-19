@@ -446,10 +446,10 @@ func TestSize(t *testing.T) {
 		bounds, err = ds.Bounds(ErrLogger(ehc.ErrorHandler))
 		assert.NoError(t, err)
 	*/
-	assert.Equal(t, Bounds{45, 25, 55, 35}, bounds)
+	assert.Equal(t, [4]float64{45, 25, 55, 35}, bounds)
 	bounds, err = ds.Bounds(srm)
 	assert.NoError(t, err)
-	assert.NotEqual(t, Bounds{45, 25, 55, 35}, bounds)
+	assert.NotEqual(t, [4]float64{45, 25, 55, 35}, bounds)
 	_, err = ds.Bounds(&SpatialRef{})
 	assert.Error(t, err)
 
@@ -462,10 +462,10 @@ func TestSize(t *testing.T) {
 	assert.NoError(t, err)
 	bounds, err = mds.Bounds()
 	assert.NoError(t, err)
-	assert.Equal(t, Bounds{35, 35, 45, 45}, bounds)
+	assert.Equal(t, [4]float64{35, 35, 45, 45}, bounds)
 	bounds, err = mds.Bounds(srm)
 	assert.NoError(t, err)
-	assert.NotEqual(t, Bounds{35, 35, 45, 45}, bounds)
+	assert.NotEqual(t, [4]float64{35, 35, 45, 45}, bounds)
 	mds.Close()
 
 }
@@ -2455,7 +2455,7 @@ func TestVectorLayer(t *testing.T) {
 	assert.Equal(t, layer.Type(), GTPolygon)
 	bounds, err := layer.Bounds()
 	assert.NoError(t, err)
-	assert.Equal(t, bounds, Bounds{100.0, 0.0, 101.0, 1.0})
+	assert.Equal(t, bounds, [4]float64{100, 0, 101, 1})
 	_, err = layer.Bounds(sr3857)
 	assert.NoError(t, err)
 	_, err = layer.Bounds(&SpatialRef{})
@@ -2528,7 +2528,7 @@ func TestVectorLayer(t *testing.T) {
 		og := ff.Geometry()
 		if i == 1 {
 			bounds, _ := og.Bounds()
-			assert.Equal(t, Bounds{100, 0, 101, 1}, bounds)
+			assert.Equal(t, [4]float64{100, 0, 101, 1}, bounds)
 			b3857, err := og.Bounds(sr3857)
 			assert.NoError(t, err)
 			assert.NotEqual(t, bounds, b3857)
@@ -3668,16 +3668,4 @@ func TestStatistics(t *testing.T) {
 	// Test on null band for coverage
 	_, _, err = bnd.GetStatistics()
 	assert.Error(t, err)
-}
-
-func TestBounds(t *testing.T) {
-	bounds := Bounds{0.0, 100.0, 1.0, 101.0}
-	assert.Equal(t, bounds.MinX(), 0.0)
-	assert.Equal(t, bounds.MinY(), 100.0)
-	assert.Equal(t, bounds.MaxX(), 1.0)
-	assert.Equal(t, bounds.MaxY(), 101.0)
-
-	otherBounds := Bounds{2.0, 102.0, 3.0, 103.0}
-	unionBounds := bounds.Union(otherBounds)
-	assert.Equal(t, unionBounds, Bounds{0.0, 100.0, 3.0, 103.0})
 }
