@@ -2791,16 +2791,16 @@ func TestGeometryToGML(t *testing.T) {
 	polyStr := "POLYGON ((0 0,2 0,2 2,0 2,0 0))"
 	polyGeom, _ := NewGeometryFromWKT(polyStr, sr)
 
-	gml, err := polyGeom.GML(nil)
+	gml, err := polyGeom.GML()
 	assert.NoError(t, err)
 	assert.Equal(t, gml, `<gml:Polygon srsName="EPSG:4326"><gml:outerBoundaryIs><gml:LinearRing><gml:coordinates>0,0 2,0 2,2 0,2 0,0</gml:coordinates></gml:LinearRing></gml:outerBoundaryIs></gml:Polygon>`)
 
-	gml, err = polyGeom.GML([]string{"FORMAT=GML3", "SRSNAME_FORMAT=OGC_URN"})
+	gml, err = polyGeom.GML(CreationOption("FORMAT=GML3", "SRSNAME_FORMAT=OGC_URN"))
 	assert.NoError(t, err)
 	assert.Equal(t, gml, `<gml:Polygon srsName="urn:ogc:def:crs:EPSG::4326"><gml:exterior><gml:LinearRing><gml:posList>0 0 0 2 2 2 2 0 0 0</gml:posList></gml:LinearRing></gml:exterior></gml:Polygon>`)
 
 	ehc := eh()
-	_, err = polyGeom.GML([]string{"FORMAT=GML3", "SRSNAME_FORMAT=fake"}, ErrLogger(ehc.ErrorHandler))
+	_, err = polyGeom.GML(CreationOption("FORMAT=GML3", "SRSNAME_FORMAT=fake"), ErrLogger(ehc.ErrorHandler))
 	assert.Error(t, err)
 }
 

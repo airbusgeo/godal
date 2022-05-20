@@ -845,6 +845,7 @@ func CreationOption(opts ...string) interface {
 	DatasetWarpOption
 	DatasetTranslateOption
 	DatasetVectorTranslateOption
+	GMLOption
 	RasterizeOption
 } {
 	return creationOpt{opts}
@@ -861,6 +862,9 @@ func (co creationOpt) setDatasetTranslateOpt(dc *dsTranslateOpts) {
 }
 func (co creationOpt) setDatasetVectorTranslateOpt(dc *dsVectorTranslateOpts) {
 	dc.creation = append(dc.creation, co.creation...)
+}
+func (co creationOpt) setGMLOpt(gmlo *gmlOpts) {
+	gmlo.creation = append(gmlo.creation, co.creation...)
 }
 func (co creationOpt) setRasterizeOpt(o *rasterizeOpts) {
 	o.create = append(o.create, co.creation...)
@@ -1258,12 +1262,14 @@ type GeoJSONOption interface {
 }
 
 type gmlOpts struct {
+	creation     []string
 	errorHandler ErrorHandler
 }
 
 // GMLOption is an option passed to Geometry.GML()
 //
 // Available options are:
+//  - CreationOption
 //  - ErrLogger
 type GMLOption interface {
 	setGMLOpt(o *gmlOpts)

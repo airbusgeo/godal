@@ -2504,7 +2504,7 @@ func (g *Geometry) SubGeometry(subGeomIndex int, opts ...SubGeometryOption) (*Ge
 		return nil, err
 	}
 	return &Geometry{
-		isOwned: true,
+		isOwned: false,
 		handle:  hndl,
 	}, nil
 }
@@ -3027,14 +3027,22 @@ func (g *Geometry) GeoJSON(opts ...GeoJSONOption) (string, error) {
 }
 
 // GML returns the geometry in GML format.
-func (g *Geometry) GML(switches []string, opts ...GMLOption) (string, error) {
+// See the GDAL exportToGML doc page to determine the GML conversion options that can be set through CreationOption.
+//
+// Example of conversion options :
+//  g.GML(CreationOption("FORMAT=GML3","GML3_LONGSRS=YES"))
+func (g *Geometry) GML(opts ...GMLOption) (string, error) {
+	gmlo := &gmlOpts{}
+	for _, o := range opts {
+		o.setGMLOpt(gmlo)
+	}
+	switches := make([]string, len(gmlo.creation))
+	for i, copt := range gmlo.creation {
+		switches[i] = copt
+	}
 	cswitches := sliceToCStringArray(switches)
 	defer cswitches.free()
-	eo := &gmlOpts{}
-	for _, o := range opts {
-		o.setGMLOpt(eo)
-	}
-	cgc := createCGOContext(nil, eo.errorHandler)
+	cgc := createCGOContext(nil, gmlo.errorHandler)
 	cgml := C.godalExportGeometryGML(cgc.cPointer(), g.handle, cswitches.cPointer())
 	if err := cgc.close(); err != nil {
 		return "", err
