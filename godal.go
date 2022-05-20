@@ -3031,10 +3031,10 @@ func (g *Geometry) GeoJSON(opts ...GeoJSONOption) (string, error) {
 //
 // Example of conversion options :
 //  g.GML(CreationOption("FORMAT=GML3","GML3_LONGSRS=YES"))
-func (g *Geometry) GML(opts ...GMLOption) (string, error) {
-	gmlo := &gmlOpts{}
+func (g *Geometry) GML(opts ...GMLExportOption) (string, error) {
+	gmlo := &gmlExportOpts{}
 	for _, o := range opts {
-		o.setGMLOpt(gmlo)
+		o.setGMLExportOpt(gmlo)
 	}
 	switches := make([]string, len(gmlo.creation))
 	for i, copt := range gmlo.creation {

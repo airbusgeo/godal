@@ -114,7 +114,7 @@ func ErrLogger(fn ErrorHandler) interface {
 	GeometryWKBOption
 	GeometryWKTOption
 	GetGeoTransformOption
-	GMLOption
+	GMLExportOption
 	HistogramOption
 	IntersectsOption
 	MetadataOption
@@ -248,7 +248,7 @@ func (ec errorCallback) setGeometryWKTOpt(o *geometryWKTOpts) {
 func (ec errorCallback) setGetGeoTransformOpt(o *getGeoTransformOpts) {
 	o.errorHandler = ec.fn
 }
-func (ec errorCallback) setGMLOpt(o *gmlOpts) {
+func (ec errorCallback) setGMLExportOpt(o *gmlExportOpts) {
 	o.errorHandler = ec.fn
 }
 func (ec errorCallback) setHistogramOpt(o *histogramOpts) {

@@ -845,7 +845,7 @@ func CreationOption(opts ...string) interface {
 	DatasetWarpOption
 	DatasetTranslateOption
 	DatasetVectorTranslateOption
-	GMLOption
+	GMLExportOption
 	RasterizeOption
 } {
 	return creationOpt{opts}
@@ -863,7 +863,7 @@ func (co creationOpt) setDatasetTranslateOpt(dc *dsTranslateOpts) {
 func (co creationOpt) setDatasetVectorTranslateOpt(dc *dsVectorTranslateOpts) {
 	dc.creation = append(dc.creation, co.creation...)
 }
-func (co creationOpt) setGMLOpt(gmlo *gmlOpts) {
+func (co creationOpt) setGMLExportOpt(gmlo *gmlExportOpts) {
 	gmlo.creation = append(gmlo.creation, co.creation...)
 }
 func (co creationOpt) setRasterizeOpt(o *rasterizeOpts) {
@@ -1261,18 +1261,18 @@ type GeoJSONOption interface {
 	setGeojsonOpt(gjo *geojsonOpts)
 }
 
-type gmlOpts struct {
+type gmlExportOpts struct {
 	creation     []string
 	errorHandler ErrorHandler
 }
 
-// GMLOption is an option passed to Geometry.GML()
+// GMLExportOption is an option passed to Geometry.GML()
 //
 // Available options are:
 //  - CreationOption
 //  - ErrLogger
-type GMLOption interface {
-	setGMLOpt(o *gmlOpts)
+type GMLExportOption interface {
+	setGMLExportOpt(o *gmlExportOpts)
 }
 
 type significantDigits int
