@@ -2679,6 +2679,48 @@ func TestNewGeometryFromGeoJSON(t *testing.T) {
 	assert.Equal(t, jsonStr, outJSON)
 }
 
+func TestGeometryDifference(t *testing.T) {
+	sr, _ := NewSpatialRefFromEPSG(4326)
+	defer sr.Close()
+
+	polyStr := "POLYGON ((0 0,2 0,2 2,0 2,0 0))"
+	polyGeom1, _ := NewGeometryFromWKT(polyStr, sr)
+	polyStr = "POLYGON ((0 0,1 0,1 1,0 1,0 0))"
+	polyGeom2, _ := NewGeometryFromWKT(polyStr, sr)
+
+	diffGeom, err := polyGeom1.Difference(polyGeom2)
+	assert.NoError(t, err)
+	assert.Equal(t, diffGeom.Area(), 3.0)
+
+	_, err = polyGeom1.Difference(&Geometry{})
+	assert.Error(t, err)
+
+	ehc := eh()
+	_, err = (&Geometry{}).Difference(polyGeom2, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+}
+
+func TestGeometryUnion(t *testing.T) {
+	sr, _ := NewSpatialRefFromEPSG(4326)
+	defer sr.Close()
+
+	polyStr := "POLYGON ((0 0,2 0,2 2,0 2,0 0))"
+	polyGeom1, _ := NewGeometryFromWKT(polyStr, sr)
+	polyStr = "POLYGON ((1 1,3 1,3 3,1 3,1 1))"
+	polyGeom2, _ := NewGeometryFromWKT(polyStr, sr)
+
+	diffGeom, err := polyGeom1.Union(polyGeom2)
+	assert.NoError(t, err)
+	assert.Equal(t, diffGeom.Area(), 7.0)
+
+	_, err = polyGeom1.Union(&Geometry{})
+	assert.Error(t, err)
+
+	ehc := eh()
+	_, err = (&Geometry{}).Union(polyGeom2, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+}
+
 func TestGeometryIntersects(t *testing.T) {
 	_, err := (&Geometry{}).Intersects(&Geometry{})
 	assert.Error(t, err)
@@ -2740,6 +2782,72 @@ func TestGeomToGeoJSON(t *testing.T) {
 	_, err = (&Geometry{}).GeoJSON(ErrLogger(ehc.ErrorHandler))
 	assert.Error(t, err)
 
+}
+
+func TestGeometryToGML(t *testing.T) {
+	sr, _ := NewSpatialRefFromEPSG(4326)
+	defer sr.Close()
+
+	polyStr := "POLYGON ((0 0,2 0,2 2,0 2,0 0))"
+	polyGeom, _ := NewGeometryFromWKT(polyStr, sr)
+
+	gml, err := polyGeom.GML()
+	assert.NoError(t, err)
+	assert.Equal(t, gml, `<gml:Polygon srsName="EPSG:4326"><gml:outerBoundaryIs><gml:LinearRing><gml:coordinates>0,0 2,0 2,2 0,2 0,0</gml:coordinates></gml:LinearRing></gml:outerBoundaryIs></gml:Polygon>`)
+
+	gml, err = polyGeom.GML(CreationOption("FORMAT=GML3", "SRSNAME_FORMAT=OGC_URN"))
+	assert.NoError(t, err)
+	assert.Equal(t, gml, `<gml:Polygon srsName="urn:ogc:def:crs:EPSG::4326"><gml:exterior><gml:LinearRing><gml:posList>0 0 0 2 2 2 2 0 0 0</gml:posList></gml:LinearRing></gml:exterior></gml:Polygon>`)
+
+	ehc := eh()
+	_, err = polyGeom.GML(CreationOption("FORMAT=GML3", "SRSNAME_FORMAT=fake"), ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+}
+
+func TestMultiPolygonGeometry(t *testing.T) {
+	sr, _ := NewSpatialRefFromEPSG(4326)
+	defer sr.Close()
+
+	multiPolyStr := "MULTIPOLYGON(((1 1,5 1,5 5,1 5,1 1),(2 2,2 3,3 3,3 2,2 2)),((6 3,9 2,9 4,6 3)))"
+	multiPolyGeom, _ := NewGeometryFromWKT(multiPolyStr, sr)
+
+	assert.Equal(t, multiPolyGeom.Area(), 18.0)
+	assert.Equal(t, multiPolyGeom.GeometryCount(), 2)
+	assert.Equal(t, multiPolyGeom.Type(), GTMultiPolygon)
+
+	subGeom, err := multiPolyGeom.SubGeometry(0)
+	assert.NoError(t, err)
+	wkt, _ := subGeom.WKT()
+	assert.Equal(t, wkt, "POLYGON ((1 1,5 1,5 5,1 5,1 1),(2 2,2 3,3 3,3 2,2 2))")
+	subGeom, err = multiPolyGeom.SubGeometry(1)
+	assert.NoError(t, err)
+	wkt, _ = subGeom.WKT()
+	assert.Equal(t, wkt, "POLYGON ((6 3,9 2,9 4,6 3))")
+	ehc := eh()
+	_, err = multiPolyGeom.SubGeometry(2, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+
+	polyGeom := multiPolyGeom.ForceToPolygon()
+	wkt, _ = polyGeom.WKT()
+	assert.Equal(t, wkt, "POLYGON ((1 1,5 1,5 5,1 5,1 1),(2 2,2 3,3 3,3 2,2 2),(6 3,9 2,9 4,6 3))")
+	assert.False(t, polyGeom.Valid())
+
+	polyStr := "POLYGON((1 1,5 1,5 5,1 5,1 1))"
+	polyGeom, _ = NewGeometryFromWKT(polyStr, sr)
+	multiPolyGeom = polyGeom.ForceToMultiPolygon()
+	wkt, _ = multiPolyGeom.WKT()
+	assert.Equal(t, wkt, "MULTIPOLYGON (((1 1,5 1,5 5,1 5,1 1)))")
+	assert.True(t, polyGeom.Valid())
+
+	multiPolyStr = "MULTIPOLYGON (((1 1,5 1,5 5,1 5,1 1)))"
+	multiPolyGeom, _ = NewGeometryFromWKT(multiPolyStr, sr)
+	polyStr = "POLYGON((6 3,9 2,9 4,6 3))"
+	polyGeom, _ = NewGeometryFromWKT(polyStr, sr)
+	assert.False(t, multiPolyGeom.Contains(polyGeom))
+	err = multiPolyGeom.AddGeometry(polyGeom, ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
+	wkt, _ = multiPolyGeom.WKT()
+	assert.Equal(t, wkt, "MULTIPOLYGON (((1 1,5 1,5 5,1 5,1 1)),((6 3,9 2,9 4,6 3)))")
 }
 
 func TestFeatureAttributes(t *testing.T) {

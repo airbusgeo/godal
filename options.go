@@ -385,14 +385,35 @@ type FeatureCountOption interface {
 	setFeatureCountOpt(fo *featureCountOpts)
 }
 
+type addGeometryOpts struct {
+	errorHandler ErrorHandler
+}
 type simplifyOpts struct {
 	errorHandler ErrorHandler
 }
 type bufferOpts struct {
 	errorHandler ErrorHandler
 }
+type differenceOpts struct {
+	errorHandler ErrorHandler
+}
 type intersectsOpts struct {
 	errorHandler ErrorHandler
+}
+type subGeometryOpts struct {
+	errorHandler ErrorHandler
+}
+type unionOpts struct {
+	errorHandler ErrorHandler
+}
+
+// AddGeometryOption is an option passed to Geometry.AddGeometry()
+//
+//
+// Available options are:
+//  - ErrLogger
+type AddGeometryOption interface {
+	setAddGeometryOpt(ao *addGeometryOpts)
 }
 
 // SimplifyOption is an option passed to Geometry.Simplify()
@@ -413,6 +434,15 @@ type BufferOption interface {
 	setBufferOpt(bo *bufferOpts)
 }
 
+// DifferenceOption is an option passed to Geometry.Difference()
+//
+//
+// Available options are:
+//  - ErrLogger
+type DifferenceOption interface {
+	setDifferenceOpt(do *differenceOpts)
+}
+
 // IntersectsOption is an option passed to Geometry.Intersects()
 //
 //
@@ -420,6 +450,24 @@ type BufferOption interface {
 //  - ErrLogger
 type IntersectsOption interface {
 	setIntersectsOpt(bo *intersectsOpts)
+}
+
+// SubGeometryOption is an option passed to Geometry.SubGeometry()
+//
+//
+// Available options are:
+//  - ErrLogger
+type SubGeometryOption interface {
+	setSubGeometryOpt(so *subGeometryOpts)
+}
+
+// UnionOption is an option passed to Geometry.Union()
+//
+//
+// Available options are:
+//  - ErrLogger
+type UnionOption interface {
+	setUnionOpt(uo *unionOpts)
 }
 
 type setGeometryOpts struct {
@@ -797,6 +845,7 @@ func CreationOption(opts ...string) interface {
 	DatasetWarpOption
 	DatasetTranslateOption
 	DatasetVectorTranslateOption
+	GMLExportOption
 	RasterizeOption
 } {
 	return creationOpt{opts}
@@ -813,6 +862,9 @@ func (co creationOpt) setDatasetTranslateOpt(dc *dsTranslateOpts) {
 }
 func (co creationOpt) setDatasetVectorTranslateOpt(dc *dsVectorTranslateOpts) {
 	dc.creation = append(dc.creation, co.creation...)
+}
+func (co creationOpt) setGMLExportOpt(gmlo *gmlExportOpts) {
+	gmlo.creation = append(gmlo.creation, co.creation...)
 }
 func (co creationOpt) setRasterizeOpt(o *rasterizeOpts) {
 	o.create = append(o.create, co.creation...)
@@ -1207,6 +1259,20 @@ type geojsonOpts struct {
 //GeoJSONOption is an option that can be passed to Geometry.GeoJSON
 type GeoJSONOption interface {
 	setGeojsonOpt(gjo *geojsonOpts)
+}
+
+type gmlExportOpts struct {
+	creation     []string
+	errorHandler ErrorHandler
+}
+
+// GMLExportOption is an option passed to Geometry.GML()
+//
+// Available options are:
+//  - CreationOption
+//  - ErrLogger
+type GMLExportOption interface {
+	setGMLExportOpt(o *gmlExportOpts)
 }
 
 type significantDigits int
