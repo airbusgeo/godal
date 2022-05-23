@@ -127,6 +127,7 @@ func ErrLogger(fn ErrorHandler) interface {
 	SetColorInterpOption
 	SetColorTableOption
 	SetGeometryOption
+	SetFieldValueOption
 	SetNoDataOption
 	SetGeoTransformOption
 	SetProjectionOption
@@ -282,6 +283,9 @@ func (ec errorCallback) setSetColorTableOpt(ndo *setColorTableOpts) {
 	ndo.errorHandler = ec.fn
 }
 func (ec errorCallback) setSetGeometryOpt(o *setGeometryOpts) {
+	o.errorHandler = ec.fn
+}
+func (ec errorCallback) setSetFieldValueOpt(o *setFieldValueOpts) {
 	o.errorHandler = ec.fn
 }
 func (ec errorCallback) setSetGeoTransformOpt(o *setGeoTransformOpts) {

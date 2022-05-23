@@ -2685,32 +2685,38 @@ func (f *Feature) SetGeometryColumnName(name string) {
 }
 
 //SetFID set feature identifier
-func (f *Feature) SetFID(fid int) {
+func (f *Feature) SetFID(fid int64) {
 	// OGR error returned is always none, so we don't handle it
 	C.OGR_F_SetFID(f.handle, C.GIntBig(fid))
 }
 
 //SetFieldValue set feature's field value
-func (f *Feature) SetFieldValue(field Field, value interface{}) error {
+func (f *Feature) SetFieldValue(field Field, value interface{}, opts ...SetFieldValueOption) error {
+	sfvo := &setFieldValueOpts{}
+	for _, o := range opts {
+		o.setSetFieldValueOpt(sfvo)
+	}
+	cgc := createCGOContext(nil, sfvo.errorHandler)
+
 	switch field.ftype {
 	case FTInt:
 		intValue, ok := value.(int)
 		if !ok {
 			return errors.New("value for this field must be of type 'int'")
 		}
-		C.OGR_F_SetFieldInteger(f.handle, C.int(field.index), C.int(intValue))
+		C.godalFeatureSetFieldInteger(cgc.cPointer(), f.handle, C.int(field.index), C.int(intValue))
 	case FTInt64:
 		int64Value, ok := value.(int64)
 		if !ok {
 			return errors.New("value for this field must be of type 'int64'")
 		}
-		C.OGR_F_SetFieldInteger64(f.handle, C.int(field.index), C.longlong(int64Value))
+		C.godalFeatureSetFieldInteger64(cgc.cPointer(), f.handle, C.int(field.index), C.longlong(int64Value))
 	case FTReal:
 		floatValue, ok := value.(float64)
 		if !ok {
 			return errors.New("value for this field must be of type 'float64'")
 		}
-		C.OGR_F_SetFieldDouble(f.handle, C.int(field.index), C.double(floatValue))
+		C.godalFeatureSetFieldDouble(cgc.cPointer(), f.handle, C.int(field.index), C.double(floatValue))
 	case FTString:
 		stringValue, ok := value.(string)
 		if !ok {
@@ -2718,13 +2724,21 @@ func (f *Feature) SetFieldValue(field Field, value interface{}) error {
 		}
 		cval := C.CString(stringValue)
 		defer C.free(unsafe.Pointer(cval))
-		C.OGR_F_SetFieldString(f.handle, C.int(field.index), cval)
+		C.godalFeatureSetFieldString(cgc.cPointer(), f.handle, C.int(field.index), cval)
 	case FTDate, FTTime, FTDateTime:
 		timeValue, ok := value.(time.Time)
 		if !ok {
 			return errors.New("value for this field must be of type 'time.Time'")
 		}
-		C.OGR_F_SetFieldDateTime(
+		timeZone := 0 // 0=unknown, 1=localtime, 100=GMT, 101=GMT+15minute, 99=GMT-15minute...
+		if timeValue.Location() == time.Local {
+			timeZone = 1
+		} else {
+			_, offset := timeValue.Zone()
+			timeZone = offset/60/15 + 100
+		}
+		C.godalFeatureSetFieldDateTime(
+			cgc.cPointer(),
 			f.handle,
 			C.int(field.index),
 			C.int(timeValue.Year()),
@@ -2733,45 +2747,45 @@ func (f *Feature) SetFieldValue(field Field, value interface{}) error {
 			C.int(timeValue.Hour()),
 			C.int(timeValue.Minute()),
 			C.int(timeValue.Second()),
-			C.int(1), // TODO Time zone is not properly handled
+			C.int(timeZone),
 		)
 	case FTIntList:
 		intListValue, ok := value.([]int)
 		if !ok {
 			return errors.New("value for this field must be of type '[]int'")
 		}
-		C.OGR_F_SetFieldIntegerList(f.handle, C.int(field.index), C.int(len(intListValue)), cIntArray(intListValue))
+		C.godalFeatureSetFieldIntegerList(cgc.cPointer(), f.handle, C.int(field.index), C.int(len(intListValue)), cIntArray(intListValue))
 	case FTInt64List:
 		int64ListValue, ok := value.([]int64)
 		if !ok {
 			return errors.New("value for this field must be of type '[]int64'")
 		}
-		C.OGR_F_SetFieldInteger64List(f.handle, C.int(field.index), C.int(len(int64ListValue)), cLongArray(int64ListValue))
+		C.godalFeatureSetFieldInteger64List(cgc.cPointer(), f.handle, C.int(field.index), C.int(len(int64ListValue)), cLongArray(int64ListValue))
 	case FTRealList:
 		float64ListValue, ok := value.([]float64)
 		if !ok {
 			return errors.New("value for this field must be of type '[]float64'")
 		}
-		C.OGR_F_SetFieldDoubleList(f.handle, C.int(field.index), C.int(len(float64ListValue)), cDoubleArray(float64ListValue))
+		C.godalFeatureSetFieldDoubleList(cgc.cPointer(), f.handle, C.int(field.index), C.int(len(float64ListValue)), cDoubleArray(float64ListValue))
 	case FTStringList:
 		stringListValue, ok := value.([]string)
 		if !ok {
 			return errors.New("value for this field must be of type '[]float64'")
 		}
 		cArray := sliceToCStringArray(stringListValue)
-		C.OGR_F_SetFieldStringList(f.handle, C.int(field.index), cArray.cPointer())
+		C.godalFeatureSetFieldStringList(cgc.cPointer(), f.handle, C.int(field.index), cArray.cPointer())
 		cArray.free()
 	case FTBinary:
 		bytesValue, ok := value.([]byte)
 		if !ok {
 			return errors.New("value for this field must be of type '[]byte'")
 		}
-		C.OGR_F_SetFieldBinary(f.handle, C.int(field.index), C.int(len(bytesValue)), unsafe.Pointer(&bytesValue[0]))
+		C.godalFeatureSetFieldBinary(cgc.cPointer(), f.handle, C.int(field.index), C.int(len(bytesValue)), unsafe.Pointer(&bytesValue[0]))
 	default:
 		return errors.New("setting value is not implemented for this type of field")
 	}
 
-	return nil
+	return cgc.close()
 }
 
 //Field is a Feature attribute
@@ -2975,8 +2989,17 @@ func (f *Feature) getFieldAsDateTime(index C.int) *time.Time {
 		(*C.int)(unsafe.Pointer(&tzFlag)),
 	)
 	if ret != 0 {
-		// TODO Time zone is not properly handled
-		t := time.Date(year, time.Month(month), day, hour, minute, second, 0, time.UTC)
+		var location *time.Location
+		// 0=unknown, 1=localtime, 100=GMT, 101=GMT+15minute, 99=GMT-15minute...
+		switch tzFlag {
+		case 0:
+			location = &time.Location{}
+		case 1:
+			location = time.Local
+		default:
+			location = time.FixedZone(fmt.Sprintf("zone_%d", tzFlag), (tzFlag-100)*15*60)
+		}
+		t := time.Date(year, time.Month(month), day, hour, minute, second, 0, location)
 		return &t
 	}
 	return nil
@@ -3006,7 +3029,7 @@ func (layer Layer) NextFeature() *Feature {
 	return &Feature{hndl}
 }
 
-// CreateFeature copy a feature on Layer
+// CreateFeature creates a feature on Layer
 func (layer Layer) CreateFeature(feat *Feature, opts ...CreateFeatureOption) error {
 	cfo := createFeatureOpts{}
 	for _, opt := range opts {
@@ -3020,7 +3043,7 @@ func (layer Layer) CreateFeature(feat *Feature, opts ...CreateFeatureOption) err
 	return nil
 }
 
-// NewFeature creates a feature on Layer
+// NewFeature creates a feature on Layer from a geometry
 func (layer Layer) NewFeature(geom *Geometry, opts ...NewFeatureOption) (*Feature, error) {
 	nfo := newFeatureOpts{}
 	for _, opt := range opts {

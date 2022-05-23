@@ -2860,7 +2860,8 @@ func TestFeatureAttributes(t *testing.T) {
 			"properties": {
 				"strCol":"foobar",
 				"intCol":3,
-				"floatCol":123.4
+				"floatCol":123.4,
+				"dateCol":"2006-01-02T15:04:05",
 			},
 			"geometry": {
 				"type": "Point",
@@ -2880,6 +2881,8 @@ func TestFeatureAttributes(t *testing.T) {
 	ehc := eh()
 	_, err = (&Layer{}).NewFeature(&Geometry{}, ErrLogger(ehc.ErrorHandler))
 	assert.Error(t, err)
+
+	dateFormatRFC3339 := "2006-01-02T15:04:05Z07:00"
 
 	i := 0
 	for {
@@ -2904,6 +2907,8 @@ func TestFeatureAttributes(t *testing.T) {
 			assert.Equal(t, "123.400000", sfield.String())
 			assert.Equal(t, int64(123), sfield.Int())
 			assert.Equal(t, 123.4, sfield.Float())
+			sfield = attrs["dateCol"]
+			assert.Equal(t, "2006-01-02T15:04:05Z", sfield.DateTime().Format(dateFormatRFC3339))
 		}
 		i++
 	}
@@ -2927,14 +2932,20 @@ func TestFeatureAttributes(t *testing.T) {
 	)
 	assert.NoError(t, err)
 
+	calcuttaLoc, err := time.LoadLocation("Asia/Calcutta")
+	assert.NoError(t, err)
+
 	pnt, _ := NewGeometryFromWKT("POINT (1 1)", nil)
 	nf, err := lyr.NewFeature(pnt)
 	assert.NoError(t, err)
 	fc, _ := lyr.FeatureCount()
 	assert.Equal(t, fc, 1)
 	nf.SetGeometryColumnName("no_error")
-	nf.SetFID(0)
+	nf.SetFID(99999999999)
 	attrs := nf.Fields()
+	intCol := attrs["intCol"]
+	intCol.ftype = FTString
+	assert.Error(t, nf.SetFieldValue(intCol, "not_int", ErrLogger(ehc.ErrorHandler)))
 	assert.Error(t, nf.SetFieldValue(attrs["strCol"], 0))
 	assert.Error(t, nf.SetFieldValue(attrs["intCol"], ""))
 	assert.Error(t, nf.SetFieldValue(attrs["int64Col"], ""))
@@ -2959,8 +2970,8 @@ func TestFeatureAttributes(t *testing.T) {
 	assert.NoError(t, nf.SetFieldValue(attrs["binaryCol"], []byte("foo")))
 	date := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	assert.NoError(t, nf.SetFieldValue(attrs["dateCol"], date))
-	assert.NoError(t, nf.SetFieldValue(attrs["timeCol"], date))
-	assert.NoError(t, nf.SetFieldValue(attrs["dateTimeCol"], date))
+	assert.NoError(t, nf.SetFieldValue(attrs["timeCol"], date.In(time.Local)))
+	assert.NoError(t, nf.SetFieldValue(attrs["dateTimeCol"], date.In(calcuttaLoc)))
 	// Reload fields from feature to check if they have been properly set
 	attrs = nf.Fields()
 	sfield := attrs["strCol"]
@@ -3006,13 +3017,13 @@ func TestFeatureAttributes(t *testing.T) {
 	assert.Equal(t, []byte("foo"), sfield.Bytes())
 	sfield = attrs["dateCol"]
 	assert.Equal(t, FTDate, sfield.Type())
-	assert.Equal(t, date, *sfield.DateTime())
+	assert.Equal(t, date.Format(dateFormatRFC3339), sfield.DateTime().Format(dateFormatRFC3339))
 	sfield = attrs["timeCol"]
 	assert.Equal(t, FTTime, sfield.Type())
-	assert.Equal(t, date, *sfield.DateTime())
+	assert.Equal(t, date.In(time.Local).Format(dateFormatRFC3339), sfield.DateTime().Format(dateFormatRFC3339))
 	sfield = attrs["dateTimeCol"]
 	assert.Equal(t, FTDateTime, sfield.Type())
-	assert.Equal(t, date, *sfield.DateTime())
+	assert.Equal(t, date.In(calcuttaLoc).Format(dateFormatRFC3339), sfield.DateTime().Format(dateFormatRFC3339))
 
 	nf, err = lyr.NewFeature(nil)
 	assert.NoError(t, err)

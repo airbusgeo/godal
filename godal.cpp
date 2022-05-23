@@ -741,6 +741,66 @@ void godalFeatureSetGeometry(cctx *ctx, OGRFeatureH feat, OGRGeometryH geom) {
 	godalUnwrap();
 }
 
+void godalFeatureSetFieldInteger(cctx *ctx, OGRFeatureH feat, int fieldIndex, int value) {
+	godalWrap(ctx);
+	OGR_F_SetFieldInteger(feat, fieldIndex, value);
+	godalUnwrap();
+}
+
+void godalFeatureSetFieldInteger64(cctx *ctx, OGRFeatureH feat, int fieldIndex, long long value) {
+	godalWrap(ctx);
+	OGR_F_SetFieldInteger64(feat, fieldIndex, value);
+	godalUnwrap();
+}
+
+void godalFeatureSetFieldDouble(cctx *ctx, OGRFeatureH feat, int fieldIndex, double value) {
+	godalWrap(ctx);
+	OGR_F_SetFieldDouble(feat, fieldIndex, value);
+	godalUnwrap();
+}
+
+void godalFeatureSetFieldString(cctx *ctx, OGRFeatureH feat, int fieldIndex, char *value) {
+	godalWrap(ctx);
+	OGR_F_SetFieldString(feat, fieldIndex, value);
+	godalUnwrap();
+}
+
+void godalFeatureSetFieldDateTime(cctx *ctx, OGRFeatureH feat, int fieldIndex, int year, int month, int day, int hour, int minute, int second, int tzFlag) {
+	godalWrap(ctx);
+	OGR_F_SetFieldDateTime(feat, fieldIndex, year, month, day, hour, minute, second, tzFlag);
+	godalUnwrap();
+}
+
+void godalFeatureSetFieldIntegerList(cctx *ctx, OGRFeatureH feat, int fieldIndex, int nbValues, int *values) {
+	godalWrap(ctx);
+	OGR_F_SetFieldIntegerList(feat, fieldIndex, nbValues, values);
+	godalUnwrap();
+}
+
+void godalFeatureSetFieldInteger64List(cctx *ctx, OGRFeatureH feat, int fieldIndex, int nbValues, long long *values) {
+	godalWrap(ctx);
+	OGR_F_SetFieldInteger64List(feat, fieldIndex, nbValues, values);
+	godalUnwrap();
+}
+
+void godalFeatureSetFieldDoubleList(cctx *ctx, OGRFeatureH feat, int fieldIndex, int nbValues, double *values) {
+	godalWrap(ctx);
+	OGR_F_SetFieldDoubleList(feat, fieldIndex, nbValues, values);
+	godalUnwrap();
+}
+
+void godalFeatureSetFieldStringList(cctx *ctx, OGRFeatureH feat, int fieldIndex, char **values) {
+	godalWrap(ctx);
+	OGR_F_SetFieldStringList(feat, fieldIndex, values);
+	godalUnwrap();
+}
+
+void godalFeatureSetFieldBinary(cctx *ctx, OGRFeatureH feat, int fieldIndex, int nbBytes, void *value) {
+	godalWrap(ctx);
+	OGR_F_SetFieldBinary(feat, fieldIndex, nbBytes, value);
+	godalUnwrap();
+}
+
 void godal_OGR_G_AddGeometry(cctx *ctx, OGRGeometryH geom, OGRGeometryH subGeom) {
 	godalWrap(ctx);
 	OGRErr gret = OGR_G_AddGeometry(geom,subGeom);
