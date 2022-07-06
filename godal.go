@@ -3145,7 +3145,12 @@ type KeyMultiReader interface {
 //export _gogdalSizeCallback
 func _gogdalSizeCallback(ckey *C.char, errorString **C.char) C.longlong {
 	key := C.GoString(ckey)
-	cbd := getGoGDALReader(key)
+	cbd, err := getGoGDALReader(key)
+	if err != nil {
+		*errorString = C.CString(err.Error())
+		return -1
+	}
+
 	if cbd.prefix > 0 {
 		key = key[cbd.prefix:]
 	}
@@ -3159,7 +3164,11 @@ func _gogdalSizeCallback(ckey *C.char, errorString **C.char) C.longlong {
 //export _gogdalMultiReadCallback
 func _gogdalMultiReadCallback(ckey *C.char, nRanges C.int, pocbuffers unsafe.Pointer, coffsets unsafe.Pointer, clengths unsafe.Pointer, errorString **C.char) C.int {
 	key := C.GoString(ckey)
-	cbd := getGoGDALReader(key)
+	cbd, err := getGoGDALReader(key)
+	if err != nil {
+		*errorString = C.CString(err.Error())
+		return -1
+	}
 	/* cbd == nil would be a bug elsewhere */
 	if cbd.prefix > 0 {
 		key = key[cbd.prefix:]
@@ -3177,7 +3186,6 @@ func _gogdalMultiReadCallback(ckey *C.char, nRanges C.int, pocbuffers unsafe.Poi
 		buffers[b] = (*[1 << 28]byte)(unsafe.Pointer(cbuffers[b]))[:l:l]
 		goffsets[b] = int64(offsets[b])
 	}
-	var err error
 	_, err = cbd.ReadAtMulti(key, buffers, goffsets)
 	if err != nil && err != io.EOF {
 		*errorString = C.CString(err.Error())
@@ -3190,7 +3198,11 @@ func _gogdalMultiReadCallback(ckey *C.char, nRanges C.int, pocbuffers unsafe.Poi
 func _gogdalReadCallback(ckey *C.char, buffer unsafe.Pointer, off C.size_t, clen C.size_t, errorString **C.char) C.size_t {
 	l := int(clen)
 	key := C.GoString(ckey)
-	cbd := getGoGDALReader(key)
+	cbd, err := getGoGDALReader(key)
+	if err != nil {
+		*errorString = C.CString(err.Error())
+		return 0
+	}
 	if cbd.prefix > 0 {
 		key = key[cbd.prefix:]
 	}
@@ -3204,13 +3216,13 @@ func _gogdalReadCallback(ckey *C.char, buffer unsafe.Pointer, off C.size_t, clen
 
 var handlers map[string]vsiHandler
 
-func getGoGDALReader(key string) vsiHandler {
+func getGoGDALReader(key string) (vsiHandler, error) {
 	for prefix, handler := range handlers {
 		if strings.HasPrefix(key, prefix) {
-			return handler
+			return handler, nil
 		}
 	}
-	return vsiHandler{}
+	return vsiHandler{}, fmt.Errorf("no handler registered")
 }
 
 type vsiHandler struct {
