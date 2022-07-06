@@ -3375,13 +3375,18 @@ func TestVSIGCS(t *testing.T) {
 		t.Error(err)
 	}
 
-	_, err = Open("gdalgs://godal-ci-data/gdd/doesnotexist.tif")
-	if err == nil {
-		t.Error("ENOENT not raised")
-	}
-	_, err = Open("gdalgs://godal-fake-test/gdaltesdata/doesnotexist.tif")
-	if err == nil {
-		t.Error("ENOENT not raised")
+	for _, tc := range []string{
+		"gdalgs",
+		"gdalgs:",
+		"gdalgs:/",
+		"gdalgs://",
+		"gdalgs://godal-ci-data",
+		"gdalgs://godal-ci-data/",
+		"gdalgs://godal-ci-data/gdd/doesnotexist.tif",
+		"gdalgs://godal-fake-test/gdaltesdata/doesnotexist.tif",
+	} {
+		_, err = Open(tc)
+		assert.Error(t, err, "ENONENT not raised on %s", tc)
 	}
 }
 
