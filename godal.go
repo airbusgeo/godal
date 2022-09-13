@@ -3362,6 +3362,7 @@ func (cgc cgoContext) cPointer() *C.cctx {
 //frees the context and returns any error it may contain
 func (cgc cgoContext) close() error {
 	cgc.opts.free()
+	defer C.free(unsafe.Pointer(cgc.cctx))
 	if cgc.cctx.errMessage != nil {
 		/* debug code
 		if cgc.cctx.handlerIdx != 0 {
@@ -3375,6 +3376,5 @@ func (cgc cgoContext) close() error {
 		defer unregisterErrorHandler(int(cgc.cctx.handlerIdx))
 		return getErrorHandler(int(cgc.cctx.handlerIdx)).err
 	}
-	C.free(unsafe.Pointer(cgc.cctx))
 	return nil
 }
