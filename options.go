@@ -483,6 +483,19 @@ type SetGeometryOption interface {
 	setSetGeometryOpt(so *setGeometryOpts)
 }
 
+type setFieldValueOpts struct {
+	errorHandler ErrorHandler
+}
+
+// SetFieldValueOption is an option passed to Feature.SetFieldValue()
+//
+//
+// Available options are:
+//  - ErrLogger
+type SetFieldValueOption interface {
+	setSetFieldValueOpt(so *setFieldValueOpts)
+}
+
 type vsiOpenOpts struct {
 	errorHandler ErrorHandler
 }

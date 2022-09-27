@@ -99,6 +99,16 @@ extern "C" {
 	OGRFeatureH godalLayerNewFeature(cctx *ctx, OGRLayerH layer, OGRGeometryH geom);
 	void godalLayerDeleteFeature(cctx *ctx, OGRLayerH layer, OGRFeatureH feat);
 	void godalFeatureSetGeometry(cctx *ctx, OGRFeatureH feat, OGRGeometryH geom);
+	void godalFeatureSetFieldInteger(cctx *ctx, OGRFeatureH feat, int fieldIndex, int value);
+	void godalFeatureSetFieldInteger64(cctx *ctx, OGRFeatureH feat, int fieldIndex, long long value);
+	void godalFeatureSetFieldDouble(cctx *ctx, OGRFeatureH feat, int fieldIndex, double value);
+	void godalFeatureSetFieldString(cctx *ctx, OGRFeatureH feat, int fieldIndex, char *value);
+	void godalFeatureSetFieldDateTime(cctx *ctx, OGRFeatureH feat, int fieldIndex, int year, int month, int day, int hour, int minute, int second, int tzFlag);
+	void godalFeatureSetFieldIntegerList(cctx *ctx, OGRFeatureH feat, int fieldIndex, int nbValues, int *values);
+	void godalFeatureSetFieldInteger64List(cctx *ctx, OGRFeatureH feat, int fieldIndex, int nbValues, long long *values);
+	void godalFeatureSetFieldDoubleList(cctx *ctx, OGRFeatureH feat, int fieldIndex, int nbValues, double *values);
+	void godalFeatureSetFieldStringList(cctx *ctx, OGRFeatureH feat, int fieldIndex, char **values);
+	void godalFeatureSetFieldBinary(cctx *ctx, OGRFeatureH feat, int fieldIndex, int nbBytes, void *value);
 	OGRLayerH godalCreateLayer(cctx *ctx, GDALDatasetH ds, char *name, OGRSpatialReferenceH sr, OGRwkbGeometryType gtype);
 	OGRLayerH godalCopyLayer(cctx *ctx, GDALDatasetH ds, OGRLayerH layer, char *name);
 	void VSIInstallGoHandler(cctx *ctx, const char *pszPrefix, size_t bufferSize, size_t cacheSize);
