@@ -2782,6 +2782,7 @@ func (f *Feature) SetFieldValue(field Field, value interface{}, opts ...SetField
 		}
 		C.godalFeatureSetFieldBinary(cgc.cPointer(), f.handle, C.int(field.index), C.int(len(bytesValue)), unsafe.Pointer(&bytesValue[0]))
 	default:
+		cgc.close() //avoid resource leak
 		return errors.New("setting value is not implemented for this type of field")
 	}
 
