@@ -118,7 +118,7 @@ func Example_rasterTutorial() {
 			printf( "Projection is '%s'\n", GDALGetProjectionRef( hDataset ) );
 	*/
 	if pj := hDataset.Projection(); pj != "" {
-		fmt.Printf("Projection is '%s'\n", pj)
+		fmt.Printf("Projection is '%s...'\n", pj[0:20])
 	}
 
 	/*
@@ -291,7 +291,7 @@ func Example_rasterTutorial() {
 
 	// Output:
 	// Size is 10x10x3
-	// Projection is 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AXIS["Latitude",NORTH],AXIS["Longitude",EAST],AUTHORITY["EPSG","4326"]]'
+	// Projection is 'GEOGCS["WGS 84",DATU...'
 	// Origin = (45.000000,35.000000)
 	// Pixel Size = (1.000000,-1.000000)
 	// Block=256x256 Type=Byte, ColorInterp=Red
