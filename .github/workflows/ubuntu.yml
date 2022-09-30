@@ -43,8 +43,6 @@ jobs:
         with:
           path: /optgdal
           key: ${{ runner.os }}-gdal-${{ matrix.gdal }}-${{ hashFiles('.github/workflows/build-gdal.sh') }}
-          restore-keys: |
-            ${{ runner.os }}-gdal-${{ matrix.gdal }}-${{ hashFiles('.github/workflows/build-gdal.sh') }}
       - name: Build GDAL
         if: steps.cache-gdal.outputs.cache-hit != 'true'
         run: sudo .github/workflows/build-gdal.sh ${{ matrix.gdal }}
@@ -73,8 +71,6 @@ jobs:
         with:
           path: /optgdal
           key: ${{ runner.os }}-gdal-master-${{ hashFiles('.github/workflows/build-gdal.sh') }}
-          restore-keys: |
-            ${{ runner.os }}-gdal-master-${{ hashFiles('.github/workflows/build-gdal.sh') }}
       - name: ldconfig
         run: sudo ldconfig /optgdal/lib
       - name: golangci-lint
@@ -112,8 +108,6 @@ jobs:
         with:
           path: /optgdal
           key: ${{ runner.os }}-gdal-${{ matrix.gdal }}-${{ hashFiles('.github/workflows/build-gdal.sh') }}
-          restore-keys: |
-            ${{ runner.os }}-gdal-${{ matrix.gdal }}-${{ hashFiles('.github/workflows/build-gdal.sh') }}
       - name: ldconfig
         run: sudo ldconfig /optgdal/lib
       - name: store gcp service-account to file
