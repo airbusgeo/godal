@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        gdal: [ 'release/3.2', 'release/3.3', 'release/3.4' ]
+        gdal: [ 'release/3.3', 'release/3.4', 'release/3.5', 'master' ]
     name: GDAL ${{ matrix.gdal }} build
     steps:
       - name: Checkout

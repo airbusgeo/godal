@@ -3,7 +3,7 @@ set -e
 
 GDALVERSION=$1
 
-apt update && apt-get install -y autoconf libproj-dev libgeos-dev build-essential libsqlite3-dev curl pkg-config libjpeg-turbo8-dev sqlite3
+apt update && apt-get install -y cmake autoconf libproj-dev libgeos-dev build-essential libsqlite3-dev curl pkg-config libjpeg-turbo8-dev sqlite3
 cd $HOME
 mkdir -p gdal
 cd gdal
@@ -13,6 +13,27 @@ mkdir gdal
 tar  xzf gdal.tar.gz -C gdal --strip-components 1
 cd gdal
 if [ -d gdal ]; then cd gdal; fi
+
+if [ ! -f configure.in ]; then
+mkdir build
+cd build
+cmake .. \
+    -DCMAKE_INSTALL_PREFIX=/optgdal \
+    -DOGR_BUILD_OPTIONAL_DRIVERS=OFF \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DBUILD_TESTING=OFF \
+    -DGDAL_USE_CURL=OFF \
+    -DGDAL_USE_SQLITE3=OFF \
+    -DGDAL_USE_TIFF_INTERNAL=ON \
+    -DBUILD_PYTHON_BINDINGS=OFF \
+    -DENABLE_GNM=OFF \
+    -DGDAL_USE_XERCESC=OFF \
+	 -DGDAL_USE_GEOS=ON
+make -j8
+make install
+cd /build && rm -rf gdal
+
+else
 if [ ! -f configure ]; then ./autogen.sh; fi
 ./configure --prefix=/optgdal \
 	--enable-shared \
@@ -54,6 +75,7 @@ if [ ! -f configure ]; then ./autogen.sh; fi
 
 make -j4
 make install
+fi
 cd $HOME
 rm -rf gdal
 rm -rf /usr/local/bin
