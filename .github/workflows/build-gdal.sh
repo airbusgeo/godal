@@ -18,6 +18,8 @@ if [ -f CMakeLists.txt ]; then
 	mkdir build
 	cd build
 	cmake .. \
+		-UGDAL_ENABLE_DRIVER_* -UOGR_ENABLE_DRIVER_* \
+		-DGDAL_USE_JPEG=ON \
 		-DCMAKE_INSTALL_PREFIX=/optgdal \
 		-DOGR_BUILD_OPTIONAL_DRIVERS=OFF \
 		-DGDAL_BUILD_OPTIONAL_DRIVERS=OFF \
