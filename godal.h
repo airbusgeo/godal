@@ -128,6 +128,7 @@ extern "C" {
 	OGRGeometryH godal_OGR_G_Difference(cctx *ctx, OGRGeometryH geom1, OGRGeometryH geom2);
 	OGRGeometryH godal_OGR_G_GetGeometryRef(cctx *ctx, OGRGeometryH in, int subGeomIndex);
 	int godal_OGR_G_Intersects(cctx *ctx, OGRGeometryH geom1, OGRGeometryH geom2);
+	OGRGeometryH godal_OGR_G_Intersection(cctx *ctx, OGRGeometryH geom1, OGRGeometryH geom2);
 	OGRGeometryH godal_OGR_G_Union(cctx *ctx, OGRGeometryH geom1, OGRGeometryH geom2);
 	OGRGeometryH godalNewGeometryFromGeoJSON(cctx *ctx, char *geoJSON);
 	OGRGeometryH godalNewGeometryFromWKT(cctx *ctx, char *wkt, OGRSpatialReferenceH sr);

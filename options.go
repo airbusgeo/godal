@@ -403,6 +403,9 @@ type intersectsOpts struct {
 type subGeometryOpts struct {
 	errorHandler ErrorHandler
 }
+type intersectionOpts struct {
+	errorHandler ErrorHandler
+}
 type unionOpts struct {
 	errorHandler ErrorHandler
 }
@@ -459,6 +462,14 @@ type IntersectsOption interface {
 //  - ErrLogger
 type SubGeometryOption interface {
 	setSubGeometryOpt(so *subGeometryOpts)
+}
+
+// IntersectionOption is an option passed to Geometry.Intersection()
+//
+// Available options are:
+//   - ErrLogger
+type IntersectionOption interface {
+	setIntersectionOpt(io *intersectionOpts)
 }
 
 // UnionOption is an option passed to Geometry.Union()

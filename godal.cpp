@@ -857,6 +857,16 @@ int godal_OGR_G_Intersects(cctx *ctx, OGRGeometryH geom1, OGRGeometryH geom2) {
 	return ret;
 }
 
+OGRGeometryH godal_OGR_G_Intersection(cctx *ctx, OGRGeometryH geom1, OGRGeometryH geom2) {
+	godalWrap(ctx);
+	OGRGeometryH ret = OGR_G_Intersection(geom1, geom2);
+	if(ret==nullptr) {
+		forceError(ctx);
+	}
+	godalUnwrap();
+	return ret;
+}
+
 OGRGeometryH godal_OGR_G_Union(cctx *ctx, OGRGeometryH geom1, OGRGeometryH geom2) {
 	godalWrap(ctx);
 	OGRGeometryH ret = OGR_G_Union(geom1, geom2);

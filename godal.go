@@ -775,6 +775,11 @@ func (ds *Dataset) CreateMaskBand(flags int, opts ...DatasetCreateMaskOption) (B
 	return Band{majorObject{C.GDALMajorObjectH(hndl)}}, nil
 }
 
+// DriverShortName returns dataset driver short name.
+func (ds *Dataset) DriverShortName() string {
+	return C.GoString(C.GDALGetDriverShortName(C.GDALGetDatasetDriver(ds.handle())))
+}
+
 // Projection returns the WKT projection of the dataset. May be empty.
 func (ds *Dataset) Projection() string {
 	str := C.GDALGetProjectionRef(ds.handle())
@@ -2442,6 +2447,11 @@ func (g *Geometry) Area() float64 {
 	return float64(C.OGR_G_Area(g.handle))
 }
 
+// Name fetch WKT name for geometry type.
+func (g *Geometry) Name() string {
+	return C.GoString(C.OGR_G_GetGeometryName(g.handle))
+}
+
 // GeometryCount fetch the number of elements in a geometry or number of geometries in container.
 // Only geometries of type Polygon, MultiPoint, MultiLineString, MultiPolygon or GeometryCollection may return a valid value.
 // Other geometry types will silently return 0.
@@ -2570,6 +2580,27 @@ func (g *Geometry) Intersects(other *Geometry, opts ...IntersectsOption) (bool, 
 		return false, err
 	}
 	return ret != 0, nil
+}
+
+// Intersection generates a new geometry which is the region of intersection of the two geometries operated on.
+func (g *Geometry) Intersection(other *Geometry, opts ...IntersectionOption) (*Geometry, error) {
+	// If other geometry is nil, GDAL crashes
+	if other == nil || other.handle == nil {
+		return nil, errors.New("other geometry is empty")
+	}
+	io := &intersectionOpts{}
+	for _, o := range opts {
+		o.setIntersectionOpt(io)
+	}
+	cgc := createCGOContext(nil, io.errorHandler)
+	hndl := C.godal_OGR_G_Intersection(cgc.cPointer(), g.handle, other.handle)
+	if err := cgc.close(); err != nil {
+		return nil, err
+	}
+	return &Geometry{
+		isOwned: true,
+		handle:  hndl,
+	}, nil
 }
 
 // Union generates a new geometry which is the region of union of the two geometries operated on.

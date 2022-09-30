@@ -117,6 +117,7 @@ func ErrLogger(fn ErrorHandler) interface {
 	GMLExportOption
 	HistogramOption
 	IntersectsOption
+	IntersectionOption
 	MetadataOption
 	NewFeatureOption
 	NewGeometryOption
@@ -166,9 +167,6 @@ func (ec errorCallback) setBoundsOpt(o *boundsOpts) {
 	o.errorHandler = ec.fn
 }
 func (ec errorCallback) setBufferOpt(o *bufferOpts) {
-	o.errorHandler = ec.fn
-}
-func (ec errorCallback) setIntersectsOpt(o *intersectsOpts) {
 	o.errorHandler = ec.fn
 }
 func (ec errorCallback) setBuildOverviewsOpt(o *buildOvrOpts) {
@@ -253,6 +251,12 @@ func (ec errorCallback) setGMLExportOpt(o *gmlExportOpts) {
 	o.errorHandler = ec.fn
 }
 func (ec errorCallback) setHistogramOpt(o *histogramOpts) {
+	o.errorHandler = ec.fn
+}
+func (ec errorCallback) setIntersectsOpt(o *intersectsOpts) {
+	o.errorHandler = ec.fn
+}
+func (ec errorCallback) setIntersectionOpt(o *intersectionOpts) {
 	o.errorHandler = ec.fn
 }
 func (ec errorCallback) setMetadataOpt(o *metadataOpts) {
