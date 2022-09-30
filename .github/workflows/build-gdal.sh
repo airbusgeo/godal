@@ -14,7 +14,7 @@ tar  xzf gdal.tar.gz -C gdal --strip-components 1
 cd gdal
 if [ -d gdal ]; then cd gdal; fi
 
-if [ ! -f configure.in ]; then
+if [ -f CMakeLists.txt ]; then
 mkdir build
 cd build
 cmake .. \

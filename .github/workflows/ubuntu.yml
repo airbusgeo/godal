@@ -17,7 +17,7 @@ jobs:
     name: Go ${{ matrix.go }} + GDAL on ubuntu 20.04 test
     steps:
       - name: APT
-        run: sudo apt-get update && sudo apt-get install gcc g++ libgeos-c1v5 libproj15 libsqlite3-0 pkgconf libjpeg-turbo8 libgdal-dev
+        run: sudo apt-get update && sudo apt-get install gcc g++ libgeos-c1v5 libproj15 libsqlite3-0 pkg-config libjpeg-turbo8 libgdal-dev
       - name: Checkout
         uses: actions/checkout@v2
       - name: Setup Go
@@ -58,7 +58,7 @@ jobs:
       GODEBUG: cgocheck=2
     steps:
       - name: APT
-        run: sudo apt-get update && sudo apt-get install gcc g++ libgeos-c1v5 libproj15 libsqlite3-0 pkgconf libjpeg-turbo8
+        run: sudo apt-get update && sudo apt-get install gcc g++ libgeos-c1v5 libproj15 libsqlite3-0 pkg-config libjpeg-turbo8
       - name: optgdal
         run: sudo mkdir /optgdal && sudo chown -R $USER /optgdal
       - name: Checkout
@@ -93,11 +93,11 @@ jobs:
     strategy:
       matrix:
         go: [ '1.18', '1.17' ]
-        gdal: [ 'release/3.2', 'release/3.3', 'release/3.4' ]
+        gdal: [  'release/3.3', 'release/3.4', 'release/3.5', 'master' ]
     name: Go ${{ matrix.go }} + GDAL ${{ matrix.gdal }} test
     steps:
       - name: APT
-        run: sudo apt-get update && sudo apt-get install gcc g++ libgeos-c1v5 libproj15 libsqlite3-0 pkgconf libjpeg-turbo8
+        run: sudo apt-get update && sudo apt-get install gcc g++ libgeos-c1v5 libproj15 libsqlite3-0 pkg-config libjpeg-turbo8
       - name: optgdal
         run: sudo mkdir /optgdal && sudo chown -R $USER /optgdal
       - name: Checkout
