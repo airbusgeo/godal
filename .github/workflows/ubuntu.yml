@@ -70,7 +70,10 @@ jobs:
           key: ${{ runner.os }}-install-gdal-${{ matrix.gdal }}-${{ hashFiles('.github/workflows/build-gdal.sh') }}
       - name: Check GDAL
         if: steps.cache-gdal.outputs.cache-hit != 'true'
-        run: sudo .github/workflows/build-gdal.sh ${{ matrix.gdal }}
+        uses: actions/github-script@v3
+        with:
+        script: |
+          core.setFailed('gdal installation not recovered from cache')
       - name: Setup Go
         uses: actions/setup-go@v3
         with:
