@@ -83,4 +83,3 @@ else
 fi
 cd $HOME
 rm -rf gdal
-rm -rf /usr/local/bin
