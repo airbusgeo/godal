@@ -175,6 +175,9 @@ func TestCreate(t *testing.T) {
 	assert.Error(t, err)
 
 	ds, err := Create(GTiff, tmpname, 1, Byte, 20, 20)
+	driver := ds.Driver()
+	assert.Equal(t, "GeoTIFF", driver.LongName())
+	assert.Equal(t, "GTiff", driver.ShortName())
 	assert.NoError(t, err)
 	ds.Close()
 
@@ -293,6 +296,9 @@ func TestVectorCreate(t *testing.T) {
 	tf = tempfile()
 	defer os.Remove(tf)
 	ds, err := CreateVector(GeoJSON, tf)
+	driver := ds.Driver()
+	assert.Equal(t, "GeoJSON", driver.LongName())
+	assert.Equal(t, "GeoJSON", driver.ShortName())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2701,6 +2707,27 @@ func TestGeometryDifference(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestGeometryIntersection(t *testing.T) {
+	sr, _ := NewSpatialRefFromEPSG(4326)
+	defer sr.Close()
+
+	polyStr := "POLYGON ((0 0,2 0,2 2,0 2,0 0))"
+	polyGeom1, _ := NewGeometryFromWKT(polyStr, sr)
+	polyStr = "POLYGON ((1 1,3 1,3 3,1 3,1 1))"
+	polyGeom2, _ := NewGeometryFromWKT(polyStr, sr)
+
+	intersectionGeom, err := polyGeom1.Intersection(polyGeom2)
+	assert.NoError(t, err)
+	assert.Equal(t, intersectionGeom.Area(), 1.0)
+
+	_, err = polyGeom1.Intersection(&Geometry{})
+	assert.Error(t, err)
+
+	ehc := eh()
+	_, err = (&Geometry{}).Intersection(polyGeom2, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+}
+
 func TestGeometryUnion(t *testing.T) {
 	sr, _ := NewSpatialRefFromEPSG(4326)
 	defer sr.Close()
@@ -2710,9 +2737,9 @@ func TestGeometryUnion(t *testing.T) {
 	polyStr = "POLYGON ((1 1,3 1,3 3,1 3,1 1))"
 	polyGeom2, _ := NewGeometryFromWKT(polyStr, sr)
 
-	diffGeom, err := polyGeom1.Union(polyGeom2)
+	unionGeom, err := polyGeom1.Union(polyGeom2)
 	assert.NoError(t, err)
-	assert.Equal(t, diffGeom.Area(), 7.0)
+	assert.Equal(t, unionGeom.Area(), 7.0)
 
 	_, err = polyGeom1.Union(&Geometry{})
 	assert.Error(t, err)
@@ -2814,6 +2841,7 @@ func TestMultiPolygonGeometry(t *testing.T) {
 
 	assert.Equal(t, multiPolyGeom.Area(), 18.0)
 	assert.Equal(t, multiPolyGeom.GeometryCount(), 2)
+	assert.Equal(t, multiPolyGeom.Name(), "MULTIPOLYGON")
 	assert.Equal(t, multiPolyGeom.Type(), GTMultiPolygon)
 
 	subGeom, err := multiPolyGeom.SubGeometry(0)
