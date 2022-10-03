@@ -27,6 +27,7 @@ jobs:
       - name: Coverage Tests
         run: go test . -race
   install-gdal:
+    runs-on: ubuntu-20.04
     strategy:
       matrix:
         gdal: [ 'release/3.3', 'release/3.4', 'release/3.5', 'master' ]
