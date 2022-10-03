@@ -13,7 +13,7 @@ jobs:
       GODEBUG: cgocheck=2
     strategy:
       matrix:
-        go: [ '1.17', '1.18' ]
+        go: [ '1.18', '1.19' ]
     name: Go ${{ matrix.go }} + GDAL on ubuntu 20.04 test
     steps:
       - name: APT
@@ -52,7 +52,7 @@ jobs:
       GODEBUG: cgocheck=2
     strategy:
       matrix:
-        go: [ '1.18', '1.17' ]
+        go: [ '1.18', '1.19' ]
         gdal: [  'release/3.3', 'release/3.4', 'release/3.5', 'master' ]
     name: Go ${{ matrix.go }} + GDAL ${{ matrix.gdal }} test
     steps:
