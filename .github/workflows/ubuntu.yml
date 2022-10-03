@@ -19,9 +19,9 @@ jobs:
       - name: APT
         run: sudo apt-get update && sudo apt-get install gcc g++ libgeos-c1v5 libproj15 libsqlite3-0 pkg-config libjpeg-turbo8 libgdal-dev
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Setup Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go }}
       - name: Coverage Tests
@@ -34,7 +34,7 @@ jobs:
     name: GDAL ${{ matrix.gdal }} build
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: optgdal
         run: sudo mkdir /optgdal && sudo chown -R $USER /optgdal
       - name: cache gdal lib
@@ -60,17 +60,17 @@ jobs:
       - name: optgdal
         run: sudo mkdir /optgdal && sudo chown -R $USER /optgdal
       - name: Checkout
-        uses: actions/checkout@v2
-      - name: Setup Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: 1.18
+        uses: actions/checkout@v3
       - name: restore gdal lib
         id: cache-gdal
         uses: actions/cache@v3
         with:
           path: /optgdal
           key: ${{ runner.os }}-gdal-master-${{ hashFiles('.github/workflows/build-gdal.sh') }}
+      - name: Setup Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.18
       - name: ldconfig
         run: sudo ldconfig /optgdal/lib
       - name: golangci-lint
@@ -97,17 +97,17 @@ jobs:
       - name: optgdal
         run: sudo mkdir /optgdal && sudo chown -R $USER /optgdal
       - name: Checkout
-        uses: actions/checkout@v2
-      - name: Setup Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: ${{ matrix.go }}
+        uses: actions/checkout@v3
       - name: restore gdal lib
         id: cache-gdal
         uses: actions/cache@v3
         with:
           path: /optgdal
           key: ${{ runner.os }}-gdal-${{ matrix.gdal }}-${{ hashFiles('.github/workflows/build-gdal.sh') }}
+      - name: Setup Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.go }}
       - name: ldconfig
         run: sudo ldconfig /optgdal/lib
       - name: store gcp service-account to file
