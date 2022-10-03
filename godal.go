@@ -775,9 +775,9 @@ func (ds *Dataset) CreateMaskBand(flags int, opts ...DatasetCreateMaskOption) (B
 	return Band{majorObject{C.GDALMajorObjectH(hndl)}}, nil
 }
 
-// DriverShortName returns dataset driver short name.
-func (ds *Dataset) DriverShortName() string {
-	return C.GoString(C.GDALGetDriverShortName(C.GDALGetDatasetDriver(ds.handle())))
+// Driver returns dataset driver.
+func (ds *Dataset) Driver() Driver {
+	return Driver{majorObject{C.GDALMajorObjectH(C.GDALGetDatasetDriver(ds.handle()))}}
 }
 
 // Projection returns the WKT projection of the dataset. May be empty.
@@ -1312,6 +1312,16 @@ type Driver struct {
 // handle() returns a pointer to the underlying GDALDriverH
 func (drv Driver) handle() C.GDALDriverH {
 	return C.GDALDriverH(drv.majorObject.cHandle)
+}
+
+// LongName returns the driver long name.
+func (drv Driver) LongName() string {
+	return C.GoString(C.GDALGetDriverLongName(drv.handle()))
+}
+
+// ShortName returns the driver short name.
+func (drv Driver) ShortName() string {
+	return C.GoString(C.GDALGetDriverShortName(drv.handle()))
 }
 
 // VectorDriver returns a Driver by name. It returns false if the named driver does

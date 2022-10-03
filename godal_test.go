@@ -175,6 +175,9 @@ func TestCreate(t *testing.T) {
 	assert.Error(t, err)
 
 	ds, err := Create(GTiff, tmpname, 1, Byte, 20, 20)
+	driver := ds.Driver()
+	assert.Equal(t, "GeoTIFF", driver.LongName())
+	assert.Equal(t, "GTiff", driver.ShortName())
 	assert.NoError(t, err)
 	ds.Close()
 
@@ -293,6 +296,9 @@ func TestVectorCreate(t *testing.T) {
 	tf = tempfile()
 	defer os.Remove(tf)
 	ds, err := CreateVector(GeoJSON, tf)
+	driver := ds.Driver()
+	assert.Equal(t, "GeoJSON", driver.LongName())
+	assert.Equal(t, "GeoJSON", driver.ShortName())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1183,7 +1189,6 @@ func TestOpen(t *testing.T) {
 		t.Error("error not raised")
 	}
 	ds, err := Open("testdata/test.tif")
-	assert.Equal(t, "GTiff", ds.DriverShortName())
 	if err != nil {
 		t.Fatal(err)
 	}
