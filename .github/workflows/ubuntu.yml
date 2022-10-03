@@ -42,7 +42,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: /optgdal
-          key: ${{ runner.os }}-gdal-${{ matrix.gdal }}-${{ hashFiles('.github/workflows/build-gdal.sh') }}
+          key: ${{ runner.os }}-gdalcachekey-${{ matrix.gdal }}-${{ hashFiles('.github/workflows/build-gdal.sh') }}
       - name: Build GDAL
         if: steps.cache-gdal.outputs.cache-hit != 'true'
         run: sudo .github/workflows/build-gdal.sh ${{ matrix.gdal }}
@@ -66,7 +66,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: /optgdal
-          key: ${{ runner.os }}-gdal-master-${{ hashFiles('.github/workflows/build-gdal.sh') }}
+          key: ${{ runner.os }}-gdalcachekey-master-${{ hashFiles('.github/workflows/build-gdal.sh') }}
       - name: Setup Go
         uses: actions/setup-go@v3
         with:
@@ -103,7 +103,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: /optgdal
-          key: ${{ runner.os }}-gdal-${{ matrix.gdal }}-${{ hashFiles('.github/workflows/build-gdal.sh') }}
+          key: ${{ runner.os }}-gdalcachekey-${{ matrix.gdal }}-${{ hashFiles('.github/workflows/build-gdal.sh') }}
       - name: Setup Go
         uses: actions/setup-go@v3
         with:
