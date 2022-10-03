@@ -72,8 +72,8 @@ jobs:
         if: steps.cache-gdal.outputs.cache-hit != 'true'
         uses: actions/github-script@v3
         with:
-        script: |
-          core.setFailed('gdal installation not recovered from cache')
+          script: |
+            core.setFailed('gdal installation not recovered from cache')
       - name: Setup Go
         uses: actions/setup-go@v3
         with:
