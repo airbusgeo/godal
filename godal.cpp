@@ -1263,7 +1263,7 @@ namespace cpl
     /*                     VSIGoFilesystemHandler                         */
     /************************************************************************/
 
-    class VSIGoFilesystemHandler : public VSIFilesystemHandler
+    class VSIGoFilesystemHandler final : public VSIFilesystemHandler
     {
         CPL_DISALLOW_COPY_ASSIGN(VSIGoFilesystemHandler)
     private:
@@ -1292,7 +1292,7 @@ namespace cpl
     /*                           VSIGoHandle                              */
     /************************************************************************/
 
-    class VSIGoHandle : public VSIVirtualHandle
+    class VSIGoHandle final : public VSIVirtualHandle
     {
         CPL_DISALLOW_COPY_ASSIGN(VSIGoHandle)
     private:
@@ -1304,6 +1304,10 @@ namespace cpl
         VSIGoHandle(const char *filename, vsi_l_offset size);
         ~VSIGoHandle() override;
 
+#if GDAL_VERSION_NUM >= 3060000
+		  bool HasPRead() const override;
+		  size_t PRead(void * /*pBuffer*/, size_t /* nSize */, vsi_l_offset /*nOffset*/) const override;
+#endif
         vsi_l_offset Tell() override;
         int Seek(vsi_l_offset nOffset, int nWhence) override;
         size_t Read(void *pBuffer, size_t nSize, size_t nCount) override;
@@ -1401,7 +1405,28 @@ namespace cpl
         return readblocks;
     }
 
-    int VSIGoHandle::ReadMultiRange(int nRanges, void **ppData, const vsi_l_offset *panOffsets, const size_t *panSizes)
+#if GDAL_VERSION_NUM >= 3060000
+	 bool VSIGoHandle::HasPRead() const
+	 {
+		 return true;
+	 }
+	 size_t VSIGoHandle::PRead( void* pBuffer, size_t nSize, vsi_l_offset nOffset ) const
+	 {
+		 char *err = nullptr;
+		 _gogdalMultiReadCallback(m_filename, 1, &pBuffer, (void *)&nOffset, (void *)&nSize,
+														&err);
+		 if (err)
+		 {
+			 CPLError(CE_Failure, CPLE_AppDefined, "%s", err);
+			 errno = EIO;
+			 free(err);
+			 return 0;
+		 }
+		 return nSize;
+	 }
+#endif
+
+	 int VSIGoHandle::ReadMultiRange(int nRanges, void **ppData, const vsi_l_offset *panOffsets, const size_t *panSizes)
     {
         int iRange;
         int nMergedRanges = 1;
