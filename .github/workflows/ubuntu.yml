@@ -26,7 +26,26 @@ jobs:
           go-version: ${{ matrix.go }}
       - name: Coverage Tests
         run: go test . -race
+  install-gdal:
+    strategy:
+      matrix:
+        gdal: [ 'release/3.3', 'release/3.4', 'release/3.5', 'master' ]
+    steps:
+      - name: optgdal
+        run: sudo mkdir /optgdal && sudo chown -R $USER /optgdal
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: cache gdal lib
+        id: cache-gdal
+        uses: actions/cache@v3
+        with:
+          path: /optgdal
+          key: ${{ runner.os }}-install-gdal-${{ matrix.gdal }}-${{ hashFiles('.github/workflows/build-gdal.sh') }}
+      - name: Build GDAL
+        if: steps.cache-gdal.outputs.cache-hit != 'true'
+        run: sudo .github/workflows/build-gdal.sh ${{ matrix.gdal }}
   test:
+    needs: install-gdal
     runs-on: ubuntu-20.04
     env:
       GODEBUG: cgocheck=2
@@ -47,8 +66,8 @@ jobs:
         uses: actions/cache@v3
         with:
           path: /optgdal
-          key: ${{ runner.os }}-gdalcachekey4-${{ matrix.gdal }}-${{ hashFiles('.github/workflows/build-gdal.sh') }}
-      - name: Build GDAL
+          key: ${{ runner.os }}-install-gdal-${{ matrix.gdal }}-${{ hashFiles('.github/workflows/build-gdal.sh') }}
+      - name: Check GDAL
         if: steps.cache-gdal.outputs.cache-hit != 'true'
         run: sudo .github/workflows/build-gdal.sh ${{ matrix.gdal }}
       - name: Setup Go
