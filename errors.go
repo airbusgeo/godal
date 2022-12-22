@@ -130,6 +130,7 @@ func ErrLogger(fn ErrorHandler) interface {
 	SetGeometryOption
 	SetFieldValueOption
 	SetNoDataOption
+	SetScaleOffsetOption
 	SetGeoTransformOption
 	SetProjectionOption
 	SetSpatialRefOption
@@ -300,6 +301,9 @@ func (ec errorCallback) setSetProjectionOpt(o *setProjectionOpts) {
 }
 func (ec errorCallback) setSetNoDataOpt(ndo *setNodataOpts) {
 	ndo.errorHandler = ec.fn
+}
+func (ec errorCallback) setSetScaleOffsetOpt(soo *setScaleOffsetOpts) {
+	soo.errorHandler = ec.fn
 }
 func (ec errorCallback) setSetSpatialRefOpt(ndo *setSpatialRefOpts) {
 	ndo.errorHandler = ec.fn

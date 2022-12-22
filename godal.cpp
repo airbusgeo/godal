@@ -454,6 +454,51 @@ void godalDeleteRasterNoDataValue(cctx *ctx, GDALRasterBandH bnd) {
 	godalUnwrap();
 }
 
+void godalSetDatasetScaleOffset(cctx *ctx, GDALDatasetH ds, double scale, double offset) {
+	godalWrap(ctx);
+	int count = GDALGetRasterCount(ds);
+	if(count==0) {
+		CPLError(CE_Failure, CPLE_AppDefined, "cannot set scale and offset on dataset with no raster bands");
+		godalUnwrap();
+		return;
+	}
+	CPLErr ret = CE_None;
+	for(int i=1; i<=count;i++) {
+		CPLErr br;
+
+		br = GDALSetRasterScale(GDALGetRasterBand(ds,i),scale);
+		if(br!=0 && ret==0) {
+			ret = br;
+		}
+		
+		br = GDALSetRasterOffset(GDALGetRasterBand(ds,i),offset);
+		if(br!=0 && ret==0) {
+			ret = br;
+		}
+	}
+	if ( ret != 0 ) {
+		forceCPLError(ctx,ret);
+	}
+	godalUnwrap();
+}
+
+void godalSetRasterScaleOffset(cctx *ctx, GDALRasterBandH bnd, double scale, double offset) {
+	godalWrap(ctx);
+	CPLErr ret;
+
+	ret = GDALSetRasterScale(bnd,scale);
+	if(ret!=0){
+		forceCPLError(ctx,ret);
+	}
+
+	ret = GDALSetRasterOffset(bnd,offset);
+	if(ret!=0){
+		forceCPLError(ctx,ret);
+	}
+
+	godalUnwrap();
+}
+
 GDALRasterBandH godalCreateMaskBand(cctx *ctx, GDALRasterBandH bnd, int flags) {
 	godalWrap(ctx);
 	CPLErr ret = GDALCreateMaskBand(bnd, flags);
@@ -580,7 +625,19 @@ void godalBuildOverviews(cctx *ctx, GDALDatasetH ds, const char *resampling, int
 	godalUnwrap();
 }
 
-void godalDatasetStructure(GDALDatasetH ds, int *sx, int *sy, int *bsx, int *bsy, int *bandCount, int *dtype) {
+void godalBandScaleOffset(GDALRasterBandH bnd, double *scale, double *offset) {
+	int pbSuccess = 0;
+	*scale = GDALGetRasterScale(bnd, &pbSuccess);
+	if (pbSuccess == 0) {
+		*scale = 1;
+	}
+	*offset = GDALGetRasterOffset(bnd, &pbSuccess);
+	if (pbSuccess == 0) {
+		*offset = 0;
+	}
+}
+
+void godalDatasetStructure(GDALDatasetH ds, int *sx, int *sy, int *bsx, int *bsy, double *scale, double *offset, int *bandCount, int *dtype) {
 	*sx=GDALGetRasterXSize(ds);
 	*sy=GDALGetRasterYSize(ds);
 	*bandCount=GDALGetRasterCount(ds);
@@ -590,15 +647,17 @@ void godalDatasetStructure(GDALDatasetH ds, int *sx, int *sy, int *bsx, int *bsy
 		GDALRasterBandH band = GDALGetRasterBand(ds,1);
 		*dtype = GDALGetRasterDataType(band);
 		GDALGetBlockSize(band,bsx,bsy);
+		godalBandScaleOffset(band, scale, offset);
 	}
 }
-void godalBandStructure(GDALRasterBandH bnd, int *sx, int *sy, int *bsx, int *bsy, int *dtype) {
+void godalBandStructure(GDALRasterBandH bnd, int *sx, int *sy, int *bsx, int *bsy, double *scale, double *offset, int *dtype) {
 	*sx=GDALGetRasterBandXSize(bnd);
 	*sy=GDALGetRasterBandYSize(bnd);
 	*dtype=GDT_Unknown;
 	*bsx=*bsy=0;
 	*dtype = GDALGetRasterDataType(bnd);
 	GDALGetBlockSize(bnd, bsx, bsy);
+	godalBandScaleOffset(bnd, scale, offset);
 }
 
 void godalBandRasterIO(cctx *ctx, GDALRasterBandH bnd, GDALRWFlag rw, int nDSXOff, int nDSYOff, int nDSXSize, int nDSYSize, void *pBuffer,
