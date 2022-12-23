@@ -485,6 +485,8 @@ func TestBands(t *testing.T) {
 	bst := bands[0].Structure()
 	assert.Equal(t, 256, bst.BlockSizeX)
 	assert.Equal(t, 256, bst.BlockSizeY)
+	assert.Equal(t, 1.0, bst.Scale)
+	assert.Equal(t, 0.0, bst.Offset)
 	dt := bands[1].Structure().DataType
 	assert.Equal(t, Byte, dt)
 	assert.Equal(t, "Byte", dt.String())
@@ -518,6 +520,34 @@ func TestNoData(t *testing.T) {
 	nd, ok = bands[0].NoData()
 	assert.Equal(t, 101.0, nd)
 	assert.Equal(t, true, ok)
+}
+
+func TestSetScale(t *testing.T) {
+	ds, err := Create(Memory, "ffff", 2, Byte, 20, 20)
+	require.NoError(t, err)
+	defer ds.Close()
+	bands := ds.Bands()
+	err = bands[1].SetScaleOffset(100, 100)
+	assert.NoError(t, err)
+	ehc := eh()
+	err = bands[1].SetScaleOffset(100, 100, ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
+	st := bands[1].Structure()
+	assert.Equal(t, 100.0, st.Scale)
+	assert.Equal(t, 100.0, st.Offset)
+	err = bands[1].ClearScaleOffset()
+	assert.NoError(t, err)
+	ehc = eh()
+	err = bands[1].ClearScaleOffset(ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
+	st = bands[1].Structure()
+	assert.Equal(t, 1.0, st.Scale)
+	assert.Equal(t, 0.0, st.Offset)
+	err = ds.SetScaleOffset(101, 101)
+	assert.NoError(t, err)
+	st = bands[0].Structure()
+	assert.Equal(t, 101.0, st.Scale)
+	assert.Equal(t, 101.0, st.Offset)
 }
 
 func TestStructure(t *testing.T) {

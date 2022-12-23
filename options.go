@@ -72,6 +72,18 @@ type setNodataOpts struct {
 	errorHandler ErrorHandler
 }
 
+//SetScaleOffsetOption is an option that can be passed to Band.SetScaleOffset(),
+//Band.ClearScaleOffset(), Dataset.SetScaleOffset()
+//
+// Available SetScaleOffsetOptions are:
+//  - ErrLogger
+type SetScaleOffsetOption interface {
+	setSetScaleOffsetOpt(so *setScaleOffsetOpts)
+}
+type setScaleOffsetOpts struct {
+	errorHandler ErrorHandler
+}
+
 //SetColorInterpOption is an option that can be passed to Band.SetColorInterpretation()
 //
 // Available SetColorInterpOption are:

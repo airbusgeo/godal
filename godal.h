@@ -56,6 +56,8 @@ extern "C" {
 	void godalSetRasterNoDataValue(cctx *ctx, GDALRasterBandH bnd, double nd);
 	void godalSetDatasetNoDataValue(cctx *ctx, GDALDatasetH bnd, double nd);
 	void godalDeleteRasterNoDataValue(cctx *ctx, GDALRasterBandH bnd);
+	void godalSetRasterScaleOffset(cctx *ctx, GDALRasterBandH bnd, double scale, double offset);
+	void godalSetDatasetScaleOffset(cctx *ctx, GDALDatasetH bnd, double scale, double offset);
 	void godalSetRasterColorInterpretation(cctx *ctx, GDALRasterBandH bnd, GDALColorInterp ci);
 	GDALRasterBandH godalCreateMaskBand(cctx *ctx, GDALRasterBandH bnd, int flags);
 	GDALRasterBandH godalCreateDatasetMaskBand(cctx *ctx, GDALDatasetH ds, int flags);
@@ -80,8 +82,8 @@ extern "C" {
 	void godalBuildOverviews(cctx *ctx, GDALDatasetH ds, const char *resampling, int nLevels, int *levels, int nBands, int *bands);
 	void godalClearOverviews(cctx *ctx, GDALDatasetH ds);
 
-	void godalDatasetStructure(GDALDatasetH ds, int *sx, int *sy, int *bsx, int *bsy, int *bandCount, int *dtype);
-	void godalBandStructure(GDALRasterBandH bnd, int *sx, int *sy, int *bsx, int *bsy, int *dtype);
+	void godalDatasetStructure(GDALDatasetH ds, int *sx, int *sy, int *bsx, int *bsy, double *scale, double *offset, int *bandCount, int *dtype);
+	void godalBandStructure(GDALRasterBandH bnd, int *sx, int *sy, int *bsx, int *bsy, double *scale, double *offset, int *dtype);
 	void godalDatasetRasterIO(cctx *ctx, GDALDatasetH ds, GDALRWFlag rw, int nDSXOff, int nDSYOff, int nDSXSize, int nDSYSize, void *pBuffer,
 		int nBXSize, int nBYSize, GDALDataType eBDataType, int nBandCount, int *panBandCount,
 		int nPixelSpace, int nLineSpace, int nBandSpace, GDALRIOResampleAlg alg);

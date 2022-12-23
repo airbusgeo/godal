@@ -67,6 +67,7 @@ func BlockIterator(sizeX, sizeY int, blockSizeX, blockSizeY int) Block {
 type BandStructure struct {
 	SizeX, SizeY           int
 	BlockSizeX, BlockSizeY int
+	Scale, Offset          float64
 	DataType               DataType
 }
 

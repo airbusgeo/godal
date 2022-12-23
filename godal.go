@@ -164,12 +164,15 @@ func (band Band) handle() C.GDALRasterBandH {
 // Structure returns the dataset's Structure
 func (band Band) Structure() BandStructure {
 	var sx, sy, bsx, bsy, dtype C.int
-	C.godalBandStructure(band.handle(), &sx, &sy, &bsx, &bsy, &dtype)
+	var scale, offset C.double
+	C.godalBandStructure(band.handle(), &sx, &sy, &bsx, &bsy, &scale, &offset, &dtype)
 	return BandStructure{
 		SizeX:      int(sx),
 		SizeY:      int(sy),
 		BlockSizeX: int(bsx),
 		BlockSizeY: int(bsy),
+		Scale:      float64(scale),
+		Offset:     float64(offset),
 		DataType:   DataType(int(dtype)),
 	}
 }
@@ -205,6 +208,22 @@ func (band Band) ClearNoData(opts ...SetNoDataOption) error {
 	cgc := createCGOContext(nil, sndo.errorHandler)
 	C.godalDeleteRasterNoDataValue(cgc.cPointer(), band.handle())
 	return cgc.close()
+}
+
+//SetScaleOffset sets the band's scale and offset
+func (band Band) SetScaleOffset(scale, offset float64, opts ...SetScaleOffsetOption) error {
+	setterOpts := &setScaleOffsetOpts{}
+	for _, opt := range opts {
+		opt.setSetScaleOffsetOpt(setterOpts)
+	}
+	cgc := createCGOContext(nil, setterOpts.errorHandler)
+	C.godalSetRasterScaleOffset(cgc.cPointer(), band.handle(), C.double(scale), C.double(offset))
+	return cgc.close()
+}
+
+// ClearScaleOffset clears the band's scale and offset
+func (band Band) ClearScaleOffset(opts ...SetScaleOffsetOption) error {
+	return band.SetScaleOffset(1.0, 0.0, opts...)
 }
 
 // ColorInterp returns the band's color interpretation (defaults to Gray)
@@ -870,6 +889,17 @@ func (ds *Dataset) SetNoData(nd float64, opts ...SetNoDataOption) error {
 	return cgc.close()
 }
 
+//SetScale sets the band's scale and offset
+func (ds *Dataset) SetScaleOffset(scale, offset float64, opts ...SetScaleOffsetOption) error {
+	setterOpts := &setScaleOffsetOpts{}
+	for _, opt := range opts {
+		opt.setSetScaleOffsetOpt(setterOpts)
+	}
+	cgc := createCGOContext(nil, setterOpts.errorHandler)
+	C.godalSetDatasetScaleOffset(cgc.cPointer(), ds.handle(), C.double(scale), C.double(offset))
+	return cgc.close()
+}
+
 // Translate runs the library version of gdal_translate.
 // See the gdal_translate doc page to determine the valid flags/opts that can be set in switches.
 //
@@ -1100,13 +1130,16 @@ func (ds *Dataset) ClearStatistics(opts ...ClearStatisticsOption) error {
 // Structure returns the dataset's Structure
 func (ds *Dataset) Structure() DatasetStructure {
 	var sx, sy, bsx, bsy, bandCount, dtype C.int
-	C.godalDatasetStructure(ds.handle(), &sx, &sy, &bsx, &bsy, &bandCount, &dtype)
+	var scale, offset C.double
+	C.godalDatasetStructure(ds.handle(), &sx, &sy, &bsx, &bsy, &scale, &offset, &bandCount, &dtype)
 	return DatasetStructure{
 		BandStructure: BandStructure{
 			SizeX:      int(sx),
 			SizeY:      int(sy),
 			BlockSizeX: int(bsx),
 			BlockSizeY: int(bsy),
+			Scale:      float64(scale),
+			Offset:     float64(offset),
 			DataType:   DataType(int(dtype)),
 		},
 		NBands: int(bandCount),
