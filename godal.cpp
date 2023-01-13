@@ -1291,7 +1291,7 @@ OGRFeatureH godalLayerNewFeature(cctx *ctx, OGRLayerH layer, OGRGeometryH geom) 
 	return hFeature;
 }
 
-GDALDatasetH godalBuildVRT(cctx *ctx, char *dstName, char **sources, char **switches) {
+GDALDatasetH godalBuildVRT(cctx *ctx, char *dstName, char **sources, GDALDatasetH *dsSources, char **switches) {
 	godalWrap(ctx);
 	GDALBuildVRTOptions *ropts = GDALBuildVRTOptionsNew(switches,nullptr);
 	if(failed(ctx)) {
@@ -1301,12 +1301,20 @@ GDALDatasetH godalBuildVRT(cctx *ctx, char *dstName, char **sources, char **swit
 	}
 	int usageErr=0;
 	int nSources = 0;
-	char **src = sources;
-	for( char **src = sources; *src; src++) {
-		nSources++;
+	if(sources) {
+		for (char **src = sources; *src; src++)
+		{
+			nSources++;
+		}
+	} else {
+		GDALDatasetH *ds = dsSources;
+		for (GDALDatasetH *src = dsSources; *src; src++)
+		{
+			nSources++;
+		}
 	}
 
-	GDALDatasetH ret = GDALBuildVRT(dstName, nSources, nullptr, sources, ropts, &usageErr);
+	GDALDatasetH ret = GDALBuildVRT(dstName, nSources, dsSources, sources, ropts, &usageErr);
 	GDALBuildVRTOptionsFree(ropts);
 	if(ret==nullptr || usageErr!=0) {
 		forceError(ctx);
