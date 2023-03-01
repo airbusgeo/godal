@@ -1068,6 +1068,14 @@ func TestMetadata(t *testing.T) {
 	err = ds.SetMetadata("foo2", "bar2", Domain("baz"))
 	assert.NoError(t, err)
 
+	err = ds.SetDescription("desc")
+	assert.NoError(t, err)
+	err = ds.SetDescription("desc", ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
+
+	desc := ds.Description()
+	assert.Equal(t, "desc", desc)
+
 	md1 = ds.Metadata("foo")
 	if md1 != "bar" {
 		t.Error(md1)
@@ -3570,8 +3578,8 @@ type errLogger struct {
 	thresh ErrorCategory
 }
 
-//this is an example error handler that returns an error if its level is over thresh,
-//or logs the message in its msg []string if under
+// this is an example error handler that returns an error if its level is over thresh,
+// or logs the message in its msg []string if under
 func (e *errLogger) ErrorHandler(ec ErrorCategory, code int, message string) error {
 	if ec >= e.thresh {
 		return errors.New(message)

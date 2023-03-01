@@ -135,6 +135,11 @@ void godalClearMetadata(cctx *ctx, GDALMajorObjectH mo, char *cdom) {
 	}
 	godalUnwrap();
 }
+void godalSetDescription(cctx *ctx, GDALMajorObjectH mo, char *desc) {
+	godalWrap(ctx);
+	GDALSetDescription(mo,desc);
+	godalUnwrap();
+}
 
 void godalSetRasterColorInterpretation(cctx *ctx, GDALRasterBandH bnd, GDALColorInterp ci) {
 	godalWrap(ctx);
@@ -735,7 +740,7 @@ void godalFillNoData(cctx *ctx, GDALRasterBandH in, GDALRasterBandH mask, int ma
 	godalUnwrap();
 }
 
-GDALDatasetH godalRasterize(cctx *ctx, char *dstName, GDALDatasetH ds, char **switches) {
+GDALDatasetH godalRasterize(cctx *ctx, char *dstName, GDALDatasetH dstDS, GDALDatasetH ds, char **switches) {
 	godalWrap(ctx);
 	GDALRasterizeOptions *ropts = GDALRasterizeOptionsNew(switches,nullptr);
 	if(failed(ctx)) {
@@ -744,7 +749,7 @@ GDALDatasetH godalRasterize(cctx *ctx, char *dstName, GDALDatasetH ds, char **sw
 		return nullptr;
 	}
 	int usageErr=0;
-	GDALDatasetH ret = GDALRasterize(dstName, nullptr, ds, ropts, &usageErr);
+	GDALDatasetH ret = GDALRasterize(dstName, dstDS, ds, ropts, &usageErr);
 	GDALRasterizeOptionsFree(ropts);
 	if(ret==nullptr || usageErr!=0) {
 		forceError(ctx);
@@ -1678,7 +1683,6 @@ void VSIInstallGoHandler(cctx *ctx, const char *pszPrefix, size_t bufferSize, si
     VSIFileManager::InstallHandler(sPrefix, poHandler);
 	godalUnwrap();
 }
-
 
 void test_godal_error_handling(cctx *ctx) {
 	godalWrap(ctx);
