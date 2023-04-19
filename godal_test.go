@@ -2359,6 +2359,46 @@ func TestRasterize(t *testing.T) {
 
 }
 
+func TestRasterizeInto(t *testing.T) {
+	vds, _ := Open("testdata/test.geojson")
+	//ext is 100,0,101,1
+	defer vds.Close()
+	mds, err := Create(Memory, "", 3, Byte, 3, 3)
+	assert.NoError(t, err)
+	defer mds.Close()
+	_ = mds.SetGeoTransform([6]float64{99.1, 1, 0, 1.9, 0, -1}) //set extent to 99.1,-0.9,102.1,1.9
+	bnds := mds.Bands()
+
+	for _, bnd := range bnds {
+		_ = bnd.Fill(255, 0)
+	}
+	data := make([]byte, 27) //to extract a 3x3 window
+
+	assert.Error(t, mds.RasterizeInto(vds, nil)) //missing srs
+	ehc := eh()
+	assert.Error(t, mds.RasterizeInto(vds, nil, ErrLogger(ehc.ErrorHandler)))
+
+	sr, err := NewSpatialRefFromEPSG(4326)
+	assert.NoError(t, err)
+	assert.NoError(t, mds.SetSpatialRef(sr))
+	assert.NoError(t, mds.RasterizeInto(vds, []string{"-burn", "0"}))
+
+	_ = mds.Read(0, 0, data, 3, 3)
+	assert.Equal(t, []byte{255, 255, 255}, data[0:3])
+	assert.Equal(t, []byte{0, 255, 255}, data[12:15])
+	assert.Equal(t, []byte{255, 255, 255}, data[24:27])
+
+	for _, bnd := range bnds {
+		_ = bnd.Fill(255, 0)
+	}
+	assert.NoError(t, mds.RasterizeInto(vds, []string{"-burn", "0", "-at"}))
+
+	_ = mds.Read(0, 0, data, 3, 3)
+	assert.Equal(t, []byte{0, 255, 255}, data[0:3])
+	assert.Equal(t, []byte{0, 255, 255}, data[12:15])
+	assert.Equal(t, []byte{255, 255, 255}, data[24:27])
+
+}
 func TestRasterizeGeometries(t *testing.T) {
 	vds, _ := Open("testdata/test.geojson")
 	//ext is 100,0,101,1
