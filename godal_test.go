@@ -3657,6 +3657,10 @@ func TestErrorHandling(t *testing.T) {
 	err = testErrorAndLogging(ErrLogger(el.ErrorHandler))
 	assert.EqualError(t, err, "this is a failure message")
 	assert.Equal(t, []string{"this is a warning message"}, el.msg)
+
+	//warning message should not show up
+	err = testErrorAndLogging(SkipWarnings)
+	assert.EqualError(t, err, "this is a failure message")
 }
 
 type debugLogger struct {
