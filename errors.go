@@ -420,3 +420,11 @@ func combine(e1, e2 error) error {
 		return &multiError{errs: []error{e1, e2}}
 	}
 }
+
+var SkipWarnings = ErrLogger(
+	func(ec ErrorCategory, code int, message string) error {
+		if ec > CE_Warning {
+			return errors.New(message)
+		}
+		return nil
+	})
