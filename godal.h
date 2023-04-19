@@ -36,6 +36,7 @@ extern "C" {
 		char **configOptions;
 	} cctx;
 	void godalSetMetadataItem(cctx *ctx, GDALMajorObjectH mo, char *ckey, char *cval, char *cdom);
+	void godalSetDescription(cctx *ctx, GDALMajorObjectH mo, char *desc);
 	void godalClearMetadata(cctx *ctx, GDALMajorObjectH mo, char *cdom);
 	GDALDatasetH godalOpen(cctx *ctx, const char *name, unsigned int nOpenFlags, const char *const *papszAllowedDrivers,
 						   const char *const *papszOpenOptions, const char *const *papszSiblingFiles);
@@ -77,7 +78,7 @@ extern "C" {
 	GDALDatasetH godalDatasetWarp(cctx *ctx, char *dstName, int nSrcCount, GDALDatasetH *srcDS, char **switches);
 	void godalDatasetWarpInto(cctx *ctx, GDALDatasetH dstDs,  int nSrcCount, GDALDatasetH *srcDS, char **switches);
 	GDALDatasetH godalDatasetVectorTranslate(cctx *ctx, char *dstName, GDALDatasetH ds, char **switches);
-	GDALDatasetH godalRasterize(cctx *ctx, char *dstName, GDALDatasetH ds, char **switches);
+	GDALDatasetH godalRasterize(cctx *ctx, char *dstName, GDALDatasetH dstDS, GDALDatasetH ds, char **switches);
 	void godalRasterizeGeometry(cctx *ctx, GDALDatasetH ds, OGRGeometryH geom, int *bands, int nBands, double *vals, int allTouched);
 	void godalBuildOverviews(cctx *ctx, GDALDatasetH ds, const char *resampling, int nLevels, int *levels, int nBands, int *bands);
 	void godalClearOverviews(cctx *ctx, GDALDatasetH ds);

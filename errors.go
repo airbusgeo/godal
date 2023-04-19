@@ -125,8 +125,10 @@ func ErrLogger(fn ErrorHandler) interface {
 	PolygonizeOption
 	RasterizeGeometryOption
 	RasterizeOption
+	RasterizeIntoOption
 	SetColorInterpOption
 	SetColorTableOption
+	SetDescriptionOption
 	SetGeometryOption
 	SetFieldValueOption
 	SetNoDataOption
@@ -263,6 +265,9 @@ func (ec errorCallback) setIntersectionOpt(o *intersectionOpts) {
 func (ec errorCallback) setMetadataOpt(o *metadataOpts) {
 	o.errorHandler = ec.fn
 }
+func (ec errorCallback) setDescriptionOpt(o *setDescriptionOpts) {
+	o.errorHandler = ec.fn
+}
 func (ec errorCallback) setNewFeatureOpt(o *newFeatureOpts) {
 	o.errorHandler = ec.fn
 }
@@ -279,6 +284,9 @@ func (ec errorCallback) setRasterizeGeometryOpt(o *rasterizeGeometryOpts) {
 	o.errorHandler = ec.fn
 }
 func (ec errorCallback) setRasterizeOpt(o *rasterizeOpts) {
+	o.errorHandler = ec.fn
+}
+func (ec errorCallback) setRasterizeIntoOpt(o *rasterizeIntoOpts) {
 	o.errorHandler = ec.fn
 }
 func (ec errorCallback) setSetColorInterpOpt(ndo *setColorInterpOpts) {

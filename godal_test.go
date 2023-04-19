@@ -1068,6 +1068,14 @@ func TestMetadata(t *testing.T) {
 	err = ds.SetMetadata("foo2", "bar2", Domain("baz"))
 	assert.NoError(t, err)
 
+	err = ds.SetDescription("desc")
+	assert.NoError(t, err)
+	err = ds.SetDescription("desc", ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
+
+	desc := ds.Description()
+	assert.Equal(t, "desc", desc)
+
 	md1 = ds.Metadata("foo")
 	if md1 != "bar" {
 		t.Error(md1)
@@ -2351,13 +2359,53 @@ func TestRasterize(t *testing.T) {
 
 }
 
+func TestRasterizeInto(t *testing.T) {
+	vds, _ := Open("testdata/test.geojson")
+	//ext is 100,0,101,1
+	defer vds.Close()
+	mds, err := Create(Memory, "", 3, Byte, 3, 3)
+	assert.NoError(t, err)
+	defer mds.Close()
+	_ = mds.SetGeoTransform([6]float64{99.1, 1, 0, 1.9, 0, -1}) //set extent to 99.1,-0.9,102.1,1.9
+	bnds := mds.Bands()
+
+	for _, bnd := range bnds {
+		_ = bnd.Fill(255, 0)
+	}
+	data := make([]byte, 27) //to extract a 3x3 window
+
+	assert.Error(t, mds.RasterizeInto(vds, nil)) //missing srs
+	ehc := eh()
+	assert.Error(t, mds.RasterizeInto(vds, nil, ErrLogger(ehc.ErrorHandler)))
+
+	sr, err := NewSpatialRefFromEPSG(4326)
+	assert.NoError(t, err)
+	assert.NoError(t, mds.SetSpatialRef(sr))
+	assert.NoError(t, mds.RasterizeInto(vds, []string{"-burn", "0"}))
+
+	_ = mds.Read(0, 0, data, 3, 3)
+	assert.Equal(t, []byte{255, 255, 255}, data[0:3])
+	assert.Equal(t, []byte{0, 255, 255}, data[12:15])
+	assert.Equal(t, []byte{255, 255, 255}, data[24:27])
+
+	for _, bnd := range bnds {
+		_ = bnd.Fill(255, 0)
+	}
+	assert.NoError(t, mds.RasterizeInto(vds, []string{"-burn", "0", "-at"}))
+
+	_ = mds.Read(0, 0, data, 3, 3)
+	assert.Equal(t, []byte{0, 255, 255}, data[0:3])
+	assert.Equal(t, []byte{0, 255, 255}, data[12:15])
+	assert.Equal(t, []byte{255, 255, 255}, data[24:27])
+
+}
 func TestRasterizeGeometries(t *testing.T) {
 	vds, _ := Open("testdata/test.geojson")
 	//ext is 100,0,101,1
 	defer vds.Close()
-	mds, _ := Create(Memory, "", 3, Byte, 300, 300)
+	mds, _ := Create(Memory, "", 3, Byte, 3, 3)
 	defer mds.Close()
-	_ = mds.SetGeoTransform([6]float64{99, 0.01, 0, 2, 0, -0.01}) //set extent to 99,-1,102,2
+	_ = mds.SetGeoTransform([6]float64{99.1, 1, 0, 1.9, 0, -1}) //set extent to 99.1,-0.9,102.1,1.9
 	bnds := mds.Bands()
 
 	ff := vds.Layers()[0].NextFeature().Geometry()
@@ -2365,41 +2413,44 @@ func TestRasterizeGeometries(t *testing.T) {
 	for _, bnd := range bnds {
 		_ = bnd.Fill(255, 0)
 	}
-	data := make([]byte, 300) //to extract a 10x10 window
+	data := make([]byte, 27) //to extract a 3x3 window
 
 	err := mds.RasterizeGeometry(ff)
 	assert.NoError(t, err)
-	_ = mds.Read(95, 95, data, 10, 10)
+	_ = mds.Read(0, 0, data, 3, 3)
 	assert.Equal(t, []byte{255, 255, 255}, data[0:3])
-	assert.Equal(t, []byte{0, 0, 0}, data[297:300])
+	assert.Equal(t, []byte{0, 0, 0}, data[12:15])
+	assert.Equal(t, []byte{255, 255, 255}, data[24:27])
 
-	alldata1 := make([]byte, 300*300*3)
-	_ = mds.Read(0, 0, alldata1, 300, 300)
-	alldata2 := make([]byte, 300*300*3)
+	alldata1 := make([]byte, 3*3*3)
+	_ = mds.Read(0, 0, alldata1, 3, 3)
+	alldata2 := make([]byte, 3*3*3)
+
+	//with alltouched we will light up more than just the center pixel
 	err = mds.RasterizeGeometry(ff, AllTouched())
 	assert.NoError(t, err)
-	_ = mds.Read(0, 0, alldata2, 300, 300)
+	_ = mds.Read(0, 0, alldata2, 3, 3)
 	assert.NotEqual(t, alldata1, alldata2)
 
 	err = mds.RasterizeGeometry(ff, Values(200))
 	assert.NoError(t, err)
-	_ = mds.Read(95, 95, data, 10, 10)
-	assert.Equal(t, []byte{200, 200, 200}, data[297:300])
+	_ = mds.Read(0, 0, data, 3, 3)
+	assert.Equal(t, []byte{200, 200, 200}, data[12:15])
 
 	err = mds.RasterizeGeometry(ff, Bands(0), Values(100))
 	assert.NoError(t, err)
-	_ = mds.Read(95, 95, data, 10, 10)
-	assert.Equal(t, []byte{100, 200, 200}, data[297:300])
+	_ = mds.Read(0, 0, data, 3, 3)
+	assert.Equal(t, []byte{100, 200, 200}, data[12:15])
 
 	err = mds.RasterizeGeometry(ff, Values(1, 2, 3))
 	assert.NoError(t, err)
-	_ = mds.Read(95, 95, data, 10, 10)
-	assert.Equal(t, []uint8{1, 2, 3}, data[297:300])
+	_ = mds.Read(0, 0, data, 3, 3)
+	assert.Equal(t, []uint8{1, 2, 3}, data[12:15])
 
 	err = mds.RasterizeGeometry(ff, Bands(0, 1), Values(5, 6))
 	assert.NoError(t, err)
-	_ = mds.Read(95, 95, data, 10, 10)
-	assert.Equal(t, []uint8{5, 6, 3}, data[297:300])
+	_ = mds.Read(0, 0, data, 3, 3)
+	assert.Equal(t, []uint8{5, 6, 3}, data[12:15])
 
 	err = mds.RasterizeGeometry(ff, Bands(0), Values(1, 2))
 	assert.Error(t, err)
@@ -3570,8 +3621,8 @@ type errLogger struct {
 	thresh ErrorCategory
 }
 
-//this is an example error handler that returns an error if its level is over thresh,
-//or logs the message in its msg []string if under
+// this is an example error handler that returns an error if its level is over thresh,
+// or logs the message in its msg []string if under
 func (e *errLogger) ErrorHandler(ec ErrorCategory, code int, message string) error {
 	if ec >= e.thresh {
 		return errors.New(message)
