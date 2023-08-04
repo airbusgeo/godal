@@ -1692,3 +1692,22 @@ void test_godal_error_handling(cctx *ctx) {
 	godalUnwrap();
 }
 
+void godalGridCreate(cctx *ctx, GDALGridAlgorithm eAlgorithm, GUInt32 nPoints, const double *padfX, const double *padfY, const double *padfZ, double dfXMin,
+					double dfXMax, double dfYMin, double dfYMax, GUInt32 nXSize, GUInt32 nYSize, GDALDataType eType, void *pData) {
+	godalWrap(ctx);
+
+	// TODO: [g]The lines below work only for the `InverseDistanceToAPower`, need to be able to to create "options" for any gridding algorithm
+	void *ppOptions = CPLMalloc(sizeof(GDALGridInverseDistanceToAPowerOptions));
+	GDALGridInverseDistanceToAPowerOptions *const poPowerOpts = static_cast<GDALGridInverseDistanceToAPowerOptions *>(ppOptions);
+	poPowerOpts->nSizeOfStructure = sizeof(*poPowerOpts);
+
+	CPLErr ret = GDALGridCreate(eAlgorithm, ppOptions, nPoints, padfX, padfY,
+                      padfZ, dfXMin, dfXMax, dfYMin, dfYMax, nXSize, nYSize, 
+					  eType,  pData, nullptr, nullptr);
+
+	CPLFree(ppOptions);
+	if(ret!=0) {
+		forceCPLError(ctx, ret);
+	}
+	godalUnwrap();
+}

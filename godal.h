@@ -17,6 +17,7 @@
 
 #define _GNU_SOURCE 1
 #include <gdal.h>
+#include <gdal_alg.h>
 #include <ogr_srs_api.h>
 #include <cpl_conv.h>
 #include "cpl_port.h"
@@ -150,6 +151,7 @@ extern "C" {
     void godalComputeRasterStatistics(cctx *ctx, GDALRasterBandH bnd, int bApproxOK, double *pdfMin, double *pdfMax, double *pdfMean, double *pdfStdDev);
     int godalGetRasterStatistics(cctx *ctx, GDALRasterBandH bnd, int bApproxOK, double *pdfMin, double *pdfMax, double *pdfMean, double *pdfStdDev);
     void godalSetRasterStatistics(cctx *ctx, GDALRasterBandH bnd, double dfMin, double dfMax, double dfMean, double dfStdDev);
+	void godalGridCreate(cctx *ctx, GDALGridAlgorithm eAlgorithm, GUInt32 nPoints, const double *padfX, const double *padfY, const double *padfZ, double dfXMin, double dfXMax, double dfYMin, double dfYMax, GUInt32 nXSize, GUInt32 nYSize, GDALDataType eType, void *pData);
 #ifdef __cplusplus
 }
 #endif
