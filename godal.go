@@ -1710,6 +1710,82 @@ func (ra ResamplingAlg) rioAlg() (C.GDALRIOResampleAlg, error) {
 	}
 }
 
+// Gridding algorithms
+type GriddingAlg int
+
+// TODO: [g]Review, should these be shortened like `ResamplingAlg` with comments above for their full names?
+const (
+	InverseDistanceToAPower GriddingAlg = iota + 1
+	MovingAverage
+	NearestNeighbor
+	MetricMinimum
+	MetricMaximum
+	MetricRange
+	MetricCount
+	MetricAverageDistance
+	MetricAverageDistancePts
+	Linear
+	InverseDistanceToAPowerNearestNeighbor
+)
+
+func (ga GriddingAlg) String() string {
+	switch ga {
+	case InverseDistanceToAPower:
+		return "inversedistancetoapower"
+	case MovingAverage:
+		return "movingaverage"
+	case NearestNeighbor:
+		return "nearestneighbor"
+	case MetricMinimum:
+		return "metricminimum"
+	case MetricMaximum:
+		return "metricmaximum"
+	case MetricRange:
+		return "metricrange"
+	case MetricCount:
+		return "metriccount"
+	case MetricAverageDistance:
+		return "metricaveragedistance"
+	case MetricAverageDistancePts:
+		return "metricaveragedistancepts"
+	case Linear:
+		return "linear"
+	case InverseDistanceToAPowerNearestNeighbor:
+		return "inversedistancetoapowernearestneighbor"
+	default:
+		panic("unsupported gridding algorithm")
+	}
+}
+
+func (ga GriddingAlg) gAlg() (C.GDALGridAlgorithm, error) {
+	switch ga {
+	case InverseDistanceToAPower:
+		return C.GGA_InverseDistanceToAPower, nil
+	case MovingAverage:
+		return C.GGA_MovingAverage, nil
+	case NearestNeighbor:
+		return C.GGA_NearestNeighbor, nil
+	case MetricMinimum:
+		return C.GGA_MetricMinimum, nil
+	case MetricMaximum:
+		return C.GGA_MetricMaximum, nil
+	case MetricRange:
+		return C.GGA_MetricRange, nil
+	case MetricCount:
+		return C.GGA_MetricCount, nil
+	case MetricAverageDistance:
+		return C.GGA_MetricAverageDistance, nil
+	case MetricAverageDistancePts:
+		return C.GGA_MetricAverageDistancePts, nil
+	case Linear:
+		return C.GGA_Linear, nil
+	case InverseDistanceToAPowerNearestNeighbor:
+		return C.GGA_InverseDistanceToAPowerNearestNeighbor, nil
+	default:
+		return C.GGA_InverseDistanceToAPower, errors.New("unsupported gridding algorithm")
+	}
+}
+
 func bufferType(buffer interface{}) DataType {
 	switch buffer.(type) {
 	case []byte:
@@ -3731,6 +3807,46 @@ func BuildVRT(dstVRTName string, sourceDatasets []string, switches []string, opt
 		return nil, err
 	}
 	return &Dataset{majorObject{C.GDALMajorObjectH(hndl)}}, nil
+}
+
+// TODO: [g]Review these parameter names
+func GridCreate(gridAlgorithm GriddingAlg, // was eAlgorithm
+	numCoords uint32, // was nPoints
+	xCoords []float64, // was padfX
+	yCoords []float64, // was padfY
+	zCoords []float64, // was padfZ
+	outXMin float64, // was dfXMin
+	outXMax float64, // was dfXMax
+	outYMin float64, // was dfYMin
+	outYMax float64, // was dfYMax
+	outCols uint32, // was nXSize,
+	outRows uint32, // was nYSize,
+	buffer interface{}, // was eType
+) ([]byte, error) {
+	var gridBytes []byte
+
+	opt := gridCreateOpts{}
+	cgc := createCGOContext(nil, opt.errorHandler)
+
+	dtype := bufferType(buffer)
+	dsize := dtype.Size()
+	numGridBytes := C.int(int(outCols) * int(outRows) * dsize)
+
+	algCEnum, err := gridAlgorithm.gAlg()
+	if err != nil {
+		return gridBytes, err
+	}
+
+	cBuf := cBuffer(buffer, int(numGridBytes))
+
+	C.godalGridCreate(cgc.cPointer(), algCEnum, C.uint(numCoords), cDoubleArray(xCoords), cDoubleArray(yCoords),
+		cDoubleArray(zCoords), C.double(outXMin), C.double(outXMax), C.double(outYMin), C.double(outYMax),
+		C.uint(outCols), C.uint(outRows), C.GDALDataType(dtype), cBuf)
+	if err := cgc.close(); err != nil {
+		return nil, err
+	}
+	gridBytes = C.GoBytes(unsafe.Pointer(cBuf), numGridBytes)
+	return gridBytes, nil
 }
 
 type cgoContext struct {
