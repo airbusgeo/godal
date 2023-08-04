@@ -17,11 +17,13 @@ package godal
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"math"
+	"math/rand"
 	"os"
 	"path"
 	"path/filepath"
@@ -3976,4 +3978,49 @@ func TestStatistics(t *testing.T) {
 	// Test on null band for coverage
 	_, _, err = bnd.GetStatistics()
 	assert.Error(t, err)
+}
+
+func TestGridCreate(t *testing.T) {
+	var (
+		err       error
+		numCoords uint32 = 1000
+		xCoord           = make([]float64, numCoords)
+		yCoord           = make([]float64, numCoords)
+		zCoord           = make([]float64, numCoords)
+		outXSize  uint32 = 1080
+		outYSize  uint32 = 1080
+
+		min        = 0.0
+		max        = 10.0
+		i   uint32 = 0
+	)
+	for i = 0; i < numCoords; i++ {
+		xCoord[i] = min + rand.Float64()*(max-min)
+		yCoord[i] = min + rand.Float64()*(max-min)
+		zCoord[i] = min + rand.Float64()*(max-min)
+	}
+
+	// TODO: [g]Move this buffer allocation into `GridCreate`
+	var buf interface{}
+	buf = make([]float64, outXSize*outYSize)
+
+	// TODO: [g]Need to update method below for more than `InverseDistanceToAPower`
+	bytes, err := GridCreate(InverseDistanceToAPower, numCoords, xCoord, yCoord, zCoord, 0, float64(outXSize), 0, float64(outYSize), outXSize, outYSize, buf)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// byte -> float conversion
+	vals := make([]float64, outXSize*outYSize)
+	for i := 0; i < len(bytes)/8; i++ {
+		vals[i] = bytesToFloat64(bytes[i*8 : (i+1)*8])
+	}
+
+	// TODO: [g]Write asserts
+}
+
+func bytesToFloat64(bytes []byte) float64 {
+	bits := binary.LittleEndian.Uint64(bytes)
+	float := math.Float64frombits(bits)
+	return float
 }

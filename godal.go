@@ -3837,7 +3837,7 @@ func GridCreate(gridAlgorithm GriddingAlg, // was eAlgorithm
 		return gridBytes, err
 	}
 
-	cBuf := cBuffer(buffer, int(numGridBytes))
+	cBuf := cBuffer(buffer, int(numGridBytes)/dsize)
 
 	C.godalGridCreate(cgc.cPointer(), algCEnum, C.uint(numCoords), cDoubleArray(xCoords), cDoubleArray(yCoords),
 		cDoubleArray(zCoords), C.double(outXMin), C.double(outXMax), C.double(outYMin), C.double(outYMax),
