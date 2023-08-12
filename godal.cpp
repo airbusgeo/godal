@@ -28,6 +28,7 @@
 
 #include <gdal_utils.h>
 #include <gdal_alg.h>
+#include <gdalgrid.h>
 
 extern "C" {
 	extern long long int _gogdalSizeCallback(char* key, char** errorString);
@@ -1692,22 +1693,25 @@ void test_godal_error_handling(cctx *ctx) {
 	godalUnwrap();
 }
 
+// NOTE: Not a direct analogue to GDALGridCreate, instead uses `eAlgorithm` and additional `interpolationAlgorithmParams`, to populate `ppOptions` before calling `GDALGridCreate`
+// For valid `interpolationAlgorithmParams` strings see: https://gdal.org/programs/gdal_grid.html#interpolation-algorithms
 void godalGridCreate(cctx *ctx, GDALGridAlgorithm eAlgorithm, GUInt32 nPoints, const double *padfX, const double *padfY, const double *padfZ, double dfXMin,
-					double dfXMax, double dfYMin, double dfYMax, GUInt32 nXSize, GUInt32 nYSize, GDALDataType eType, void *pData) {
+					double dfXMax, double dfYMin, double dfYMax, GUInt32 nXSize, GUInt32 nYSize, GDALDataType eType, void *pData, char *interpolationAlgorithmParams) {
 	godalWrap(ctx);
 
-	// TODO: [g]The lines below work only for the `InverseDistanceToAPower`, need to be able to to create "options" for any gridding algorithm
-	void *ppOptions = CPLMalloc(sizeof(GDALGridInverseDistanceToAPowerOptions));
-	GDALGridInverseDistanceToAPowerOptions *const poPowerOpts = static_cast<GDALGridInverseDistanceToAPowerOptions *>(ppOptions);
-	poPowerOpts->nSizeOfStructure = sizeof(*poPowerOpts);
-
-	CPLErr ret = GDALGridCreate(eAlgorithm, ppOptions, nPoints, padfX, padfY,
-                      padfZ, dfXMin, dfXMax, dfYMin, dfYMax, nXSize, nYSize, 
-					  eType,  pData, nullptr, nullptr);
-
-	CPLFree(ppOptions);
+	// Populates `ppOptions` here, depending on the provided `eAlgorithm` and `interpolationAlgorithmParams`
+	void *ppOptions;
+	CPLErr ret = GDALGridParseAlgorithmAndOptions(interpolationAlgorithmParams, &eAlgorithm, &ppOptions);
 	if(ret!=0) {
 		forceCPLError(ctx, ret);
 	}
+
+	ret = GDALGridCreate(eAlgorithm, ppOptions, nPoints, padfX, padfY,
+                      padfZ, dfXMin, dfXMax, dfYMin, dfYMax, nXSize, nYSize, 
+					  eType,  pData, nullptr, nullptr);
+	if(ret!=0) {
+		forceCPLError(ctx, ret);
+	}
+
 	godalUnwrap();
 }
