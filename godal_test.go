@@ -4005,7 +4005,7 @@ func TestGridCreate(t *testing.T) {
 	buf = make([]float64, outXSize*outYSize)
 
 	// TODO: [g]Need to update method below for more than `InverseDistanceToAPower`
-	bytes, err := GridCreate(InverseDistanceToAPower, numCoords, xCoord, yCoord, zCoord, 0, float64(outXSize), 0, float64(outYSize), outXSize, outYSize, buf)
+	bytes, err := GridCreate(InverseDistanceToAPower, numCoords, xCoord, yCoord, zCoord, 0, float64(outXSize), 0, float64(outYSize), outXSize, outYSize, buf, "invdist")
 	if err != nil {
 		t.Error(err)
 	}
