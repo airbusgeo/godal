@@ -3822,6 +3822,7 @@ func GridCreate(gridAlgorithm GriddingAlg, // was eAlgorithm
 	outCols uint32, // was nXSize,
 	outRows uint32, // was nYSize,
 	buffer interface{}, // was eType
+	interpolationAlgorithmParams string,
 ) ([]byte, error) {
 	var gridBytes []byte
 
@@ -3839,9 +3840,12 @@ func GridCreate(gridAlgorithm GriddingAlg, // was eAlgorithm
 
 	cBuf := cBuffer(buffer, int(numGridBytes)/dsize)
 
+	params := unsafe.Pointer(C.CString(interpolationAlgorithmParams))
+	defer C.free(params)
+
 	C.godalGridCreate(cgc.cPointer(), algCEnum, C.uint(numCoords), cDoubleArray(xCoords), cDoubleArray(yCoords),
 		cDoubleArray(zCoords), C.double(outXMin), C.double(outXMax), C.double(outYMin), C.double(outYMax),
-		C.uint(outCols), C.uint(outRows), C.GDALDataType(dtype), cBuf)
+		C.uint(outCols), C.uint(outRows), C.GDALDataType(dtype), cBuf, (*C.char)(params))
 	if err := cgc.close(); err != nil {
 		return nil, err
 	}
