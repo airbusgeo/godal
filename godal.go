@@ -1728,36 +1728,7 @@ const (
 	InverseDistanceToAPowerNearestNeighbor
 )
 
-func (ga GriddingAlg) String() string {
-	switch ga {
-	case InverseDistanceToAPower:
-		return "inversedistancetoapower"
-	case MovingAverage:
-		return "movingaverage"
-	case NearestNeighbor:
-		return "nearestneighbor"
-	case MetricMinimum:
-		return "metricminimum"
-	case MetricMaximum:
-		return "metricmaximum"
-	case MetricRange:
-		return "metricrange"
-	case MetricCount:
-		return "metriccount"
-	case MetricAverageDistance:
-		return "metricaveragedistance"
-	case MetricAverageDistancePts:
-		return "metricaveragedistancepts"
-	case Linear:
-		return "linear"
-	case InverseDistanceToAPowerNearestNeighbor:
-		return "inversedistancetoapowernearestneighbor"
-	default:
-		panic("unsupported gridding algorithm")
-	}
-}
-
-func (ga GriddingAlg) gAlg() (C.GDALGridAlgorithm, error) {
+func (ga GriddingAlg) gridAlg() (C.GDALGridAlgorithm, error) {
 	switch ga {
 	case InverseDistanceToAPower:
 		return C.GGA_InverseDistanceToAPower, nil
@@ -1783,6 +1754,35 @@ func (ga GriddingAlg) gAlg() (C.GDALGridAlgorithm, error) {
 		return C.GGA_InverseDistanceToAPowerNearestNeighbor, nil
 	default:
 		return C.GGA_InverseDistanceToAPower, errors.New("unsupported gridding algorithm")
+	}
+}
+
+func gridAlgFromString(str string) (C.GDALGridAlgorithm, error) {
+	switch str {
+	case "invdist":
+		return C.GGA_InverseDistanceToAPower, nil
+	case "average":
+		return C.GGA_MovingAverage, nil
+	case "nearest":
+		return C.GGA_NearestNeighbor, nil
+	case "minimum":
+		return C.GGA_MetricMinimum, nil
+	case "maximum":
+		return C.GGA_MetricMaximum, nil
+	case "range":
+		return C.GGA_MetricRange, nil
+	case "count":
+		return C.GGA_MetricCount, nil
+	case "average_distance":
+		return C.GGA_MetricAverageDistance, nil
+	case "average_distance_pts":
+		return C.GGA_MetricAverageDistancePts, nil
+	case "linear":
+		return C.GGA_Linear, nil
+	case "invdistnn":
+		return C.GGA_InverseDistanceToAPowerNearestNeighbor, nil
+	default:
+		return C.GGA_InverseDistanceToAPower, errors.New("string doesn't match a supported gridding algorithm")
 	}
 }
 
