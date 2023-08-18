@@ -3810,7 +3810,7 @@ func BuildVRT(dstVRTName string, sourceDatasets []string, switches []string, opt
 }
 
 // TODO: [g]Review these parameter names
-func GridCreate(gridAlgorithm GriddingAlg, // was eAlgorithm
+func GridCreate(interpolationAlgorithmParams string, // was eAlgorithm
 	numCoords uint32, // was nPoints
 	xCoords []float64, // was padfX
 	yCoords []float64, // was padfY
@@ -3822,7 +3822,6 @@ func GridCreate(gridAlgorithm GriddingAlg, // was eAlgorithm
 	outCols uint32, // was nXSize,
 	outRows uint32, // was nYSize,
 	buffer interface{}, // was eType
-	interpolationAlgorithmParams string,
 ) ([]byte, error) {
 	var gridBytes []byte
 
@@ -3833,7 +3832,9 @@ func GridCreate(gridAlgorithm GriddingAlg, // was eAlgorithm
 	dsize := dtype.Size()
 	numGridBytes := C.int(int(outCols) * int(outRows) * dsize)
 
-	algCEnum, err := gridAlgorithm.gAlg()
+	// The first argument in `interpolationAlgorithmParams` is expected to match a gridding alg
+	griddingAlg := strings.Split(interpolationAlgorithmParams, ":")[0]
+	algCEnum, err := gridAlgFromString(griddingAlg)
 	if err != nil {
 		return gridBytes, err
 	}
