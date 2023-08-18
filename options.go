@@ -1225,7 +1225,6 @@ type rasterizeGeometryOpts struct {
 	errorHandler ErrorHandler
 }
 
-// TODO: [g]Review, add more properties here?
 type gridCreateOpts struct {
 	errorHandler ErrorHandler
 }

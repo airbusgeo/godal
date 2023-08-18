@@ -1713,7 +1713,6 @@ func (ra ResamplingAlg) rioAlg() (C.GDALRIOResampleAlg, error) {
 // Gridding algorithms
 type GriddingAlg int
 
-// TODO: [g]Review, should these be shortened like `ResamplingAlg` with comments above for their full names?
 const (
 	InverseDistanceToAPower GriddingAlg = iota + 1
 	MovingAverage
@@ -3809,19 +3808,19 @@ func BuildVRT(dstVRTName string, sourceDatasets []string, switches []string, opt
 	return &Dataset{majorObject{C.GDALMajorObjectH(hndl)}}, nil
 }
 
-// TODO: [g]Review these parameter names
-func GridCreate(interpolationAlgorithmParams string, // was eAlgorithm
-	numCoords uint32, // was nPoints
-	xCoords []float64, // was padfX
-	yCoords []float64, // was padfY
-	zCoords []float64, // was padfZ
-	outXMin float64, // was dfXMin
-	outXMax float64, // was dfXMax
-	outYMin float64, // was dfYMin
-	outYMax float64, // was dfYMax
-	outCols uint32, // was nXSize,
-	outRows uint32, // was nYSize,
-	buffer interface{}, // was eType
+// GridCreate runs the `GDALGridParseAlgorithmAndOptions` and `GDALGridCreate` functions returning the output grid
+func GridCreate(pszAlgorithm string,
+	numCoords uint32,
+	xCoords []float64,
+	yCoords []float64,
+	zCoords []float64,
+	dfXMin float64,
+	dfXMax float64,
+	dfYMin float64,
+	dfYMax float64,
+	nXSize uint32,
+	nYSize uint32,
+	buffer interface{},
 ) ([]byte, error) {
 	var gridBytes []byte
 
@@ -3830,10 +3829,10 @@ func GridCreate(interpolationAlgorithmParams string, // was eAlgorithm
 
 	dtype := bufferType(buffer)
 	dsize := dtype.Size()
-	numGridBytes := C.int(int(outCols) * int(outRows) * dsize)
+	numGridBytes := C.int(int(nXSize) * int(nYSize) * dsize)
 
 	// The first argument in `interpolationAlgorithmParams` is expected to match a gridding alg
-	griddingAlg := strings.Split(interpolationAlgorithmParams, ":")[0]
+	griddingAlg := strings.Split(pszAlgorithm, ":")[0]
 	algCEnum, err := gridAlgFromString(griddingAlg)
 	if err != nil {
 		return gridBytes, err
@@ -3841,12 +3840,12 @@ func GridCreate(interpolationAlgorithmParams string, // was eAlgorithm
 
 	cBuf := cBuffer(buffer, int(numGridBytes)/dsize)
 
-	params := unsafe.Pointer(C.CString(interpolationAlgorithmParams))
+	params := unsafe.Pointer(C.CString(pszAlgorithm))
 	defer C.free(params)
 
 	C.godalGridCreate(cgc.cPointer(), algCEnum, C.uint(numCoords), cDoubleArray(xCoords), cDoubleArray(yCoords),
-		cDoubleArray(zCoords), C.double(outXMin), C.double(outXMax), C.double(outYMin), C.double(outYMax),
-		C.uint(outCols), C.uint(outRows), C.GDALDataType(dtype), cBuf, (*C.char)(params))
+		cDoubleArray(zCoords), C.double(dfXMin), C.double(dfXMax), C.double(dfYMin), C.double(dfYMax),
+		C.uint(nXSize), C.uint(nYSize), C.GDALDataType(dtype), cBuf, (*C.char)(params))
 	if err := cgc.close(); err != nil {
 		return nil, err
 	}

@@ -1696,12 +1696,12 @@ void test_godal_error_handling(cctx *ctx) {
 // NOTE: Not a direct analogue to GDALGridCreate, instead uses `eAlgorithm` and additional `interpolationAlgorithmParams`, to populate `ppOptions` before calling `GDALGridCreate`
 // For valid `interpolationAlgorithmParams` strings see: https://gdal.org/programs/gdal_grid.html#interpolation-algorithms
 void godalGridCreate(cctx *ctx, GDALGridAlgorithm eAlgorithm, GUInt32 nPoints, const double *padfX, const double *padfY, const double *padfZ, double dfXMin,
-					double dfXMax, double dfYMin, double dfYMax, GUInt32 nXSize, GUInt32 nYSize, GDALDataType eType, void *pData, char *interpolationAlgorithmParams) {
+					double dfXMax, double dfYMin, double dfYMax, GUInt32 nXSize, GUInt32 nYSize, GDALDataType eType, void *pData, char *pszAlgorithm) {
 	godalWrap(ctx);
 
 	// Populates `ppOptions` here, depending on the provided `eAlgorithm` and `interpolationAlgorithmParams`
 	void *ppOptions;
-	CPLErr ret = GDALGridParseAlgorithmAndOptions(interpolationAlgorithmParams, &eAlgorithm, &ppOptions);
+	CPLErr ret = GDALGridParseAlgorithmAndOptions(pszAlgorithm, &eAlgorithm, &ppOptions);
 	if(ret!=0) {
 		forceCPLError(ctx, ret);
 	}
