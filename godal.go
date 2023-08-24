@@ -3808,6 +3808,10 @@ func BuildVRT(dstVRTName string, sourceDatasets []string, switches []string, opt
 	return &Dataset{majorObject{C.GDALMajorObjectH(hndl)}}, nil
 }
 
+// GridCreate, creates a grid from scattered data, given provided gridding parameters as a string (pszAlgorithm)
+// and the arguments required for `godalGridCreate()` (binding for GDALGridCreate)
+//
+// NOTE: For valid gridding algorithm strings see: https://gdal.org/programs/gdal_grid.html#interpolation-algorithms
 func GridCreate(pszAlgorithm string,
 	numCoords uint32,
 	xCoords []float64,
