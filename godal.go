@@ -3824,7 +3824,7 @@ func GridCreate(pszAlgorithm string,
 ) ([]byte, error) {
 	gco := gridCreateOpts{}
 	for _, o := range opts {
-		o.setGridOption(&gco)
+		o.setGridCreateOption(&gco)
 	}
 
 	var gridBytes []byte
