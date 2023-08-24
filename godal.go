@@ -3808,7 +3808,6 @@ func BuildVRT(dstVRTName string, sourceDatasets []string, switches []string, opt
 	return &Dataset{majorObject{C.GDALMajorObjectH(hndl)}}, nil
 }
 
-// GridCreate runs the `GDALGridParseAlgorithmAndOptions` and `GDALGridCreate` functions returning the output grid
 func GridCreate(pszAlgorithm string,
 	numCoords uint32,
 	xCoords []float64,
@@ -3821,31 +3820,42 @@ func GridCreate(pszAlgorithm string,
 	nXSize uint32,
 	nYSize uint32,
 	buffer interface{},
+	opts ...GridCreateOption,
 ) ([]byte, error) {
+	gco := gridCreateOpts{}
+	for _, o := range opts {
+		o.setGridOption(&gco)
+	}
+
 	var gridBytes []byte
-
-	opt := gridCreateOpts{}
-	cgc := createCGOContext(nil, opt.errorHandler)
-
-	dtype := bufferType(buffer)
-	dsize := dtype.Size()
-	numGridBytes := C.int(int(nXSize) * int(nYSize) * dsize)
-
-	// The first argument in `interpolationAlgorithmParams` is expected to match a gridding alg
 	griddingAlg := strings.Split(pszAlgorithm, ":")[0]
 	algCEnum, err := gridAlgFromString(griddingAlg)
 	if err != nil {
 		return gridBytes, err
 	}
 
-	cBuf := cBuffer(buffer, int(numGridBytes)/dsize)
-
-	params := unsafe.Pointer(C.CString(pszAlgorithm))
+	var (
+		options unsafe.Pointer
+		params  = unsafe.Pointer(C.CString(pszAlgorithm))
+		cgc     = createCGOContext(nil, gco.errorHandler)
+	)
 	defer C.free(params)
+	C.godalGridParseAlgorithmAndOptions(cgc.cPointer(), (*C.char)(params), &algCEnum, &options)
+	if err := cgc.close(); err != nil {
+		return nil, err
+	}
+	defer C.free(options)
 
-	C.godalGridCreate(cgc.cPointer(), algCEnum, C.uint(numCoords), cDoubleArray(xCoords), cDoubleArray(yCoords),
+	var (
+		dtype        = bufferType(buffer)
+		dsize        = dtype.Size()
+		numGridBytes = C.int(int(nXSize) * int(nYSize) * dsize)
+		cBuf         = cBuffer(buffer, int(numGridBytes)/dsize)
+	)
+	cgc = createCGOContext(nil, gco.errorHandler)
+	C.godalGridCreate(cgc.cPointer(), algCEnum, options, C.uint(numCoords), cDoubleArray(xCoords), cDoubleArray(yCoords),
 		cDoubleArray(zCoords), C.double(dfXMin), C.double(dfXMax), C.double(dfYMin), C.double(dfYMax),
-		C.uint(nXSize), C.uint(nYSize), C.GDALDataType(dtype), cBuf, (*C.char)(params))
+		C.uint(nXSize), C.uint(nYSize), C.GDALDataType(dtype), cBuf)
 	if err := cgc.close(); err != nil {
 		return nil, err
 	}
