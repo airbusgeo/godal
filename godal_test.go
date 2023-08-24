@@ -3998,8 +3998,8 @@ func TestGridCreate(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	var gdalGridCLIRasterPoints = make([]float64, 512*512)
-	err = f.Read(0, 0, gdalGridCLIRasterPoints, 512, 512)
+	var gdalGridCLIRasterPoints = make([]float64, outXSize*outYSize)
+	err = f.Read(0, 0, gdalGridCLIRasterPoints, int(outXSize), int(outYSize))
 	if err != nil {
 		t.Error(err)
 		return
@@ -4023,9 +4023,9 @@ func TestGridCreate(t *testing.T) {
 
 	var (
 		topLeftIndex     = 0
-		topRightIndex    = 511
-		bottomRightIndex = 512 * 511
-		bottomLeftIndex  = 512*512 - 1
+		topRightIndex    = outXSize - 1
+		bottomRightIndex = outXSize * (outYSize - 1)
+		bottomLeftIndex  = (outXSize * outYSize) - 1
 		imageCentreIndex = outXSize*(outYSize/2) - 1
 	)
 	assert.Equal(t, gdalGridCLIRasterPoints[topLeftIndex], godalGridBindingPoints[topLeftIndex])
