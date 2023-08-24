@@ -1693,22 +1693,24 @@ void test_godal_error_handling(cctx *ctx) {
 	godalUnwrap();
 }
 
-// NOTE: Not a direct analogue to GDALGridCreate, instead uses `eAlgorithm` and additional `interpolationAlgorithmParams`, to populate `ppOptions` before calling `GDALGridCreate`
-// For valid `interpolationAlgorithmParams` strings see: https://gdal.org/programs/gdal_grid.html#interpolation-algorithms
-void godalGridCreate(cctx *ctx, GDALGridAlgorithm eAlgorithm, GUInt32 nPoints, const double *padfX, const double *padfY, const double *padfZ, double dfXMin,
-					double dfXMax, double dfYMin, double dfYMax, GUInt32 nXSize, GUInt32 nYSize, GDALDataType eType, void *pData, char *pszAlgorithm) {
+void godalGridCreate(cctx *ctx, GDALGridAlgorithm eAlgorithm, void *poOptions, GUInt32 nPoints, const double *padfX, const double *padfY, const double *padfZ, double dfXMin,
+					double dfXMax, double dfYMin, double dfYMax, GUInt32 nXSize, GUInt32 nYSize, GDALDataType eType, void *pData) {
 	godalWrap(ctx);
 
-	// Populates `ppOptions` here, depending on the provided `eAlgorithm` and `interpolationAlgorithmParams`
-	void *ppOptions;
-	CPLErr ret = GDALGridParseAlgorithmAndOptions(pszAlgorithm, &eAlgorithm, &ppOptions);
+	CPLErr ret = GDALGridCreate(eAlgorithm, poOptions, nPoints, padfX, padfY,
+                      padfZ, dfXMin, dfXMax, dfYMin, dfYMax, nXSize, nYSize, 
+					  eType,  pData, nullptr, nullptr);
 	if(ret!=0) {
 		forceCPLError(ctx, ret);
 	}
 
-	ret = GDALGridCreate(eAlgorithm, ppOptions, nPoints, padfX, padfY,
-                      padfZ, dfXMin, dfXMax, dfYMin, dfYMax, nXSize, nYSize, 
-					  eType,  pData, nullptr, nullptr);
+	godalUnwrap();
+}
+
+void godalGridParseAlgorithmAndOptions(cctx *ctx, char *pszAlgorithm, GDALGridAlgorithm *peAlgorithm, void **ppOptions) {
+	godalWrap(ctx);
+
+	CPLErr ret = GDALGridParseAlgorithmAndOptions(pszAlgorithm, peAlgorithm, ppOptions);
 	if(ret!=0) {
 		forceCPLError(ctx, ret);
 	}
