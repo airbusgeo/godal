@@ -1710,7 +1710,13 @@ void godalGridCreate(cctx *ctx, GDALGridAlgorithm eAlgorithm, void *poOptions, G
 void godalGridParseAlgorithmAndOptions(cctx *ctx, char *pszAlgorithm, GDALGridAlgorithm *peAlgorithm, void **ppOptions) {
 	godalWrap(ctx);
 
-	CPLErr ret = GDALGridParseAlgorithmAndOptions(pszAlgorithm, peAlgorithm, ppOptions);
+	CPLErr ret; 
+	#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 7, 0)
+	ret = GDALGridParseAlgorithmAndOptions(pszAlgorithm, peAlgorithm, ppOptions);
+	#else
+	ret = ParseAlgorithmAndOptions(pszAlgorithm, peAlgorithm, ppOptions);
+	#endif
+
 	if(ret!=0) {
 		forceCPLError(ctx, ret);
 	}
