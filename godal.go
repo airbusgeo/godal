@@ -3813,7 +3813,7 @@ func BuildVRT(dstVRTName string, sourceDatasets []string, switches []string, opt
 //
 // NOTE: For valid gridding algorithm strings see: https://gdal.org/programs/gdal_grid.html#interpolation-algorithms
 func GridCreate(pszAlgorithm string,
-	numCoords uint32,
+	numCoords int,
 	xCoords []float64,
 	yCoords []float64,
 	zCoords []float64,
@@ -3821,8 +3821,8 @@ func GridCreate(pszAlgorithm string,
 	dfXMax float64,
 	dfYMin float64,
 	dfYMax float64,
-	nXSize uint32,
-	nYSize uint32,
+	nXSize int,
+	nYSize int,
 	buffer interface{},
 	opts ...GridCreateOption,
 ) error {
@@ -3847,7 +3847,7 @@ func GridCreate(pszAlgorithm string,
 	var (
 		dtype        = bufferType(buffer)
 		dsize        = dtype.Size()
-		numGridBytes = C.int(int(nXSize) * int(nYSize) * dsize)
+		numGridBytes = C.int(nXSize * nYSize * dsize)
 		cBuf         = cBuffer(buffer, int(numGridBytes)/dsize)
 	)
 	cgc = createCGOContext(nil, gco.errorHandler)

@@ -3983,12 +3983,12 @@ func TestGridCreate(t *testing.T) {
 	var (
 		err error
 
-		numCoords uint32 = 3
-		xCoords          = []float64{0, 1, 0}
-		yCoords          = []float64{0, 0, 1}
-		zCoords          = []float64{1, 0, 0}
-		outXSize  uint32 = 512
-		outYSize  uint32 = 512
+		numCoords int = 3
+		xCoords       = []float64{0, 1, 0}
+		yCoords       = []float64{0, 0, 1}
+		zCoords       = []float64{1, 0, 0}
+		outXSize  int = 512
+		outYSize  int = 512
 	)
 
 	// Open the test raster file (generated with command below) and read the values at each coordinate
