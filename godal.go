@@ -3825,17 +3825,16 @@ func GridCreate(pszAlgorithm string,
 	nYSize uint32,
 	buffer interface{},
 	opts ...GridCreateOption,
-) ([]byte, error) {
+) error {
 	gco := gridCreateOpts{}
 	for _, o := range opts {
 		o.setGridCreateOption(&gco)
 	}
 
-	var gridBytes []byte
 	griddingAlgStr := strings.Split(pszAlgorithm, ":")[0]
 	algCEnum, err := gridAlgFromString(griddingAlgStr)
 	if err != nil {
-		return gridBytes, err
+		return err
 	}
 
 	var (
@@ -3855,10 +3854,9 @@ func GridCreate(pszAlgorithm string,
 	C.godalGridCreate(cgc.cPointer(), (*C.char)(params), algCEnum, C.uint(numCoords), cDoubleArray(xCoords), cDoubleArray(yCoords), cDoubleArray(zCoords), C.double(dfXMin), C.double(dfXMax), C.double(dfYMin), C.double(dfYMax), C.uint(nXSize), C.uint(nYSize), C.GDALDataType(dtype), cBuf)
 	defer C.free(options)
 	if err := cgc.close(); err != nil {
-		return nil, err
+		return err
 	}
-	gridBytes = C.GoBytes(unsafe.Pointer(cBuf), numGridBytes)
-	return gridBytes, nil
+	return nil
 }
 
 type cgoContext struct {
