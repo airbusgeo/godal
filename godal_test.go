@@ -4006,19 +4006,11 @@ func TestGridCreate(t *testing.T) {
 	}
 
 	// NOTE: outYMin and outYMax are flipped to match the output of `gdal_grid`, which swaps their values (in this case) to make the image "north up"
-	var buf interface{} = make([]float64, outXSize*outYSize)
-	bytes, err := GridCreate("invdist:power=2.0:smoothing=1.0", numCoords, xCoords, yCoords, zCoords, 0, 1, 1, 0, outXSize, outYSize, buf)
+	var buf = make([]float64, outXSize*outYSize)
+	err = GridCreate("invdist:power=2.0:smoothing=1.0", numCoords, xCoords, yCoords, zCoords, 0, 1, 1, 0, outXSize, outYSize, buf)
 	if err != nil {
 		t.Error(err)
 		return
-	}
-
-	assert.Equal(t, len(bytes), (int(outXSize) * int(outYSize) * 8))
-
-	// byte -> float conversion
-	godalGridBindingPoints := make([]float64, outXSize*outYSize)
-	for i := 0; i < len(bytes)/8; i++ {
-		godalGridBindingPoints[i] = bytesToFloat64(bytes[i*8 : (i+1)*8])
 	}
 
 	var (
@@ -4028,11 +4020,11 @@ func TestGridCreate(t *testing.T) {
 		bottomLeftIndex  = (outXSize * outYSize) - 1
 		imageCentreIndex = outXSize*(outYSize/2) - 1
 	)
-	assert.Equal(t, gdalGridCLIRasterPoints[topLeftIndex], godalGridBindingPoints[topLeftIndex])
-	assert.Equal(t, gdalGridCLIRasterPoints[topRightIndex], godalGridBindingPoints[topRightIndex])
-	assert.Equal(t, gdalGridCLIRasterPoints[bottomRightIndex], godalGridBindingPoints[bottomRightIndex])
-	assert.Equal(t, gdalGridCLIRasterPoints[bottomLeftIndex], godalGridBindingPoints[bottomLeftIndex])
-	assert.Equal(t, gdalGridCLIRasterPoints[imageCentreIndex], godalGridBindingPoints[imageCentreIndex])
+	assert.Equal(t, gdalGridCLIRasterPoints[topLeftIndex], buf[topLeftIndex])
+	assert.Equal(t, gdalGridCLIRasterPoints[topRightIndex], buf[topRightIndex])
+	assert.Equal(t, gdalGridCLIRasterPoints[bottomRightIndex], buf[bottomRightIndex])
+	assert.Equal(t, gdalGridCLIRasterPoints[bottomLeftIndex], buf[bottomLeftIndex])
+	assert.Equal(t, gdalGridCLIRasterPoints[imageCentreIndex], buf[imageCentreIndex])
 }
 
 func bytesToFloat64(bytes []byte) float64 {
