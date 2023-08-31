@@ -1711,10 +1711,10 @@ func (ra ResamplingAlg) rioAlg() (C.GDALRIOResampleAlg, error) {
 }
 
 // Gridding algorithms
-type GriddingAlg int
+type griddingAlg int
 
 const (
-	InverseDistanceToAPower GriddingAlg = iota + 1
+	InverseDistanceToAPower griddingAlg = iota + 1
 	MovingAverage
 	NearestNeighbor
 	MetricMinimum
@@ -1727,7 +1727,7 @@ const (
 	InverseDistanceToAPowerNearestNeighbor
 )
 
-func (ga GriddingAlg) gridAlg() (C.GDALGridAlgorithm, error) {
+func (ga griddingAlg) gridAlg() (C.GDALGridAlgorithm, error) {
 	switch ga {
 	case InverseDistanceToAPower:
 		return C.GGA_InverseDistanceToAPower, nil
