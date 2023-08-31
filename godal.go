@@ -3844,11 +3844,6 @@ func GridCreate(pszAlgorithm string,
 		cgc     = createCGOContext(nil, gco.errorHandler)
 	)
 	defer C.free(params)
-	C.godalGridParseAlgorithmAndOptions(cgc.cPointer(), (*C.char)(params), &algCEnum, &options)
-	if err := cgc.close(); err != nil {
-		return nil, err
-	}
-	defer C.free(options)
 
 	var (
 		dtype        = bufferType(buffer)
@@ -3857,9 +3852,8 @@ func GridCreate(pszAlgorithm string,
 		cBuf         = cBuffer(buffer, int(numGridBytes)/dsize)
 	)
 	cgc = createCGOContext(nil, gco.errorHandler)
-	C.godalGridCreate(cgc.cPointer(), algCEnum, options, C.uint(numCoords), cDoubleArray(xCoords), cDoubleArray(yCoords),
-		cDoubleArray(zCoords), C.double(dfXMin), C.double(dfXMax), C.double(dfYMin), C.double(dfYMax),
-		C.uint(nXSize), C.uint(nYSize), C.GDALDataType(dtype), cBuf)
+	C.godalGridCreate(cgc.cPointer(), (*C.char)(params), algCEnum, C.uint(numCoords), cDoubleArray(xCoords), cDoubleArray(yCoords), cDoubleArray(zCoords), C.double(dfXMin), C.double(dfXMax), C.double(dfYMin), C.double(dfYMax), C.uint(nXSize), C.uint(nYSize), C.GDALDataType(dtype), cBuf)
+	defer C.free(options)
 	if err := cgc.close(); err != nil {
 		return nil, err
 	}

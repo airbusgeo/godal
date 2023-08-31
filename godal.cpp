@@ -1693,30 +1693,25 @@ void test_godal_error_handling(cctx *ctx) {
 	godalUnwrap();
 }
 
-void godalGridCreate(cctx *ctx, GDALGridAlgorithm eAlgorithm, void *poOptions, GUInt32 nPoints, const double *padfX, const double *padfY, const double *padfZ, double dfXMin,
+void godalGridCreate(cctx *ctx, char *pszAlgorithm, GDALGridAlgorithm eAlgorithm, GUInt32 nPoints, const double *padfX, const double *padfY, const double *padfZ, double dfXMin,
 					double dfXMax, double dfYMin, double dfYMax, GUInt32 nXSize, GUInt32 nYSize, GDALDataType eType, void *pData) {
 	godalWrap(ctx);
 
-	CPLErr ret = GDALGridCreate(eAlgorithm, poOptions, nPoints, padfX, padfY,
-                      padfZ, dfXMin, dfXMax, dfYMin, dfYMax, nXSize, nYSize, 
-					  eType,  pData, nullptr, nullptr);
+	CPLErr ret;
+	void *ppOptions;
+
+#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 7, 0)
+	ret = GDALGridParseAlgorithmAndOptions(pszAlgorithm, &eAlgorithm, &ppOptions);
+#else
+	ret = ParseAlgorithmAndOptions(pszAlgorithm, &eAlgorithm, &ppOptions);
+#endif
 	if(ret!=0) {
 		forceCPLError(ctx, ret);
 	}
 
-	godalUnwrap();
-}
-
-void godalGridParseAlgorithmAndOptions(cctx *ctx, char *pszAlgorithm, GDALGridAlgorithm *peAlgorithm, void **ppOptions) {
-	godalWrap(ctx);
-
-	CPLErr ret; 
-#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 7, 0)
-	ret = GDALGridParseAlgorithmAndOptions(pszAlgorithm, peAlgorithm, ppOptions);
-#else
-	ret = ParseAlgorithmAndOptions(pszAlgorithm, peAlgorithm, ppOptions);
-#endif
-
+	ret = GDALGridCreate(eAlgorithm, ppOptions, nPoints, padfX, padfY,
+                      padfZ, dfXMin, dfXMax, dfYMin, dfYMax, nXSize, nYSize, 
+					  eType,  pData, nullptr, nullptr);
 	if(ret!=0) {
 		forceCPLError(ctx, ret);
 	}
