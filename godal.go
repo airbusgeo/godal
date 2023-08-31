@@ -3832,8 +3832,8 @@ func GridCreate(pszAlgorithm string,
 	}
 
 	var gridBytes []byte
-	griddingAlg := strings.Split(pszAlgorithm, ":")[0]
-	algCEnum, err := gridAlgFromString(griddingAlg)
+	griddingAlgStr := strings.Split(pszAlgorithm, ":")[0]
+	algCEnum, err := gridAlgFromString(griddingAlgStr)
 	if err != nil {
 		return gridBytes, err
 	}
