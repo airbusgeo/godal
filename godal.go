@@ -3767,7 +3767,6 @@ func BuildVRT(dstVRTName string, sourceDatasets []string, switches []string, opt
 //
 // NOTE: For valid gridding algorithm strings see: https://gdal.org/programs/gdal_grid.html#interpolation-algorithms
 func GridCreate(pszAlgorithm string,
-	numCoords int,
 	xCoords []float64,
 	yCoords []float64,
 	zCoords []float64,
@@ -3780,6 +3779,10 @@ func GridCreate(pszAlgorithm string,
 	buffer interface{},
 	opts ...GridCreateOption,
 ) error {
+	if len(xCoords) != len(yCoords) || len(yCoords) != len(zCoords) {
+		return errors.New("`xCoords`, `yCoords` and `zCoords` are not all equal length")
+	}
+
 	gco := gridCreateOpts{}
 	for _, o := range opts {
 		o.setGridCreateOpt(&gco)
@@ -3804,7 +3807,7 @@ func GridCreate(pszAlgorithm string,
 		cBuf         = cBuffer(buffer, int(numGridBytes)/dsize)
 	)
 	cgc = createCGOContext(nil, gco.errorHandler)
-	C.godalGridCreate(cgc.cPointer(), (*C.char)(params), algCEnum, C.uint(numCoords), cDoubleArray(xCoords), cDoubleArray(yCoords), cDoubleArray(zCoords), C.double(dfXMin), C.double(dfXMax), C.double(dfYMin), C.double(dfYMax), C.uint(nXSize), C.uint(nYSize), C.GDALDataType(dtype), cBuf)
+	C.godalGridCreate(cgc.cPointer(), (*C.char)(params), algCEnum, C.uint(len(xCoords)), cDoubleArray(xCoords), cDoubleArray(yCoords), cDoubleArray(zCoords), C.double(dfXMin), C.double(dfXMax), C.double(dfYMin), C.double(dfYMax), C.uint(nXSize), C.uint(nYSize), C.GDALDataType(dtype), cBuf)
 	if err := cgc.close(); err != nil {
 		return err
 	}

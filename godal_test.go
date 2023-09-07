@@ -3982,16 +3982,15 @@ func TestGridCreateLinear(t *testing.T) {
 	var (
 		err error
 
-		numCoords = 4
-		xCoords   = []float64{0, 1, 0, 1}
-		yCoords   = []float64{0, 0, 1, 1}
-		zCoords   = []float64{1, 0, 0, 1}
-		outXSize  = 256
-		outYSize  = 256
+		xCoords  = []float64{0, 1, 0, 1}
+		yCoords  = []float64{0, 0, 1, 1}
+		zCoords  = []float64{1, 0, 0, 1}
+		outXSize = 256
+		outYSize = 256
 	)
 
 	var gridCreateBindingPoints = make([]float64, outXSize*outYSize)
-	err = GridCreate("linear", numCoords, xCoords, yCoords, zCoords, 0, 1, 0, 1, outXSize, outYSize, gridCreateBindingPoints)
+	err = GridCreate("linear", xCoords, yCoords, zCoords, 0, 1, 0, 1, outXSize, outYSize, gridCreateBindingPoints)
 	if err != nil {
 		t.Error(err)
 		return
@@ -4032,16 +4031,15 @@ func TestGridCreateMaximum(t *testing.T) {
 	var (
 		err error
 
-		numCoords = 4
-		xCoords   = []float64{0, 1, 0, 1}
-		yCoords   = []float64{0, 0, 1, 1}
-		zCoords   = []float64{1, 0, 0, 1}
-		outXSize  = 256
-		outYSize  = 256
+		xCoords  = []float64{0, 1, 0, 1}
+		yCoords  = []float64{0, 0, 1, 1}
+		zCoords  = []float64{1, 0, 0, 1}
+		outXSize = 256
+		outYSize = 256
 	)
 
 	var gridCreateBindingPoints = make([]float64, outXSize*outYSize)
-	err = GridCreate("maximum", numCoords, xCoords, yCoords, zCoords, 0, 1, 0, 1, outXSize, outYSize, gridCreateBindingPoints)
+	err = GridCreate("maximum", xCoords, yCoords, zCoords, 0, 1, 0, 1, outXSize, outYSize, gridCreateBindingPoints)
 	if err != nil {
 		t.Error(err)
 		return
