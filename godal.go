@@ -3828,7 +3828,7 @@ func GridCreate(pszAlgorithm string,
 ) error {
 	gco := gridCreateOpts{}
 	for _, o := range opts {
-		o.setGridCreateOption(&gco)
+		o.setGridCreateOpt(&gco)
 	}
 
 	griddingAlgStr := strings.Split(pszAlgorithm, ":")[0]

@@ -361,7 +361,7 @@ func (ec errorCallback) setSetStatisticsOpt(o *setStatisticsOpt) {
 func (ec errorCallback) setClearStatisticsOpt(o *clearStatisticsOpt) {
 	o.errorHandler = ec.fn
 }
-func (ec errorCallback) setGridCreateOption(o *gridCreateOpts) {
+func (ec errorCallback) setGridCreateOpt(o *gridCreateOpts) {
 	o.errorHandler = ec.fn
 }
 
