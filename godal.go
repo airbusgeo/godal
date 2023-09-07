@@ -1735,7 +1735,7 @@ func gridAlgFromString(str string) (C.GDALGridAlgorithm, error) {
 	case "invdistnn":
 		return C.GGA_InverseDistanceToAPowerNearestNeighbor, nil
 	default:
-		return C.GGA_InverseDistanceToAPower, errors.New("string doesn't match a supported gridding algorithm")
+		return C.GGA_InverseDistanceToAPower, fmt.Errorf("unknown gridding algorithm %s", str)
 	}
 }
 
