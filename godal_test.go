@@ -3979,35 +3979,20 @@ func TestStatistics(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestGridCreate(t *testing.T) {
+func TestGridCreateLinear(t *testing.T) {
 	var (
 		err error
 
-		numCoords int = 3
-		xCoords       = []float64{0, 1, 0}
-		yCoords       = []float64{0, 0, 1}
-		zCoords       = []float64{1, 0, 0}
-		outXSize  int = 512
-		outYSize  int = 512
+		numCoords = 4
+		xCoords   = []float64{0, 1, 0, 1}
+		yCoords   = []float64{0, 0, 1, 1}
+		zCoords   = []float64{1, 0, 0, 1}
+		outXSize  = 256
+		outYSize  = 256
 	)
 
-	// Open the test raster file (generated with command below) and read the values at each coordinate
-	// gdal_grid -a invdist:power=2.0:smoothing=1.0 -txe 0 1 -tye 0 1 -outsize 512 512 -of GTiff -ot Float64 -l grid ./testdata/grid.vrt ./testdata/grid.tiff
-	f, err := Open("./testdata/grid.tiff")
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	var gdalGridCLIRasterPoints = make([]float64, outXSize*outYSize)
-	err = f.Read(0, 0, gdalGridCLIRasterPoints, int(outXSize), int(outYSize))
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	// NOTE: outYMin and outYMax are flipped to match the output of `gdal_grid`, which swaps their values (in this case) to make the image "north up"
-	var buf = make([]float64, outXSize*outYSize)
-	err = GridCreate("invdist:power=2.0:smoothing=1.0", numCoords, xCoords, yCoords, zCoords, 0, 1, 1, 0, outXSize, outYSize, buf)
+	var gridCreateBindingPoints = make([]float64, outXSize*outYSize)
+	err = GridCreate("linear", numCoords, xCoords, yCoords, zCoords, 0, 1, 0, 1, outXSize, outYSize, gridCreateBindingPoints)
 	if err != nil {
 		t.Error(err)
 		return
@@ -4016,19 +4001,69 @@ func TestGridCreate(t *testing.T) {
 	var (
 		topLeftIndex     = 0
 		topRightIndex    = outXSize - 1
-		bottomRightIndex = outXSize * (outYSize - 1)
-		bottomLeftIndex  = (outXSize * outYSize) - 1
-		imageCentreIndex = outXSize*(outYSize/2) - 1
+		bottomLeftIndex  = outXSize * (outYSize - 1)
+		bottomRightIndex = (outXSize * outYSize) - 1
+		imageCentreIndex = outYSize*(outXSize/2) - 1
 	)
-	assert.Equal(t, gdalGridCLIRasterPoints[topLeftIndex], buf[topLeftIndex])
-	assert.Equal(t, gdalGridCLIRasterPoints[topRightIndex], buf[topRightIndex])
-	assert.Equal(t, gdalGridCLIRasterPoints[bottomRightIndex], buf[bottomRightIndex])
-	assert.Equal(t, gdalGridCLIRasterPoints[bottomLeftIndex], buf[bottomLeftIndex])
-	assert.Equal(t, gdalGridCLIRasterPoints[imageCentreIndex], buf[imageCentreIndex])
+
+	// For linear interpolation, we expect z-values of corners to match the input coordinates
+	// and the centre value to be the average of the 4 corner values
+	// 	TL (0, 0, 0), EXPECTED OUTPUT Z-VAL  = 0
+	// 	TR (1, 0, 1), EXPECTED OUTPUT Z-VAL  = 1
+	// 	BL (0, 1, 0), EXPECTED OUTPUT Z-VAL  = 0
+	// 	BR (1, 1, 1), EXPECTED OUTPUT Z-VAL  = 1
+	//  CR (0.5, 0.5), EXPECTED OUTPUT Z-VAL = (0 + 1 + 0 + 1) / 4 = 0.5
+	//
+	// NOTE: The input X and Y coords are offset slightly in GDAL before they're passed into a a gridding algorithm.
+	// This is why "TR" and "BL" below are expected to be 0.00390625 and NOT 0.
+	// See the `dfXPoint` and `dfYPoint` values in `GDALGridJobProcess()` for how these points are calculated
+	// TL
+	assert.Equal(t, 1.0, gridCreateBindingPoints[topLeftIndex])
+	// TR
+	assert.Equal(t, 0.00390625, gridCreateBindingPoints[topRightIndex])
+	// BL
+	assert.Equal(t, 0.00390625, gridCreateBindingPoints[bottomLeftIndex])
+	// BR
+	assert.Equal(t, 1.0, gridCreateBindingPoints[bottomRightIndex])
+	// Center
+	assert.Equal(t, 0.5, gridCreateBindingPoints[imageCentreIndex])
 }
 
-func bytesToFloat64(bytes []byte) float64 {
-	bits := binary.LittleEndian.Uint64(bytes)
-	float := math.Float64frombits(bits)
-	return float
+func TestGridCreateMaximum(t *testing.T) {
+	var (
+		err error
+
+		numCoords = 4
+		xCoords   = []float64{0, 1, 0, 1}
+		yCoords   = []float64{0, 0, 1, 1}
+		zCoords   = []float64{1, 0, 0, 1}
+		outXSize  = 256
+		outYSize  = 256
+	)
+
+	var gridCreateBindingPoints = make([]float64, outXSize*outYSize)
+	err = GridCreate("maximum", numCoords, xCoords, yCoords, zCoords, 0, 1, 0, 1, outXSize, outYSize, gridCreateBindingPoints)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	var (
+		topLeftIndex     = 0
+		topRightIndex    = outXSize - 1
+		bottomLeftIndex  = outXSize * (outYSize - 1)
+		bottomRightIndex = (outXSize * outYSize) - 1
+		imageCentreIndex = outYSize*(outXSize/2) - 1
+	)
+	// All sampled values are expected to match the "maximum" value in the grid i.e. 1
+	// TL
+	assert.Equal(t, 1.0, gridCreateBindingPoints[topLeftIndex])
+	// TR
+	assert.Equal(t, 1.0, gridCreateBindingPoints[topRightIndex])
+	// BL
+	assert.Equal(t, 1.0, gridCreateBindingPoints[bottomLeftIndex])
+	// BR
+	assert.Equal(t, 1.0, gridCreateBindingPoints[bottomRightIndex])
+	// Center
+	assert.Equal(t, 1.0, gridCreateBindingPoints[imageCentreIndex])
 }
