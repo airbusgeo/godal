@@ -1710,52 +1710,6 @@ func (ra ResamplingAlg) rioAlg() (C.GDALRIOResampleAlg, error) {
 	}
 }
 
-// Gridding algorithms
-type griddingAlg int
-
-const (
-	InverseDistanceToAPower griddingAlg = iota + 1
-	MovingAverage
-	NearestNeighbor
-	MetricMinimum
-	MetricMaximum
-	MetricRange
-	MetricCount
-	MetricAverageDistance
-	MetricAverageDistancePts
-	Linear
-	InverseDistanceToAPowerNearestNeighbor
-)
-
-func (ga griddingAlg) gridAlg() (C.GDALGridAlgorithm, error) {
-	switch ga {
-	case InverseDistanceToAPower:
-		return C.GGA_InverseDistanceToAPower, nil
-	case MovingAverage:
-		return C.GGA_MovingAverage, nil
-	case NearestNeighbor:
-		return C.GGA_NearestNeighbor, nil
-	case MetricMinimum:
-		return C.GGA_MetricMinimum, nil
-	case MetricMaximum:
-		return C.GGA_MetricMaximum, nil
-	case MetricRange:
-		return C.GGA_MetricRange, nil
-	case MetricCount:
-		return C.GGA_MetricCount, nil
-	case MetricAverageDistance:
-		return C.GGA_MetricAverageDistance, nil
-	case MetricAverageDistancePts:
-		return C.GGA_MetricAverageDistancePts, nil
-	case Linear:
-		return C.GGA_Linear, nil
-	case InverseDistanceToAPowerNearestNeighbor:
-		return C.GGA_InverseDistanceToAPowerNearestNeighbor, nil
-	default:
-		return C.GGA_InverseDistanceToAPower, errors.New("unsupported gridding algorithm")
-	}
-}
-
 func gridAlgFromString(str string) (C.GDALGridAlgorithm, error) {
 	switch str {
 	case "invdist":
