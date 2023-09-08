@@ -4026,13 +4026,6 @@ func TestGridLinear(t *testing.T) {
 	defer func() { _ = VSIUnlink(fname) }()
 	defer gridDs.Close()
 
-	gt, _ := gridDs.GeoTransform()
-	if gt[3] == 0 {
-		gt[3] = 1
-		gt[5] *= -1
-	}
-	gridDs.SetGeoTransform(gt)
-
 	var gridBindingPoints = make([]float64, outXSize*outYSize)
 	err = gridDs.Read(0, 0, gridBindingPoints, outXSize, outYSize)
 	if err != nil {
