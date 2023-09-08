@@ -1696,10 +1696,15 @@ void test_godal_error_handling(cctx *ctx) {
 void godalGridCreate(cctx *ctx, char *pszAlgorithm, GDALGridAlgorithm eAlgorithm, GUInt32 nPoints, const double *padfX, const double *padfY, const double *padfZ, double dfXMin,
 					double dfXMax, double dfYMin, double dfYMax, GUInt32 nXSize, GUInt32 nYSize, GDALDataType eType, void *pData) {
 	godalWrap(ctx);
-
 	CPLErr ret;
-	void *ppOptions;
 
+	if (!GDALHasTriangulation() && eAlgorithm == GGA_Linear) {
+		CPLError(CE_Failure, CPLE_AppDefined, "unable to run GGA_Linear algorithm, since GDAL built without QHull support");
+		godalUnwrap();
+		return;
+	}
+
+	void *ppOptions;
 #if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 7, 0)
 	ret = GDALGridParseAlgorithmAndOptions(pszAlgorithm, &eAlgorithm, &ppOptions);
 #else
