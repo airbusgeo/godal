@@ -364,6 +364,9 @@ func (ec errorCallback) setClearStatisticsOpt(o *clearStatisticsOpt) {
 func (ec errorCallback) setGridCreateOpt(o *gridCreateOpts) {
 	o.errorHandler = ec.fn
 }
+func (ec errorCallback) setGridOpt(o *gridOpts) {
+	o.errorHandler = ec.fn
+}
 
 type multiError struct {
 	errs []error

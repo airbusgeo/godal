@@ -152,6 +152,7 @@ extern "C" {
     int godalGetRasterStatistics(cctx *ctx, GDALRasterBandH bnd, int bApproxOK, double *pdfMin, double *pdfMax, double *pdfMean, double *pdfStdDev);
     void godalSetRasterStatistics(cctx *ctx, GDALRasterBandH bnd, double dfMin, double dfMax, double dfMean, double dfStdDev);
 	void godalGridCreate(cctx *ctx, char *pszAlgorithm, GDALGridAlgorithm eAlgorithm, GUInt32 nPoints, const double *padfX, const double *padfY, const double *padfZ, double dfXMin, double dfXMax, double dfYMin, double dfYMax, GUInt32 nXSize, GUInt32 nYSize, GDALDataType eType, void *pData);
+	GDALDatasetH godalGrid(cctx *ctx, const char *pszDest, GDALDatasetH hSrcDS, char **switches);
 #ifdef __cplusplus
 }
 #endif

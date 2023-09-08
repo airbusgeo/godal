@@ -3979,6 +3979,93 @@ func TestStatistics(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestGridLinear(t *testing.T) {
+	var (
+		err      error
+		outXSize = 256
+		outYSize = 256
+	)
+
+	vrtDs, err := CreateVector(Memory, "")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	geom, err := NewGeometryFromWKT("POLYGON((0 0 1, 1 0 0, 0 1 0, 1 1 1))", nil)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = vrtDs.CreateLayer("grid", nil, GTPolygon)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = vrtDs.Layers()[0].NewFeature(geom)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	argsString := fmt.Sprintf("-a linear -txe 1 0 -tye 0 1 -outsize %d %d -ot Float64", outXSize, outYSize)
+	fname := "/vsimem/test.tiff"
+	tmpDs, err := Create(Memory, fname, 1, Float64, outXSize, outYSize)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer tmpDs.Close()
+
+	gridDs, err := vrtDs.Grid(fname, strings.Split(argsString, " "))
+	if err != nil {
+		// Handles QHull error differently here, as it's a compatibility issue not a gridding error
+		isQhullError := strings.HasSuffix(err.Error(), "without QHull support")
+		if isQhullError {
+			t.Log(`Skipping test, GDAL was built without "Delaunay triangulation" support which is required for the "Linear" gridding algorithm`)
+			return
+		} else {
+			t.Error(err)
+			return
+		}
+	}
+	var gridBindingPoints = make([]float64, outXSize*outYSize)
+	err = gridDs.Read(0, 0, gridBindingPoints, outXSize, outYSize)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	var (
+		topLeftIndex     = 0
+		topRightIndex    = outXSize - 1
+		bottomLeftIndex  = outXSize * (outYSize - 1)
+		bottomRightIndex = (outXSize * outYSize) - 1
+		imageCentreIndex = outYSize*(outXSize/2) - 1
+	)
+
+	// For linear interpolation, we expect z-values of corners to match the input coordinates
+	// and the centre value to be the average of the 4 corner values
+	// 	TL (0, 0, 0), EXPECTED OUTPUT Z-VAL  = 0
+	// 	TR (1, 0, 1), EXPECTED OUTPUT Z-VAL  = 1
+	// 	BL (0, 1, 0), EXPECTED OUTPUT Z-VAL  = 0
+	// 	BR (1, 1, 1), EXPECTED OUTPUT Z-VAL  = 1
+	//  CR (0.5, 0.5), EXPECTED OUTPUT Z-VAL = (0 + 1 + 0 + 1) / 4 = 0.5
+	//
+	// NOTE: The input X and Y coords are offset slightly in GDAL before they're passed into a a gridding algorithm.
+	// This is why "TR" and "BL" below are expected to be 0.00390625 and NOT 0.
+	// See the `dfXPoint` and `dfYPoint` values in `GDALGridJobProcess()` for how these points are calculated
+	// TL
+	assert.Equal(t, 1.0, gridBindingPoints[topLeftIndex])
+	// TR
+	assert.Equal(t, 0.00390625, gridBindingPoints[topRightIndex])
+	// BL
+	assert.Equal(t, 0.00390625, gridBindingPoints[bottomLeftIndex])
+	// BR
+	assert.Equal(t, 1.0, gridBindingPoints[bottomRightIndex])
+	// Center
+	assert.Equal(t, 0.5, gridBindingPoints[imageCentreIndex])
+}
+
 func TestGridCreateLinear(t *testing.T) {
 	var (
 		err error
@@ -4033,6 +4120,77 @@ func TestGridCreateLinear(t *testing.T) {
 	assert.Equal(t, 1.0, gridCreateBindingPoints[bottomRightIndex])
 	// Center
 	assert.Equal(t, 0.5, gridCreateBindingPoints[imageCentreIndex])
+}
+
+func TestGridMaximum(t *testing.T) {
+	var (
+		err      error
+		outXSize = 256
+		outYSize = 256
+	)
+
+	vrtDs, err := CreateVector(Memory, "")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	geom, err := NewGeometryFromWKT("POLYGON((0 0 1, 1 0 0, 0 1 0, 1 1 1))", nil)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = vrtDs.CreateLayer("grid", nil, GTPolygon)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = vrtDs.Layers()[0].NewFeature(geom)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	// NOTE: Flipping the arguments after `-tye` here, to account for `ProcessLayer` (in `GDALGrid`) flipping the coords "north up"
+	argsString := fmt.Sprintf("-a maximum -txe 0 1 -tye 1 0 -outsize %d %d -ot Float64", outXSize, outYSize)
+	fname := "/vsimem/test.tiff"
+	tmpDs, err := Create(Memory, fname, 1, Float64, outXSize, outYSize)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer tmpDs.Close()
+
+	gridDs, err := vrtDs.Grid(fname, strings.Split(argsString, " "))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	var gridBindingPoints = make([]float64, outXSize*outYSize)
+	err = gridDs.Read(0, 0, gridBindingPoints, outXSize, outYSize)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	var (
+		topLeftIndex     = 0
+		topRightIndex    = outXSize - 1
+		bottomLeftIndex  = outXSize * (outYSize - 1)
+		bottomRightIndex = (outXSize * outYSize) - 1
+		imageCentreIndex = outYSize*(outXSize/2) - 1
+	)
+
+	// All sampled values are expected to match the "maximum" value in the grid i.e. 1
+	// TL
+	assert.Equal(t, 1.0, gridBindingPoints[topLeftIndex])
+	// TR
+	assert.Equal(t, 1.0, gridBindingPoints[topRightIndex])
+	// BL
+	assert.Equal(t, 1.0, gridBindingPoints[bottomLeftIndex])
+	// BR
+	assert.Equal(t, 1.0, gridBindingPoints[bottomRightIndex])
+	// Center
+	assert.Equal(t, 1.0, gridBindingPoints[imageCentreIndex])
 }
 
 func TestGridCreateMaximum(t *testing.T) {
