@@ -1710,6 +1710,35 @@ func (ra ResamplingAlg) rioAlg() (C.GDALRIOResampleAlg, error) {
 	}
 }
 
+func gridAlgFromString(str string) (C.GDALGridAlgorithm, error) {
+	switch str {
+	case "invdist":
+		return C.GGA_InverseDistanceToAPower, nil
+	case "average":
+		return C.GGA_MovingAverage, nil
+	case "nearest":
+		return C.GGA_NearestNeighbor, nil
+	case "minimum":
+		return C.GGA_MetricMinimum, nil
+	case "maximum":
+		return C.GGA_MetricMaximum, nil
+	case "range":
+		return C.GGA_MetricRange, nil
+	case "count":
+		return C.GGA_MetricCount, nil
+	case "average_distance":
+		return C.GGA_MetricAverageDistance, nil
+	case "average_distance_pts":
+		return C.GGA_MetricAverageDistancePts, nil
+	case "linear":
+		return C.GGA_Linear, nil
+	case "invdistnn":
+		return C.GGA_InverseDistanceToAPowerNearestNeighbor, nil
+	default:
+		return C.GGA_InverseDistanceToAPower, fmt.Errorf("unknown gridding algorithm %s", str)
+	}
+}
+
 func bufferType(buffer interface{}) DataType {
 	switch buffer.(type) {
 	case []byte:
@@ -3731,6 +3760,58 @@ func BuildVRT(dstVRTName string, sourceDatasets []string, switches []string, opt
 		return nil, err
 	}
 	return &Dataset{majorObject{C.GDALMajorObjectH(hndl)}}, nil
+}
+
+// GridCreate, creates a grid from scattered data, given provided gridding parameters as a string (pszAlgorithm)
+// and the arguments required for `godalGridCreate()` (binding for GDALGridCreate)
+//
+// NOTE: For valid gridding algorithm strings see: https://gdal.org/programs/gdal_grid.html#interpolation-algorithms
+func GridCreate(pszAlgorithm string,
+	xCoords []float64,
+	yCoords []float64,
+	zCoords []float64,
+	dfXMin float64,
+	dfXMax float64,
+	dfYMin float64,
+	dfYMax float64,
+	nXSize int,
+	nYSize int,
+	buffer interface{},
+	opts ...GridCreateOption,
+) error {
+	if len(xCoords) != len(yCoords) || len(yCoords) != len(zCoords) {
+		return errors.New("`xCoords`, `yCoords` and `zCoords` are not all equal length")
+	}
+
+	gco := gridCreateOpts{}
+	for _, o := range opts {
+		o.setGridCreateOpt(&gco)
+	}
+
+	griddingAlgStr := strings.Split(pszAlgorithm, ":")[0]
+	algCEnum, err := gridAlgFromString(griddingAlgStr)
+	if err != nil {
+		return err
+	}
+
+	var (
+		params = unsafe.Pointer(C.CString(pszAlgorithm))
+		cgc    = createCGOContext(nil, gco.errorHandler)
+	)
+	defer C.free(params)
+
+	var (
+		dtype        = bufferType(buffer)
+		dsize        = dtype.Size()
+		numGridBytes = C.int(nXSize * nYSize * dsize)
+		cBuf         = cBuffer(buffer, int(numGridBytes)/dsize)
+	)
+	cgc = createCGOContext(nil, gco.errorHandler)
+	C.godalGridCreate(cgc.cPointer(), (*C.char)(params), algCEnum, C.uint(len(xCoords)), cDoubleArray(xCoords), cDoubleArray(yCoords), cDoubleArray(zCoords), C.double(dfXMin), C.double(dfXMax), C.double(dfYMin), C.double(dfYMax), C.uint(nXSize), C.uint(nYSize), C.GDALDataType(dtype), cBuf)
+	if err := cgc.close(); err != nil {
+		return err
+	}
+	return nil
 }
 
 type cgoContext struct {

@@ -1225,6 +1225,17 @@ type rasterizeGeometryOpts struct {
 	errorHandler ErrorHandler
 }
 
+type gridCreateOpts struct {
+	errorHandler ErrorHandler
+}
+
+// GridCreateOption is an option that can be passed to GridCreate
+// Available options are:
+//   - none yet
+type GridCreateOption interface {
+	setGridCreateOpt(mo *gridCreateOpts)
+}
+
 // RasterizeGeometryOption is an option that can be passed tp Dataset.RasterizeGeometry()
 type RasterizeGeometryOption interface {
 	setRasterizeGeometryOpt(o *rasterizeGeometryOpts)

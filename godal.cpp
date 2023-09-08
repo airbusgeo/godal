@@ -28,6 +28,7 @@
 
 #include <gdal_utils.h>
 #include <gdal_alg.h>
+#include <gdalgrid.h>
 
 extern "C" {
 	extern long long int _gogdalSizeCallback(char* key, char** errorString);
@@ -1692,3 +1693,35 @@ void test_godal_error_handling(cctx *ctx) {
 	godalUnwrap();
 }
 
+void godalGridCreate(cctx *ctx, char *pszAlgorithm, GDALGridAlgorithm eAlgorithm, GUInt32 nPoints, const double *padfX, const double *padfY, const double *padfZ, double dfXMin,
+					double dfXMax, double dfYMin, double dfYMax, GUInt32 nXSize, GUInt32 nYSize, GDALDataType eType, void *pData) {
+	godalWrap(ctx);
+	CPLErr ret;
+
+	if (!GDALHasTriangulation() && eAlgorithm == GGA_Linear) {
+		CPLError(CE_Failure, CPLE_AppDefined, "unable to run GGA_Linear algorithm, since GDAL built without QHull support");
+		godalUnwrap();
+		return;
+	}
+
+	void *ppOptions;
+#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 7, 0)
+	ret = GDALGridParseAlgorithmAndOptions(pszAlgorithm, &eAlgorithm, &ppOptions);
+#else
+	ret = ParseAlgorithmAndOptions(pszAlgorithm, &eAlgorithm, &ppOptions);
+#endif
+	if(ret!=0) {
+		forceCPLError(ctx, ret);
+		godalUnwrap();
+		return;
+	}
+
+	ret = GDALGridCreate(eAlgorithm, ppOptions, nPoints, padfX, padfY,
+                      padfZ, dfXMin, dfXMax, dfYMin, dfYMax, nXSize, nYSize, 
+					  eType,  pData, nullptr, nullptr);
+	if(ret!=0) {
+		forceCPLError(ctx, ret);
+	}
+
+	godalUnwrap();
+}

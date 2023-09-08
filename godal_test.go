@@ -25,6 +25,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -3976,4 +3977,98 @@ func TestStatistics(t *testing.T) {
 	// Test on null band for coverage
 	_, _, err = bnd.GetStatistics()
 	assert.Error(t, err)
+}
+
+func TestGridCreateLinear(t *testing.T) {
+	var (
+		err error
+
+		xCoords  = []float64{0, 1, 0, 1}
+		yCoords  = []float64{0, 0, 1, 1}
+		zCoords  = []float64{1, 0, 0, 1}
+		outXSize = 256
+		outYSize = 256
+	)
+
+	var gridCreateBindingPoints = make([]float64, outXSize*outYSize)
+	err = GridCreate("linear", xCoords, yCoords, zCoords, 0, 1, 0, 1, outXSize, outYSize, gridCreateBindingPoints)
+	if err != nil {
+		// Handles QHull error differently here, as it's a compatibility issue not a gridding error
+		isQhullError := strings.HasSuffix(err.Error(), "without QHull support")
+		if isQhullError {
+			t.Log(`Skipping test, GDAL was built without "Delaunay triangulation" support which is required for the "Linear" gridding algorithm`)
+			return
+		} else {
+			t.Error(err)
+			return
+		}
+	}
+
+	var (
+		topLeftIndex     = 0
+		topRightIndex    = outXSize - 1
+		bottomLeftIndex  = outXSize * (outYSize - 1)
+		bottomRightIndex = (outXSize * outYSize) - 1
+		imageCentreIndex = outYSize*(outXSize/2) - 1
+	)
+
+	// For linear interpolation, we expect z-values of corners to match the input coordinates
+	// and the centre value to be the average of the 4 corner values
+	// 	TL (0, 0, 0), EXPECTED OUTPUT Z-VAL  = 0
+	// 	TR (1, 0, 1), EXPECTED OUTPUT Z-VAL  = 1
+	// 	BL (0, 1, 0), EXPECTED OUTPUT Z-VAL  = 0
+	// 	BR (1, 1, 1), EXPECTED OUTPUT Z-VAL  = 1
+	//  CR (0.5, 0.5), EXPECTED OUTPUT Z-VAL = (0 + 1 + 0 + 1) / 4 = 0.5
+	//
+	// NOTE: The input X and Y coords are offset slightly in GDAL before they're passed into a a gridding algorithm.
+	// This is why "TR" and "BL" below are expected to be 0.00390625 and NOT 0.
+	// See the `dfXPoint` and `dfYPoint` values in `GDALGridJobProcess()` for how these points are calculated
+	// TL
+	assert.Equal(t, 1.0, gridCreateBindingPoints[topLeftIndex])
+	// TR
+	assert.Equal(t, 0.00390625, gridCreateBindingPoints[topRightIndex])
+	// BL
+	assert.Equal(t, 0.00390625, gridCreateBindingPoints[bottomLeftIndex])
+	// BR
+	assert.Equal(t, 1.0, gridCreateBindingPoints[bottomRightIndex])
+	// Center
+	assert.Equal(t, 0.5, gridCreateBindingPoints[imageCentreIndex])
+}
+
+func TestGridCreateMaximum(t *testing.T) {
+	var (
+		err error
+
+		xCoords  = []float64{0, 1, 0, 1}
+		yCoords  = []float64{0, 0, 1, 1}
+		zCoords  = []float64{1, 0, 0, 1}
+		outXSize = 256
+		outYSize = 256
+	)
+
+	var gridCreateBindingPoints = make([]float64, outXSize*outYSize)
+	err = GridCreate("maximum", xCoords, yCoords, zCoords, 0, 1, 0, 1, outXSize, outYSize, gridCreateBindingPoints)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	var (
+		topLeftIndex     = 0
+		topRightIndex    = outXSize - 1
+		bottomLeftIndex  = outXSize * (outYSize - 1)
+		bottomRightIndex = (outXSize * outYSize) - 1
+		imageCentreIndex = outYSize*(outXSize/2) - 1
+	)
+	// All sampled values are expected to match the "maximum" value in the grid i.e. 1
+	// TL
+	assert.Equal(t, 1.0, gridCreateBindingPoints[topLeftIndex])
+	// TR
+	assert.Equal(t, 1.0, gridCreateBindingPoints[topRightIndex])
+	// BL
+	assert.Equal(t, 1.0, gridCreateBindingPoints[bottomLeftIndex])
+	// BR
+	assert.Equal(t, 1.0, gridCreateBindingPoints[bottomRightIndex])
+	// Center
+	assert.Equal(t, 1.0, gridCreateBindingPoints[imageCentreIndex])
 }
