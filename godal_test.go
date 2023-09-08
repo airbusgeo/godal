@@ -4150,7 +4150,7 @@ func TestGridMaximum(t *testing.T) {
 	}
 
 	// NOTE: Flipping the arguments after `-tye` here, to account for `ProcessLayer` (in `GDALGrid`) flipping the coords "north up"
-	argsString := fmt.Sprintf("-a maximum -txe 0 1 -tye 1 0 -outsize %d %d -ot Float64", outXSize, outYSize)
+	argsString := fmt.Sprintf("-a maximum -txe 0 1 -tye 0 1 -outsize %d %d -ot Float64", outXSize, outYSize)
 	fname := "/vsimem/test.tiff"
 
 	gridDs, err := vrtDs.Grid(fname, strings.Split(argsString, " "))
