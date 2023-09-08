@@ -4007,7 +4007,7 @@ func TestGridLinear(t *testing.T) {
 		return
 	}
 
-	argsString := fmt.Sprintf("-a linear -txe 1 0 -tye 0 1 -outsize %d %d -ot Float64", outXSize, outYSize)
+	argsString := fmt.Sprintf("-a linear -txe 0 1 -tye 0 1 -outsize %d %d -ot Float64", outXSize, outYSize)
 	fname := "/vsimem/test.tiff"
 	tmpDs, err := Create(Memory, fname, 1, Float64, outXSize, outYSize)
 	if err != nil {
@@ -4015,6 +4015,7 @@ func TestGridLinear(t *testing.T) {
 		return
 	}
 	defer tmpDs.Close()
+	defer func() { _ = VSIUnlink(fname) }()
 
 	gridDs, err := vrtDs.Grid(fname, strings.Split(argsString, " "))
 	if err != nil {
@@ -4159,6 +4160,7 @@ func TestGridMaximum(t *testing.T) {
 		return
 	}
 	defer tmpDs.Close()
+	defer func() { _ = VSIUnlink(fname) }()
 
 	gridDs, err := vrtDs.Grid(fname, strings.Split(argsString, " "))
 	if err != nil {
