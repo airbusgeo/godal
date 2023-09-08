@@ -4063,6 +4063,7 @@ func TestGridLinear(t *testing.T) {
 	assert.Equal(t, 1.0, gridBindingPoints[bottomRightIndex])
 	// Center
 	assert.Equal(t, 0.5, gridBindingPoints[imageCentreIndex])
+	t.Fail()
 }
 
 func TestGridCreateLinear(t *testing.T) {
