@@ -4009,13 +4009,6 @@ func TestGridLinear(t *testing.T) {
 
 	argsString := fmt.Sprintf("-a linear -txe 0 1 -tye 0 1 -outsize %d %d -ot Float64", outXSize, outYSize)
 	fname := "/vsimem/test.tiff"
-	tmpDs, err := Create(Memory, fname, 1, Float64, outXSize, outYSize)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	defer tmpDs.Close()
-	defer func() { _ = VSIUnlink(fname) }()
 
 	gridDs, err := vrtDs.Grid(fname, strings.Split(argsString, " "))
 	if err != nil {
@@ -4029,6 +4022,11 @@ func TestGridLinear(t *testing.T) {
 			return
 		}
 	}
+	defer func() { _ = VSIUnlink(fname) }()
+	defer gridDs.Close()
+
+	t.Log(gridDs.GeoTransform())
+
 	var gridBindingPoints = make([]float64, outXSize*outYSize)
 	err = gridDs.Read(0, 0, gridBindingPoints, outXSize, outYSize)
 	if err != nil {
@@ -4154,19 +4152,15 @@ func TestGridMaximum(t *testing.T) {
 	// NOTE: Flipping the arguments after `-tye` here, to account for `ProcessLayer` (in `GDALGrid`) flipping the coords "north up"
 	argsString := fmt.Sprintf("-a maximum -txe 0 1 -tye 1 0 -outsize %d %d -ot Float64", outXSize, outYSize)
 	fname := "/vsimem/test.tiff"
-	tmpDs, err := Create(Memory, fname, 1, Float64, outXSize, outYSize)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	defer tmpDs.Close()
-	defer func() { _ = VSIUnlink(fname) }()
 
 	gridDs, err := vrtDs.Grid(fname, strings.Split(argsString, " "))
 	if err != nil {
 		t.Error(err)
 		return
 	}
+	defer func() { _ = VSIUnlink(fname) }()
+	defer gridDs.Close()
+
 	var gridBindingPoints = make([]float64, outXSize*outYSize)
 	err = gridDs.Read(0, 0, gridBindingPoints, outXSize, outYSize)
 	if err != nil {
