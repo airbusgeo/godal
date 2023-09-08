@@ -3991,7 +3991,8 @@ func TestGridLinear(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	geom, err := NewGeometryFromWKT("POLYGON((0 0 1, 1 0 0, 0 1 0, 1 1 1))", nil)
+
+	geom, err := NewGeometryFromWKT("POLYGON((0 0 0, 0 1 1, 1 1 0, 1 0 1))", nil)
 	if err != nil {
 		t.Error(err)
 		return
@@ -4024,8 +4025,6 @@ func TestGridLinear(t *testing.T) {
 	}
 	defer func() { _ = VSIUnlink(fname) }()
 	defer gridDs.Close()
-
-	t.Log(gridDs.GeoTransform())
 
 	var gridBindingPoints = make([]float64, outXSize*outYSize)
 	err = gridDs.Read(0, 0, gridBindingPoints, outXSize, outYSize)
@@ -4063,7 +4062,6 @@ func TestGridLinear(t *testing.T) {
 	assert.Equal(t, 1.0, gridBindingPoints[bottomRightIndex])
 	// Center
 	assert.Equal(t, 0.5, gridBindingPoints[imageCentreIndex])
-	t.Fail()
 }
 
 func TestGridCreateLinear(t *testing.T) {
@@ -4134,7 +4132,8 @@ func TestGridMaximum(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	geom, err := NewGeometryFromWKT("POLYGON((0 0 1, 1 0 0, 0 1 0, 1 1 1))", nil)
+
+	geom, err := NewGeometryFromWKT("POLYGON((0 0 0, 0 1 1, 1 1 0, 1 0 1))", nil)
 	if err != nil {
 		t.Error(err)
 		return
