@@ -9,6 +9,8 @@ on:
 jobs:
   ubuntu:
     runs-on: ${{ matrix.os }}
+    env:
+      GOEXPERIMENT: cgocheck2
     strategy:
       matrix:
         os: [ 'ubuntu-20.04', 'ubuntu-22.04' ]
