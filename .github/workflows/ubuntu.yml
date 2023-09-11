@@ -28,9 +28,10 @@ jobs:
       - name: Coverage Tests
         run: go test . -race
   install-gdal:
-    runs-on: ubuntu-22.04
+    runs-on: $${{ matrix.os }}
     strategy:
       matrix:
+        os: [ 'ubuntu-20.04', 'ubuntu-22.04' ]
         gdal: [ 'release/3.5', 'release/3.6', 'release/3.7', 'master' ]
     steps:
       - name: optgdal
@@ -42,7 +43,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: /optgdal
-          key: ${{ runner.os }}-install-gdal-${{ matrix.gdal }}-${{ hashFiles('.github/workflows/build-gdal.sh') }}
+          key: ${{ matrix.os }}-install-gdal-${{ matrix.gdal }}-${{ hashFiles('.github/workflows/build-gdal.sh') }}
       - name: Build GDAL
         if: steps.cache-gdal.outputs.cache-hit != 'true'
         run: sudo .github/workflows/build-gdal.sh ${{ matrix.gdal }}
