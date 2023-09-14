@@ -1712,6 +1712,8 @@ void godalGridCreate(cctx *ctx, char *pszAlgorithm, GDALGridAlgorithm eAlgorithm
 #endif
 	if(ret!=0) {
 		forceCPLError(ctx, ret);
+		godalUnwrap();
+		return;
 	}
 
 	ret = GDALGridCreate(eAlgorithm, ppOptions, nPoints, padfX, padfY,
