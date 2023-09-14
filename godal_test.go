@@ -4008,7 +4008,7 @@ func TestGridLinear(t *testing.T) {
 		return
 	}
 
-	argsString := fmt.Sprintf("-a linear -txe 0 1 -tye 0 1 -outsize %d %d -ot Float64", outXSize, outYSize)
+	argsString := fmt.Sprintf("-a linear -txe 0 1 -tye 1 0 -outsize %d %d -ot Float64", outXSize, outYSize)
 	fname := "/vsimem/test.tiff"
 
 	gridDs, err := vrtDs.Grid(fname, strings.Split(argsString, " "))
