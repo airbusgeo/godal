@@ -4008,7 +4008,11 @@ func TestGridLinear(t *testing.T) {
 		return
 	}
 
-	argsString := fmt.Sprintf("-a linear -txe 0 1 -tye 1 0 -outsize %d %d -ot Float64", outXSize, outYSize)
+	// As of GDAL v3.6, `GDALGrid` will swap `yMin` and `yMax` if `yMin` < `yMax`. In order to make the output of
+	// earlier GDAL versions (< 3.6) consistent with this, we're setting `yMin` > `yMax`.
+	yMin := 1
+	yMax := 0
+	argsString := fmt.Sprintf("-a linear -txe 0 1 -tye %d %d -outsize %d %d -ot Float64", yMin, yMax, outXSize, outYSize)
 	fname := "/vsimem/test.tiff"
 
 	gridDs, err := vrtDs.Grid(fname, strings.Split(argsString, " "))
