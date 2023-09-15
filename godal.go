@@ -3833,16 +3833,6 @@ func (ds *Dataset) Grid(destPath string, switches []string, opts ...GridOption) 
 		opt.setGridOpt(&gridOpts)
 	}
 
-	// Throw error for any invalid flags
-	var badSwitches []string
-	for _, s := range switches {
-		if s == "-oo" || s == "-q" || s == "-quiet" {
-			badSwitches = append(badSwitches, s)
-		}
-	}
-	if len(badSwitches) > 0 {
-		return nil, fmt.Errorf("one or more invalid switch values provided: %s", strings.Join(badSwitches, ","))
-	}
 	cswitches := sliceToCStringArray(switches)
 	defer cswitches.free()
 

@@ -1736,21 +1736,6 @@ GDALDatasetH godalGrid(cctx *ctx, const char *pszDest, GDALDatasetH hSrcDS, char
 		return nullptr;
 	}
 
-	// Perform checks for gridding algorithm compatibility with this GDAL build here
-	char *algString;
-	int argc = CSLCount(switches);
-    for (int i = 0; i < argc && switches != nullptr && switches[i] != nullptr; i++) {
-		if (strcmp(switches[i], "-a") && (i+1) < argc) {
-			algString = switches[i+1];
-			break;
-		}
-	}
-	// "linear" gridding algorithm only compatible with GDAL builds with QHull support
-	if (!GDALHasTriangulation() && strcmp(algString, "linear") == 0) {
-		CPLError(CE_Failure, CPLE_AppDefined, "unable to run GGA_Linear algorithm, since GDAL built without QHull support");
-		godalUnwrap();
-		return nullptr;
-	}
 
 	int usageErr=0;
 	GDALDatasetH ret = GDALGrid(pszDest, hSrcDS, gridopts, &usageErr);
