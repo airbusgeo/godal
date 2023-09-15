@@ -4231,7 +4231,7 @@ func TestGridCreateMaximum(t *testing.T) {
 	assert.Equal(t, 1.0, gridCreateBindingPoints[imageCentreIndex])
 }
 
-func TestGridUnknownSwitch(t *testing.T) {
+func TestGridInvalidSwitch(t *testing.T) {
 	vrtDs, err := CreateVector(Memory, "")
 	if err != nil {
 		t.Error(err)
