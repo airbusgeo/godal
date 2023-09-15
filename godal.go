@@ -3814,6 +3814,41 @@ func GridCreate(pszAlgorithm string,
 	return nil
 }
 
+// Grid runs the library version of gdal_grid.
+// See the gdal_grid doc page to determine the valid flags/opts that can be set in switches.
+//
+// Example switches :
+//
+//	[]string{"-a", "maximum", "-txe", "0", "1"}
+//
+// Creation options and driver may be set in the switches slice with
+//
+//	switches:=[]string{"-co","TILED=YES","-of","GTiff"}
+//
+// NOTE: Some switches are NOT compatible with this binding, as a `nullptr` is passed to a later call to
+// `GDALGridOptionsNew()` (as the 2nd argument). Those switches are: "-oo", "-q", "-quiet"
+func (ds *Dataset) Grid(destPath string, switches []string, opts ...GridOption) (*Dataset, error) {
+	gridOpts := gridOpts{}
+	for _, opt := range opts {
+		opt.setGridOpt(&gridOpts)
+	}
+
+	cswitches := sliceToCStringArray(switches)
+	defer cswitches.free()
+
+	dest := unsafe.Pointer(C.CString(destPath))
+	cgc := createCGOContext(nil, gridOpts.errorHandler)
+	var dsRet C.GDALDatasetH
+	defer C.free(unsafe.Pointer(dest))
+
+	dsRet = C.godalGrid(cgc.cPointer(), (*C.char)(dest), ds.handle(), cswitches.cPointer())
+	if err := cgc.close(); err != nil {
+		return nil, err
+	}
+
+	return &Dataset{majorObject{C.GDALMajorObjectH(dsRet)}}, nil
+}
+
 type cgoContext struct {
 	cctx *C.cctx
 	opts cStringArray

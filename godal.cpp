@@ -1725,3 +1725,25 @@ void godalGridCreate(cctx *ctx, char *pszAlgorithm, GDALGridAlgorithm eAlgorithm
 
 	godalUnwrap();
 }
+
+GDALDatasetH godalGrid(cctx *ctx, const char *pszDest, GDALDatasetH hSrcDS, char **switches) {
+	godalWrap(ctx);
+
+	GDALGridOptions *gridopts = GDALGridOptionsNew(switches,nullptr);
+	if(failed(ctx)) {
+		GDALGridOptionsFree(gridopts);
+		godalUnwrap();
+		return nullptr;
+	}
+
+
+	int usageErr=0;
+	GDALDatasetH ret = GDALGrid(pszDest, hSrcDS, gridopts, &usageErr);
+	GDALGridOptionsFree(gridopts);
+	if(ret==nullptr || usageErr!=0) {
+		forceError(ctx);
+	}
+
+	godalUnwrap();
+	return ret;
+}
