@@ -4238,10 +4238,23 @@ func TestGridUnsupportedSwitch(t *testing.T) {
 		return
 	}
 
-	argsString := fmt.Sprintf("-q")
-	fname := "/vsimem/test.tiff"
+	geom, err := NewGeometryFromWKT("POLYGON((0 0 0, 0 1 1, 1 1 0, 1 0 1))", nil)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = vrtDs.CreateLayer("grid", nil, GTPolygon)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = vrtDs.Layers()[0].NewFeature(geom)
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
-	_, err = vrtDs.Grid(fname, strings.Split(argsString, " "))
+	_, err = vrtDs.Grid("/vsimem/test.tiff", []string{"-q"})
 	assert.EqualError(t, err, "-q switch only supported from gdal_grid binary.")
 }
 
@@ -4252,9 +4265,22 @@ func TestGridUnknownSwitch(t *testing.T) {
 		return
 	}
 
-	argsString := fmt.Sprintf("-invalidswitch")
-	fname := "/vsimem/test.tiff"
+	geom, err := NewGeometryFromWKT("POLYGON((0 0 0, 0 1 1, 1 1 0, 1 0 1))", nil)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = vrtDs.CreateLayer("grid", nil, GTPolygon)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = vrtDs.Layers()[0].NewFeature(geom)
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
-	_, err = vrtDs.Grid(fname, strings.Split(argsString, " "))
+	_, err = vrtDs.Grid("/vsimem/test.tiff", []string{"-invalidswitch"})
 	assert.EqualError(t, err, "Unknown option name '-invalidswitch'")
 }
