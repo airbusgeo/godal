@@ -4230,3 +4230,31 @@ func TestGridCreateMaximum(t *testing.T) {
 	// Center
 	assert.Equal(t, 1.0, gridCreateBindingPoints[imageCentreIndex])
 }
+
+func TestGridUnsupportedSwitch(t *testing.T) {
+	vrtDs, err := CreateVector(Memory, "")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	argsString := fmt.Sprintf("-q")
+	fname := "/vsimem/test.tiff"
+
+	_, err = vrtDs.Grid(fname, strings.Split(argsString, " "))
+	assert.EqualError(t, err, "-q switch only supported from gdal_grid binary.")
+}
+
+func TestGridUnknownSwitch(t *testing.T) {
+	vrtDs, err := CreateVector(Memory, "")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	argsString := fmt.Sprintf("-invalidswitch")
+	fname := "/vsimem/test.tiff"
+
+	_, err = vrtDs.Grid(fname, strings.Split(argsString, " "))
+	assert.EqualError(t, err, "Unknown option name '-invalidswitch'")
+}
