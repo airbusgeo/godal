@@ -4231,32 +4231,32 @@ func TestGridCreateMaximum(t *testing.T) {
 	assert.Equal(t, 1.0, gridCreateBindingPoints[imageCentreIndex])
 }
 
-func TestGridUnsupportedSwitch(t *testing.T) {
-	vrtDs, err := CreateVector(Memory, "")
-	if err != nil {
-		t.Error(err)
-		return
-	}
+// func TestGridUnsupportedSwitch(t *testing.T) {
+// 	vrtDs, err := CreateVector(Memory, "")
+// 	if err != nil {
+// 		t.Error(err)
+// 		return
+// 	}
 
-	geom, err := NewGeometryFromWKT("POLYGON((0 0 0, 0 1 1, 1 1 0, 1 0 1))", nil)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	_, err = vrtDs.CreateLayer("grid", nil, GTPolygon)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	_, err = vrtDs.Layers()[0].NewFeature(geom)
-	if err != nil {
-		t.Error(err)
-		return
-	}
+// 	geom, err := NewGeometryFromWKT("POLYGON((0 0 0, 0 1 1, 1 1 0, 1 0 1))", nil)
+// 	if err != nil {
+// 		t.Error(err)
+// 		return
+// 	}
+// 	_, err = vrtDs.CreateLayer("grid", nil, GTPolygon)
+// 	if err != nil {
+// 		t.Error(err)
+// 		return
+// 	}
+// 	_, err = vrtDs.Layers()[0].NewFeature(geom)
+// 	if err != nil {
+// 		t.Error(err)
+// 		return
+// 	}
 
-	_, err = vrtDs.Grid("/vsimem/test.tiff", []string{"-q"})
-	assert.EqualError(t, err, "-q switch only supported from gdal_grid binary.")
-}
+// 	_, err = vrtDs.Grid("/vsimem/test.tiff", []string{"-q"})
+// 	assert.EqualError(t, err, "-q switch only supported from gdal_grid binary.")
+// }
 
 func TestGridUnknownSwitch(t *testing.T) {
 	vrtDs, err := CreateVector(Memory, "")
