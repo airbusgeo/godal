@@ -4230,3 +4230,31 @@ func TestGridCreateMaximum(t *testing.T) {
 	// Center
 	assert.Equal(t, 1.0, gridCreateBindingPoints[imageCentreIndex])
 }
+
+func TestGridInvalidSwitch(t *testing.T) {
+	vrtDs, err := CreateVector(Memory, "")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	geom, err := NewGeometryFromWKT("POLYGON((0 0 0, 0 1 1, 1 1 0, 1 0 1))", nil)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = vrtDs.CreateLayer("grid", nil, GTPolygon)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = vrtDs.Layers()[0].NewFeature(geom)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	ehc := eh()
+	_, err = vrtDs.Grid("/vsimem/test.tiff", []string{"-invalidswitch"}, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+}

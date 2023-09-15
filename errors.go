@@ -150,6 +150,7 @@ func ErrLogger(fn ErrorHandler) interface {
 	StatisticsOption
 	SetStatisticsOption
 	ClearStatisticsOption
+	GridOption
 } {
 	return errorCallback{fn}
 }
