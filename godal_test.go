@@ -4309,10 +4309,9 @@ func TestNearblackBlack(t *testing.T) {
 	gridDs.Read(0, 0, originalColors, outXSize, outYSize)
 
 	// 2. Put the Dataset generated above, through the `Nearblack` function, to set pixels near BLACK to BLACK
-	nbDs := &Dataset{}
 	argsNbString := "-near 10 -nb 0"
 	fname2 := "/vsimem/test1.tiff"
-	nbDs, err = gridDs.Nearblack(fname2, nbDs, strings.Split(argsNbString, " "))
+	nbDs, err := gridDs.Nearblack(fname2, nil, strings.Split(argsNbString, " "))
 	if err != nil {
 		t.Error(err)
 		return
@@ -4380,10 +4379,9 @@ func TestNearblackWhite(t *testing.T) {
 	gridDs.Read(0, 0, originalColors, outXSize, outYSize)
 
 	// 2. Put the Dataset generated above, through the `Nearblack` function, to set pixels near WHITE to WHITE
-	nbDs := &Dataset{}
 	argsNbString := "-near 10 -nb 0 -white"
 	fname2 := "/vsimem/test1.tiff"
-	nbDs, err = gridDs.Nearblack(fname2, nil, strings.Split(argsNbString, " "))
+	nbDs, err := gridDs.Nearblack(fname2, nil, strings.Split(argsNbString, " "))
 	if err != nil {
 		t.Error(err)
 		return
@@ -4398,6 +4396,75 @@ func TestNearblackWhite(t *testing.T) {
 		startIndex := i * outXSize
 		assert.Equal(t, []byte{255, 254, 253, 252, 251, 250, 249, 248, 247, 246, 245, 244, 243}, originalColors[startIndex:startIndex+13])
 		assert.Equal(t, []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 244, 243}, nearblackColors[startIndex:startIndex+13])
+	}
+}
+
+func TestNearblackReplaceSrcDs(t *testing.T) {
+	// 1. Create an image, linearly interpolated, from black (on the left) to white (on the right), using `Grid()`
+	var (
+		outXSize = 256
+		outYSize = 256
+	)
+	vrtDs, err := CreateVector(Memory, "")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	geom, err := NewGeometryFromWKT("POLYGON((0 0 0, 0 1 0, 1 1 255, 1 0 255))", nil)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = vrtDs.CreateLayer("grid", nil, GTPolygon)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = vrtDs.Layers()[0].NewFeature(geom)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	// As of GDAL v3.6, `GDALGrid` will swap `yMin` and `yMax` if `yMin` < `yMax`. In order to make the output of
+	// earlier GDAL versions (< 3.6) consistent with this, we're setting `yMin` > `yMax`.
+	yMin := 1
+	yMax := 0
+	argsString := fmt.Sprintf("-a linear -txe 0 1 -tye %d %d -outsize %d %d -ot Byte", yMin, yMax, outXSize, outYSize)
+	fname := "/vsimem/test.tiff"
+	gridDs, err := vrtDs.Grid(fname, strings.Split(argsString, " "))
+	if err != nil {
+		// Handles QHull error differently here, as it's a compatibility issue not a gridding error
+		isQhullError := strings.HasSuffix(err.Error(), "without QHull support")
+		if isQhullError {
+			t.Log(`Skipping test, GDAL was built without "Delaunay triangulation" support which is required for the "Linear" gridding algorithm`)
+			return
+		} else {
+			t.Error(err)
+			return
+		}
+	}
+	defer func() { _ = VSIUnlink(fname) }()
+	defer gridDs.Close()
+	originalColors := make([]byte, outXSize*outYSize)
+	gridDs.Read(0, 0, originalColors, outXSize, outYSize)
+
+	// 2. Put the Dataset generated above, through the `Nearblack` function, to set pixels near BLACK to BLACK
+	argsNbString := "-near 10 -nb 0"
+	fname2 := "/vsimem/test1.tiff"
+	_, err = gridDs.Nearblack(fname2, gridDs, strings.Split(argsNbString, " "))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() { _ = VSIUnlink(fname2) }()
+	nearblackColors := make([]byte, outXSize*outYSize)
+	gridDs.Read(0, 0, nearblackColors, outXSize, outYSize)
+
+	// 3. Test on all rows that pixels where abs(0 - pixelValue) <= 10, are set to black (0)
+	for i := 0; i < outYSize; i++ {
+		startIndex := i * outXSize
+		assert.Equal(t, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}, originalColors[startIndex:startIndex+13])
+		assert.Equal(t, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 12}, nearblackColors[startIndex:startIndex+13])
 	}
 }
 
