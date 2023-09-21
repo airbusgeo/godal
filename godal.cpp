@@ -194,6 +194,12 @@ int godalRegisterDriver(const char *fnname) {
 	return -1;
 }
 
+void godalRegisterPlugins(){
+#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 8, 0)
+  GDALRegisterPlugins();
+#endif
+}
+
 GDALDatasetH godalCreate(cctx *ctx, GDALDriverH drv, const char* name, int width, int height, int nbands,
 							GDALDataType dtype, char **options) {
 	godalWrap(ctx);

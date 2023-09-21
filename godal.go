@@ -903,7 +903,7 @@ func (ds *Dataset) SetNoData(nd float64, opts ...SetNoDataOption) error {
 	return cgc.close()
 }
 
-// SetScaleOffset sets the band's scale and offset
+// SetScale sets the band's scale and offset
 func (ds *Dataset) SetScaleOffset(scale, offset float64, opts ...SetScaleOffsetOption) error {
 	setterOpts := &setScaleOffsetOpts{}
 	for _, opt := range opts {
@@ -1263,6 +1263,10 @@ func (ds *Dataset) IO(rw IOOperation, srcX, srcY int, buffer interface{}, bufWid
 //   - godal.RegisterVector(godal.Shapefile)
 func RegisterAll() {
 	C.GDALAllRegister()
+}
+
+func GDALRegisterPlugins() {
+	C.godalRegisterPlugins()
 }
 
 // RegisterRaster registers a raster driver by name.
