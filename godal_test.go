@@ -4253,7 +4253,8 @@ func TestGridInvalidSwitch(t *testing.T) {
 		t.Error(err)
 		return
 	}
-
+	_, err = vrtDs.Grid("/vsimem/test.tiff", []string{"-invalidswitch"})
+	assert.Error(t, err)
 	ehc := eh()
 	_, err = vrtDs.Grid("/vsimem/test.tiff", []string{"-invalidswitch"}, ErrLogger(ehc.ErrorHandler))
 	assert.Error(t, err)
