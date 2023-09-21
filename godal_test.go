@@ -4383,7 +4383,7 @@ func TestNearblackWhite(t *testing.T) {
 	nbDs := &Dataset{}
 	argsNbString := "-near 10 -nb 0 -white"
 	fname2 := "/vsimem/test1.tiff"
-	nbDs, err = gridDs.Nearblack(fname2, nbDs, strings.Split(argsNbString, " "))
+	nbDs, err = gridDs.Nearblack(fname2, nil, strings.Split(argsNbString, " "))
 	if err != nil {
 		t.Error(err)
 		return
