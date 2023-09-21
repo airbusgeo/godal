@@ -1747,3 +1747,24 @@ GDALDatasetH godalGrid(cctx *ctx, const char *pszDest, GDALDatasetH hSrcDS, char
 	godalUnwrap();
 	return ret;
 }
+
+GDALDatasetH godalNearblack(cctx *ctx, const char *pszDest, GDALDatasetH hDstDS, GDALDatasetH hSrcDS, char **switches) {
+	godalWrap(ctx);
+
+	GDALNearblackOptions *nbopts = GDALNearblackOptionsNew(switches,nullptr);
+	if(failed(ctx)) {
+		GDALNearblackOptionsFree(nbopts);
+		godalUnwrap();
+		return nullptr;
+	}
+
+	int usageErr=0;
+	GDALDatasetH ret = GDALNearblack(pszDest, hDstDS, hSrcDS, nbopts, &usageErr);
+	GDALNearblackOptionsFree(nbopts);
+	if(ret==nullptr || usageErr!=0) {
+		forceError(ctx);
+	}
+
+	godalUnwrap();
+	return ret;
+}
