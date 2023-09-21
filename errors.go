@@ -151,6 +151,7 @@ func ErrLogger(fn ErrorHandler) interface {
 	SetStatisticsOption
 	ClearStatisticsOption
 	GridOption
+	NearblackOption
 } {
 	return errorCallback{fn}
 }
@@ -366,6 +367,9 @@ func (ec errorCallback) setGridCreateOpt(o *gridCreateOpts) {
 	o.errorHandler = ec.fn
 }
 func (ec errorCallback) setGridOpt(o *gridOpts) {
+	o.errorHandler = ec.fn
+}
+func (ec errorCallback) setNearblackOpt(o *nearBlackOpts) {
 	o.errorHandler = ec.fn
 }
 
