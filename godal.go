@@ -3849,7 +3849,7 @@ func (ds *Dataset) Grid(destPath string, switches []string, opts ...GridOption) 
 	return &Dataset{majorObject{C.GDALMajorObjectH(dsRet)}}, nil
 }
 
-// Grid runs the library version of nearblack.
+// NearBlack runs the library version of GDALNearblack.
 // See the nearblack doc page to determine the valid flags/opts that can be set in switches.
 //
 // Example switches :
