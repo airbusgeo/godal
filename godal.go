@@ -3849,7 +3849,12 @@ func (ds *Dataset) Grid(destPath string, switches []string, opts ...GridOption) 
 	return &Dataset{majorObject{C.GDALMajorObjectH(dsRet)}}, nil
 }
 
-// NearBlack runs the library version of GDALNearblack.
+// `Nearblack` and `NearblackInto` run the library version of GDALNearblack. The difference between them is:
+//   - Nearblack: Takes a `destPath` (string) as its first arg, the produced dataset will be output to this "file"
+//     and returned from the function
+//   - NearblackInto: Instead takes a `srcDs` (Dataset) as its first arg, the produced dataset will be stored in
+//     the `Dataset` this method was called from
+//
 // See the nearblack doc page to determine the valid flags/opts that can be set in switches.
 //
 // Example switches :
@@ -3862,7 +3867,7 @@ func (ds *Dataset) Grid(destPath string, switches []string, opts ...GridOption) 
 //
 // NOTE: Some switches are NOT compatible with this binding, as a `nullptr` is passed to a later call to
 // `GDALNearblackOptionsNew()` (as the 2nd argument). Those switches are: "-o", "-q", "-quiet"
-func (ds *Dataset) Nearblack(destPath string, destDs *Dataset, switches []string, opts ...NearblackOption) (*Dataset, error) {
+func (ds *Dataset) Nearblack(destPath string, switches []string, opts ...NearblackOption) (*Dataset, error) {
 	nearBlackOpts := nearBlackOpts{}
 	for _, opt := range opts {
 		opt.setNearblackOpt(&nearBlackOpts)
@@ -3872,20 +3877,39 @@ func (ds *Dataset) Nearblack(destPath string, destDs *Dataset, switches []string
 	defer cswitches.free()
 
 	dest := unsafe.Pointer(C.CString(destPath))
-	cgc := createCGOContext(nil, nearBlackOpts.errorHandler)
-	defer C.free(unsafe.Pointer(dest))
+	defer C.free(dest)
 
-	var dsRet C.GDALDatasetH
-	if destDs != nil {
-		dsRet = C.godalNearblack(cgc.cPointer(), (*C.char)(dest), destDs.handle(), ds.handle(), cswitches.cPointer())
-	} else {
-		dsRet = C.godalNearblack(cgc.cPointer(), (*C.char)(dest), nil, ds.handle(), cswitches.cPointer())
-	}
-	if err := cgc.close(); err != nil {
+	cgc := createCGOContext(nil, nearBlackOpts.errorHandler)
+
+	ret, err := C.godalNearblack(cgc.cPointer(), (*C.char)(dest), nil, ds.handle(), cswitches.cPointer())
+	if err = cgc.close(); err != nil {
 		return nil, err
 	}
 
-	return &Dataset{majorObject{C.GDALMajorObjectH(dsRet)}}, nil
+	return &Dataset{majorObject{C.GDALMajorObjectH(ret)}}, nil
+}
+
+func (ds *Dataset) NearblackInto(srcDs *Dataset, switches []string, opts ...NearblackOption) error {
+	nearBlackOpts := nearBlackOpts{}
+	for _, opt := range opts {
+		opt.setNearblackOpt(&nearBlackOpts)
+	}
+
+	cswitches := sliceToCStringArray(switches)
+	defer cswitches.free()
+
+	cgc := createCGOContext(nil, nearBlackOpts.errorHandler)
+
+	var srcDsHandle C.GDALDatasetH = nil
+	if srcDs != nil {
+		srcDsHandle = srcDs.handle()
+	}
+	_ = C.godalNearblack(cgc.cPointer(), nil, ds.handle(), srcDsHandle, cswitches.cPointer())
+	if err := cgc.close(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 type cgoContext struct {

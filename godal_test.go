@@ -4314,7 +4314,7 @@ func TestNearblackBlack(t *testing.T) {
 	// 2. Put the Dataset generated above, through the `Nearblack` function, to set pixels near BLACK to BLACK
 	argsNbString := "-near 10 -nb 0"
 	fname2 := "/vsimem/test1.tiff"
-	nbDs, err := gridDs.Nearblack(fname2, nil, strings.Split(argsNbString, " "))
+	nbDs, err := gridDs.Nearblack(fname2, strings.Split(argsNbString, " "))
 	if err != nil {
 		t.Error(err)
 		return
@@ -4343,11 +4343,13 @@ func TestNearblackWhite(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	defer vrtDs.Close()
 	geom, err := NewGeometryFromWKT("POLYGON((0 0 255, 0 1 255, 1 1 0, 1 0 0))", nil)
 	if err != nil {
 		t.Error(err)
 		return
 	}
+	defer geom.Close()
 	_, err = vrtDs.CreateLayer("grid", nil, GTPolygon)
 	if err != nil {
 		t.Error(err)
@@ -4384,7 +4386,7 @@ func TestNearblackWhite(t *testing.T) {
 	// 2. Put the Dataset generated above, through the `Nearblack` function, to set pixels near WHITE to WHITE
 	argsNbString := "-near 10 -nb 0 -white"
 	fname2 := "/vsimem/test1.tiff"
-	nbDs, err := gridDs.Nearblack(fname2, nil, strings.Split(argsNbString, " "))
+	nbDs, err := gridDs.Nearblack(fname2, strings.Split(argsNbString, " "))
 	if err != nil {
 		t.Error(err)
 		return
@@ -4402,7 +4404,34 @@ func TestNearblackWhite(t *testing.T) {
 	}
 }
 
-func TestNearblackReplaceSrcDs(t *testing.T) {
+func TestNearblackInvalidSwitch(t *testing.T) {
+	// 1. Create a linearly interpolated image that goes from white -> black, using `Grid()`
+	var (
+		outXSize = 256
+		outYSize = 256
+	)
+	fname := "/vsimem/test.tiff"
+	vrtDs, err := Create(Memory, fname, 1, Byte, outXSize, outYSize)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() { _ = VSIUnlink(fname) }()
+	defer vrtDs.Close()
+
+	// 2. Put the Dataset generated above, through the `Nearblack`
+	fname2 := "/vsimem/test1.tiff"
+
+	_, err = vrtDs.Nearblack(fname2, []string{"-invalidswitch"})
+	assert.Error(t, err)
+	ehc := eh()
+	_, err = vrtDs.Nearblack(fname2, []string{"-invalidswitch"}, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+
+	defer func() { _ = VSIUnlink(fname2) }()
+}
+
+func TestNearblackBlackInto(t *testing.T) {
 	// 1. Create an image, linearly interpolated, from black (on the left) to white (on the right), using `Grid()`
 	var (
 		outXSize = 256
@@ -4413,11 +4442,13 @@ func TestNearblackReplaceSrcDs(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	defer vrtDs.Close()
 	geom, err := NewGeometryFromWKT("POLYGON((0 0 0, 0 1 0, 1 1 255, 1 0 255))", nil)
 	if err != nil {
 		t.Error(err)
 		return
 	}
+	defer geom.Close()
 	_, err = vrtDs.CreateLayer("grid", nil, GTPolygon)
 	if err != nil {
 		t.Error(err)
@@ -4452,16 +4483,20 @@ func TestNearblackReplaceSrcDs(t *testing.T) {
 	gridDs.Read(0, 0, originalColors, outXSize, outYSize)
 
 	// 2. Put the Dataset generated above, through the `Nearblack` function, to set pixels near BLACK to BLACK
-	argsNbString := "-near 10 -nb 0"
-	fname2 := "/vsimem/test1.tiff"
-	_, err = gridDs.Nearblack(fname2, gridDs, strings.Split(argsNbString, " "))
+	nbDs, err := Create(Memory, "nbDs", 1, Byte, outXSize, outYSize)
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	defer func() { _ = VSIUnlink(fname2) }()
+	defer nbDs.Close()
+	argsNbString := "-near 10 -nb 0"
+	err = nbDs.NearblackInto(gridDs, strings.Split(argsNbString, " "))
+	if err != nil {
+		t.Error(err)
+		return
+	}
 	nearblackColors := make([]byte, outXSize*outYSize)
-	gridDs.Read(0, 0, nearblackColors, outXSize, outYSize)
+	nbDs.Read(0, 0, nearblackColors, outXSize, outYSize)
 
 	// 3. Test on all rows that pixels where abs(0 - pixelValue) <= 10, are set to black (0)
 	for i := 0; i < outYSize; i++ {
@@ -4471,7 +4506,7 @@ func TestNearblackReplaceSrcDs(t *testing.T) {
 	}
 }
 
-func TestNearblackInvalidSwitch(t *testing.T) {
+func TestNearblackIntoInvalidSwitch(t *testing.T) {
 	// 1. Create a linearly interpolated image that goes from white -> black, using `Grid()`
 	var (
 		outXSize = 256
@@ -4487,14 +4522,42 @@ func TestNearblackInvalidSwitch(t *testing.T) {
 	defer vrtDs.Close()
 
 	// 2. Put the Dataset generated above, through the `Nearblack`
-	nbDs := &Dataset{}
-	fname2 := "/vsimem/test1.tiff"
-	defer func() { _ = VSIUnlink(fname2) }()
+	nbDs, err := Create(Memory, "nbDs", 1, Byte, outXSize, outYSize)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer nbDs.Close()
+	err = nbDs.NearblackInto(vrtDs, []string{"-invalidswitch"})
+	assert.Error(t, err)
+	ehc := eh()
+	err = nbDs.NearblackInto(vrtDs, []string{"-invalidswitch"}, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+}
+
+func TestNearblackIntoNoSrcDs(t *testing.T) {
+	// 1. Create a linearly interpolated image that goes from white -> black, using `Grid()`
+	var (
+		outXSize = 256
+		outYSize = 256
+	)
+	fname := "/vsimem/test.tiff"
+	vrtDs, err := Create(Memory, fname, 1, Byte, outXSize, outYSize)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() { _ = VSIUnlink(fname) }()
+	defer vrtDs.Close()
+
+	// 2. Put the Dataset generated above, through the `Nearblack`
+	nbDs, err := Create(Memory, "nbDs", 1, Byte, outXSize, outYSize)
+	if err != nil {
+		t.Error(err)
+		return
+	}
 	defer nbDs.Close()
 	ehc := eh()
-	_, err = vrtDs.Nearblack(fname2, nbDs, []string{"-invalidswitch"}, ErrLogger(ehc.ErrorHandler))
-	assert.Error(t, err)
-
-	_, err = vrtDs.Nearblack(fname2, nbDs, []string{"-invalidswitch"})
+	err = nbDs.NearblackInto(nil, []string{}, ErrLogger(ehc.ErrorHandler))
 	assert.Error(t, err)
 }
