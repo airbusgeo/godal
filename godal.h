@@ -159,6 +159,7 @@ extern "C" {
 	OGRSpatialReferenceH godalGetGCPSpatialRef(GDALDatasetH hSrcDS);
 	const char *godalGetGCPProjection(GDALDatasetH hSrcDS);
 	void godalSetGCPsSr(cctx *ctx, char *pszId, char *pszInfo, double dfGCPPixel, double dfGCPLine, double dfGCPX, double dfGCPY, double dfGCPZ, OGRSpatialReferenceH sr);
+	void godalSetGCPsStr(cctx *ctx, char *pszId, char *pszInfo, double dfGCPPixel, double dfGCPLine, double dfGCPX, double dfGCPY, double dfGCPZ, char *sr);
 #ifdef __cplusplus
 }
 #endif

@@ -3882,6 +3882,11 @@ func (ds *Dataset) Nearblack(destPath string, destDs *Dataset, switches []string
 		dsRet = C.godalNearblack(cgc.cPointer(), (*C.char)(dest), nil, ds.handle(), cswitches.cPointer())
 	}
 	if err := cgc.close(); err != nil {
+		return nil, err
+	}
+
+	return &Dataset{majorObject{C.GDALMajorObjectH(dsRet)}}, nil
+}
 
 // GCP is a wrapper around GDAL_GCP
 type GCP struct {
@@ -3909,27 +3914,40 @@ func (ds *Dataset) GetGCPProjection() string {
 	return C.GoString(C.godalGetGCPProjection(ds.handle()))
 }
 
-// func (ds *Dataset) SetGCPsSr(nGCPCount int, GCPList *GCP, sr *SpatialRef) error {
-// 	// TODO: Add opts here?
-// 	var (
-// 		SR = &SpatialRef{isOwned: false}
-// 	)
-// 	cgc := createCGOContext(nil, nil)
+func (ds *Dataset) SetGCPsSr(nGCPCount int, GCPList *GCP, sr *SpatialRef) error {
+	// 	// TODO: Add opts here?
+	var (
+		SR = &SpatialRef{isOwned: false}
+	)
+	cgc := createCGOContext(nil, nil)
 
-// 	pszId := unsafe.Pointer(C.CString(GCPList.pszId))
-// 	defer C.free(pszId)
-// 	pszInfo := unsafe.Pointer(C.CString(GCPList.pszInfo))
-// 	defer C.free(pszInfo)
+	pszId := unsafe.Pointer(C.CString(GCPList.pszId))
+	defer C.free(pszId)
+	pszInfo := unsafe.Pointer(C.CString(GCPList.pszInfo))
+	defer C.free(pszInfo)
 
-// 	C.godalSetGCPsSr(cgc.cPointer(), (*C.char)(pszId), (*C.char)(pszInfo), (C.double)(GCPList.dfGCPPixel), (C.double)(GCPList.dfGCPLine), (C.double)(GCPList.dfGCPX), (C.double)(GCPList.dfGCPY), (C.double)(GCPList.dfGCPZ), SR.handle)
-// 	if err := cgc.close(); err != nil {
-// 		return err
-// 	}
+	C.godalSetGCPsSr(cgc.cPointer(), (*C.char)(pszId), (*C.char)(pszInfo), (C.double)(GCPList.dfGCPPixel), (C.double)(GCPList.dfGCPLine), (C.double)(GCPList.dfGCPX), (C.double)(GCPList.dfGCPY), (C.double)(GCPList.dfGCPZ), SR.handle)
+	if err := cgc.close(); err != nil {
+		return err
+	}
 
-// 	return nil
-// }
+	return nil
+}
 
 func (ds *Dataset) SetGCPsStr(nGCPCount int, GCPList *GCP, pszGCPProjection string) error {
+	cgc := createCGOContext(nil, nil)
+
+	pszId := unsafe.Pointer(C.CString(GCPList.pszId))
+	defer C.free(pszId)
+	pszInfo := unsafe.Pointer(C.CString(GCPList.pszInfo))
+	defer C.free(pszInfo)
+	gcpProjection := unsafe.Pointer(C.CString(pszGCPProjection))
+	defer C.free(gcpProjection)
+
+	C.godalSetGCPsStr(cgc.cPointer(), (*C.char)(pszId), (*C.char)(pszInfo), (C.double)(GCPList.dfGCPPixel), (C.double)(GCPList.dfGCPLine), (C.double)(GCPList.dfGCPX), (C.double)(GCPList.dfGCPY), (C.double)(GCPList.dfGCPZ), (*C.char)(gcpProjection))
+	if err := cgc.close(); err != nil {
+		return err
+	}
 	return nil
 }
 

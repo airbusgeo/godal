@@ -1781,6 +1781,14 @@ const char *godalGetGCPProjection(GDALDatasetH hSrcDS) {
 	return GDALGetGCPProjection(hSrcDS);
 }
 
-void godalSetGCPsSr(cctx *ctx, char *pszId, char *pszInfo, double *dfGCPY, double *dfGCPZ, OGRSpatialReferenceH sr) {
+void godalSetGCPsStr(cctx *ctx, char *pszId, char *pszInfo, double dfGCPPixel, double dfGCPLine, double dfGCPX, double dfGCPY, double dfGCPZ, char *sr) {
+	godalWrap(ctx);
+	godalUnwrap();
+	return;
+}
+
+void godalSetGCPsSr(cctx *ctx, char *pszId, char *pszInfo, double dfGCPPixel, double dfGCPLine, double dfGCPX, double dfGCPY, double dfGCPZ,OGRSpatialReferenceH sr) {
+	godalWrap(ctx);
+	godalUnwrap();
 	return;
 }
