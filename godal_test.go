@@ -4271,6 +4271,7 @@ func TestNearblackBlack(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	defer vrtDs.Close()
 	geom, err := NewGeometryFromWKT("POLYGON((0 0 0, 0 1 0, 1 1 255, 1 0 255))", nil)
 	if err != nil {
 		t.Error(err)
