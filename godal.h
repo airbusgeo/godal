@@ -155,6 +155,10 @@ extern "C" {
 	GDALDatasetH godalGrid(cctx *ctx, const char *pszDest, GDALDatasetH hSrcDS, char **switches);
 	GDALDatasetH godalGrid(cctx *ctx, const char *pszDest, GDALDatasetH hSrcDS, char **switches);
 	GDALDatasetH godalNearblack(cctx *ctx, const char *pszDest, GDALDatasetH hDstDS, GDALDatasetH hSrcDS, char **switches);
+	int godalGetGCPCount(GDALDatasetH hSrcDS);
+	OGRSpatialReferenceH godalGetGCPSpatialRef(GDALDatasetH hSrcDS);
+	const char *godalGetGCPProjection(GDALDatasetH hSrcDS);
+	void godalSetGCPsSr(cctx *ctx, char *pszId, char *pszInfo, double dfGCPPixel, double dfGCPLine, double dfGCPX, double dfGCPY, double dfGCPZ, OGRSpatialReferenceH sr);
 #ifdef __cplusplus
 }
 #endif

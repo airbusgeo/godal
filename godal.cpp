@@ -1768,3 +1768,19 @@ GDALDatasetH godalNearblack(cctx *ctx, const char *pszDest, GDALDatasetH hDstDS,
 	godalUnwrap();
 	return ret;
 }
+
+int godalGetGCPCount(GDALDatasetH hSrcDS) {
+	return GDALGetGCPCount(hSrcDS);
+}
+
+OGRSpatialReferenceH godalGetGCPSpatialRef(GDALDatasetH hSrcDS) {
+	return GDALGetGCPSpatialRef(hSrcDS);
+}
+
+const char *godalGetGCPProjection(GDALDatasetH hSrcDS) {
+	return GDALGetGCPProjection(hSrcDS);
+}
+
+void godalSetGCPsSr(cctx *ctx, char *pszId, char *pszInfo, double *dfGCPY, double *dfGCPZ, OGRSpatialReferenceH sr) {
+	return;
+}
