@@ -4277,6 +4277,7 @@ func TestNearblackBlack(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	defer geom.Close()
 	_, err = vrtDs.CreateLayer("grid", nil, GTPolygon)
 	if err != nil {
 		t.Error(err)
