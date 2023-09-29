@@ -1254,6 +1254,15 @@ type NearblackOption interface {
 	setNearblackOpt(nbOpt *nearBlackOpts)
 }
 
+type setGCPsOpts struct {
+	errorHandler ErrorHandler
+}
+
+// SetGCPsOption is an option that can be passed to Dataset.SetGCPs()
+type SetGCPsOption interface {
+	setGCPsOpt(sgOpt *setGCPsOpts)
+}
+
 // RasterizeGeometryOption is an option that can be passed tp Dataset.RasterizeGeometry()
 type RasterizeGeometryOption interface {
 	setRasterizeGeometryOpt(o *rasterizeGeometryOpts)

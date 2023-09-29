@@ -153,13 +153,15 @@ extern "C" {
     void godalSetRasterStatistics(cctx *ctx, GDALRasterBandH bnd, double dfMin, double dfMax, double dfMean, double dfStdDev);
 	void godalGridCreate(cctx *ctx, char *pszAlgorithm, GDALGridAlgorithm eAlgorithm, GUInt32 nPoints, const double *padfX, const double *padfY, const double *padfZ, double dfXMin, double dfXMax, double dfYMin, double dfYMax, GUInt32 nXSize, GUInt32 nYSize, GDALDataType eType, void *pData);
 	GDALDatasetH godalGrid(cctx *ctx, const char *pszDest, GDALDatasetH hSrcDS, char **switches);
-	GDALDatasetH godalGrid(cctx *ctx, const char *pszDest, GDALDatasetH hSrcDS, char **switches);
 	GDALDatasetH godalNearblack(cctx *ctx, const char *pszDest, GDALDatasetH hDstDS, GDALDatasetH hSrcDS, char **switches);
-	int godalGetGCPCount(GDALDatasetH hSrcDS);
+
 	OGRSpatialReferenceH godalGetGCPSpatialRef(GDALDatasetH hSrcDS);
+	int godalGetGCPCount(GDALDatasetH hSrcDS);
+	const GDAL_GCP *godalGetGCPs(GDALDatasetH hSrcDS);
 	const char *godalGetGCPProjection(GDALDatasetH hSrcDS);
-	void godalSetGCPsSr(cctx *ctx, char *pszId, char *pszInfo, double dfGCPPixel, double dfGCPLine, double dfGCPX, double dfGCPY, double dfGCPZ, OGRSpatialReferenceH sr);
-	void godalSetGCPsStr(cctx *ctx, char *pszId, char *pszInfo, double dfGCPPixel, double dfGCPLine, double dfGCPX, double dfGCPY, double dfGCPZ, char *sr);
+	void godalSetGCPs(cctx *ctx, GDALDatasetH hSrcDS, int numGCPs, GDAL_GCP *GCPList, const char *pszGCPProjection);
+	void godalSetGCPs2(cctx *ctx, GDALDatasetH hSrcDS, int numGCPs, GDAL_GCP *GCPList, OGRSpatialReferenceH hSRS);
+	GDAL_GCP *godalGCPPropertiesToGDALGCP(int numGCPs, char **pszIds, char**pszInfos, double *dfGCPPixels, double *dfGCPLines, double *dfGCPXs, double *dfGCPYs, double *dfGCPZs);
 #ifdef __cplusplus
 }
 #endif

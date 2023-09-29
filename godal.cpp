@@ -1769,26 +1769,68 @@ GDALDatasetH godalNearblack(cctx *ctx, const char *pszDest, GDALDatasetH hDstDS,
 	return ret;
 }
 
+OGRSpatialReferenceH godalGetGCPSpatialRef(GDALDatasetH hSrcDS) {
+	return GDALGetGCPSpatialRef(hSrcDS);
+}
+
 int godalGetGCPCount(GDALDatasetH hSrcDS) {
 	return GDALGetGCPCount(hSrcDS);
 }
 
-OGRSpatialReferenceH godalGetGCPSpatialRef(GDALDatasetH hSrcDS) {
-	return GDALGetGCPSpatialRef(hSrcDS);
+const GDAL_GCP *godalGetGCPs(GDALDatasetH hSrcDS) {
+	return GDALGetGCPs(hSrcDS);
 }
 
 const char *godalGetGCPProjection(GDALDatasetH hSrcDS) {
 	return GDALGetGCPProjection(hSrcDS);
 }
 
-void godalSetGCPsStr(cctx *ctx, char *pszId, char *pszInfo, double dfGCPPixel, double dfGCPLine, double dfGCPX, double dfGCPY, double dfGCPZ, char *sr) {
+void godalSetGCPs(cctx *ctx, GDALDatasetH hSrcDS, int numGCPs, GDAL_GCP *GCPList, const char *pszGCPProjection) {
 	godalWrap(ctx);
+
+	CPLErr ret = GDALSetGCPs(hSrcDS, numGCPs, GCPList, pszGCPProjection);
+	if(ret!=0) {
+		forceCPLError(ctx, ret);
+	}
+
+	GDALDeinitGCPs(numGCPs, GCPList);
+	CPLFree(GCPList);
+	
 	godalUnwrap();
 	return;
 }
 
-void godalSetGCPsSr(cctx *ctx, char *pszId, char *pszInfo, double dfGCPPixel, double dfGCPLine, double dfGCPX, double dfGCPY, double dfGCPZ,OGRSpatialReferenceH sr) {
+void godalSetGCPs2(cctx *ctx, GDALDatasetH hSrcDS, int numGCPs, GDAL_GCP *GCPList, OGRSpatialReferenceH hSRS) {
 	godalWrap(ctx);
+
+	CPLErr ret = GDALSetGCPs2(hSrcDS, numGCPs, GCPList, hSRS);
+	if(ret!=0) {
+		forceCPLError(ctx, ret);
+	}
+
+	GDALDeinitGCPs(numGCPs, GCPList);
+	CPLFree(GCPList);
+	
 	godalUnwrap();
 	return;
+}
+
+// Utility function to aid conversion from Go `GCP` type to `GDAL_GCP*`, allocates memory for `GDAL_GCP*` and requires a manual `CPLFree`
+GDAL_GCP *godalGCPPropertiesToGDALGCP(int numGCPs, char **pszIds, char**pszInfos, double *dfGCPPixels, double *dfGCPLines, double *dfGCPXs, double *dfGCPYs, double *dfGCPZs) {
+	GDAL_GCP *ret = static_cast<GDAL_GCP *>(CPLCalloc(numGCPs, sizeof(GDAL_GCP)));
+
+    GDALInitGCPs(numGCPs, ret);
+
+    for (int i = 0; i < numGCPs; i++)
+    {
+		ret[i].pszId = CPLStrdup(pszIds[i]); 
+		ret[i].pszInfo = CPLStrdup(pszInfos[i]);
+        ret[i].dfGCPPixel = dfGCPPixels[i];
+		ret[i].dfGCPLine = dfGCPLines[i];
+		ret[i].dfGCPX = dfGCPXs[i];
+		ret[i].dfGCPY = dfGCPYs[i];
+		ret[i].dfGCPZ = dfGCPZs[i];
+    }
+
+	return ret;
 }

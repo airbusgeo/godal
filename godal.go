@@ -3888,7 +3888,7 @@ func (ds *Dataset) Nearblack(destPath string, destDs *Dataset, switches []string
 	return &Dataset{majorObject{C.GDALMajorObjectH(dsRet)}}, nil
 }
 
-// GCP is a wrapper around GDAL_GCP
+// GCP mirrors the structure of the GDAL_GCP type
 type GCP struct {
 	pszId      string
 	pszInfo    string
@@ -3899,60 +3899,119 @@ type GCP struct {
 	dfGCPZ     float64
 }
 
-// IMPLEMENTED?
-func (ds *Dataset) GetGCPSpatialRef() *SpatialRef {
-	hndl := C.godalGetGCPSpatialRef(ds.handle())
-	return &SpatialRef{handle: hndl, isOwned: false}
+// gdalGCPToGoGCPArray is a utility function for conversion from `[]GCP` (Go) to `*C.GDAL_GCP` (GDAL)
+func goGCPArrayToGDALGCP(GCPList []GCP) *C.GDAL_GCP {
+	if len(GCPList) == 0 {
+		return nil
+	}
+
+	var (
+		ids       = make([]string, len(GCPList))
+		infos     = make([]string, len(GCPList))
+		gcpPixels = make([]float64, len(GCPList))
+		gcpLines  = make([]float64, len(GCPList))
+		gcpXs     = make([]float64, len(GCPList))
+		gcpYs     = make([]float64, len(GCPList))
+		gcpZs     = make([]float64, len(GCPList))
+	)
+	for i, g := range GCPList {
+		ids[i] = g.pszId
+		infos[i] = g.pszInfo
+		gcpPixels[i] = (g.dfGCPPixel)
+		gcpLines[i] = (g.dfGCPLine)
+		gcpXs[i] = (g.dfGCPX)
+		gcpYs[i] = (g.dfGCPY)
+		gcpZs[i] = (g.dfGCPZ)
+	}
+	cIds := sliceToCStringArray(ids)
+	defer cIds.free()
+	cInfos := sliceToCStringArray(infos)
+	defer cInfos.free()
+
+	return C.godalGCPPropertiesToGDALGCP(C.int(len(GCPList)), cIds.cPointer(), cInfos.cPointer(), cDoubleArray(gcpPixels), cDoubleArray(gcpLines), cDoubleArray(gcpXs), cDoubleArray(gcpYs), cDoubleArray(gcpZs))
 }
 
-// IMPLEMENTED
+// gdalGCPToGoGCPArray is a utility function for conversion from `*C.GDAL_GCP` (GDAL) to `[]GCP` (Go)
+func gdalGCPToGoGCPArray(gcp *C.GDAL_GCP, numGCPs int) []GCP {
+	var ret = make([]GCP, numGCPs)
+
+	//https://github.com/golang/go/wiki/cgo#turning-c-arrays-into-go-slices
+	gcps := (*[1 << 30]C.GDAL_GCP)(unsafe.Pointer(gcp))
+	for i := 0; i < numGCPs; i++ {
+		ret[i] = GCP{
+			pszId:      C.GoString(gcps[i].pszId),
+			pszInfo:    C.GoString(gcps[i].pszInfo),
+			dfGCPPixel: float64(gcps[i].dfGCPPixel),
+			dfGCPLine:  float64(gcps[i].dfGCPLine),
+			dfGCPX:     float64(gcps[i].dfGCPX),
+			dfGCPY:     float64(gcps[i].dfGCPY),
+			dfGCPZ:     float64(gcps[i].dfGCPZ),
+		}
+	}
+	return ret
+}
+
+// GetGCPSpatialRef runs the GDALGetGCPSpatialRef function
+func (ds *Dataset) GetGCPSpatialRef() *SpatialRef {
+	return &SpatialRef{handle: C.godalGetGCPSpatialRef(ds.handle()), isOwned: false}
+}
+
+// GetGCPCount runs the GDALGetGCPCount function
 func (ds *Dataset) GetGCPCount() int {
 	return int(C.godalGetGCPCount(ds.handle()))
 }
 
+// GetGCPs runs the GDALGetGCPs function
+// TODO: This makes 2 cgo calls, we could reduce it to 1 by combining `godalGetGCPs` and `GetGCPCount`
+func (ds *Dataset) GetGCPs() []GCP {
+	hndl := C.godalGetGCPs(ds.handle())
+	numGCPs := ds.GetGCPCount()
+	if hndl != nil {
+		return gdalGCPToGoGCPArray(hndl, numGCPs)
+	}
+	return []GCP{}
+}
+
+// GetGCPProjection runs the GDALGetGCPProjection function
 func (ds *Dataset) GetGCPProjection() string {
 	return C.GoString(C.godalGetGCPProjection(ds.handle()))
 }
 
-func (ds *Dataset) SetGCPsSr(nGCPCount int, GCPList *GCP, sr *SpatialRef) error {
-	// 	// TODO: Add opts here?
-	var (
-		SR = &SpatialRef{isOwned: false}
-	)
-	cgc := createCGOContext(nil, nil)
-
-	pszId := unsafe.Pointer(C.CString(GCPList.pszId))
-	defer C.free(pszId)
-	pszInfo := unsafe.Pointer(C.CString(GCPList.pszInfo))
-	defer C.free(pszInfo)
-
-	C.godalSetGCPsSr(cgc.cPointer(), (*C.char)(pszId), (*C.char)(pszInfo), (C.double)(GCPList.dfGCPPixel), (C.double)(GCPList.dfGCPLine), (C.double)(GCPList.dfGCPX), (C.double)(GCPList.dfGCPY), (C.double)(GCPList.dfGCPZ), SR.handle)
-	if err := cgc.close(); err != nil {
-		return err
+// SetGCPs runs the GDALSetGCPs function
+func (ds *Dataset) SetGCPs(GCPList []GCP, pszGCPProjection string, opts ...SetGCPsOption) error {
+	setGCPsOpts := setGCPsOpts{}
+	for _, opt := range opts {
+		opt.setGCPsOpt(&setGCPsOpts)
 	}
+	cgc := createCGOContext(nil, setGCPsOpts.errorHandler)
 
-	return nil
-}
+	GCPProj := C.CString(pszGCPProjection)
+	defer C.free(unsafe.Pointer(GCPProj))
 
-func (ds *Dataset) SetGCPsStr(nGCPCount int, GCPList *GCP, pszGCPProjection string) error {
-	cgc := createCGOContext(nil, nil)
-
-	pszId := unsafe.Pointer(C.CString(GCPList.pszId))
-	defer C.free(pszId)
-	pszInfo := unsafe.Pointer(C.CString(GCPList.pszInfo))
-	defer C.free(pszInfo)
-	gcpProjection := unsafe.Pointer(C.CString(pszGCPProjection))
-	defer C.free(gcpProjection)
-
-	C.godalSetGCPsStr(cgc.cPointer(), (*C.char)(pszId), (*C.char)(pszInfo), (C.double)(GCPList.dfGCPPixel), (C.double)(GCPList.dfGCPLine), (C.double)(GCPList.dfGCPX), (C.double)(GCPList.dfGCPY), (C.double)(GCPList.dfGCPZ), (*C.char)(gcpProjection))
+	C.godalSetGCPs(cgc.cPointer(), ds.handle(), C.int(len(GCPList)), goGCPArrayToGDALGCP(GCPList), GCPProj)
 	if err := cgc.close(); err != nil {
 		return err
 	}
 	return nil
 }
 
-// TODO: Return an error too?
-func (ds *Dataset) GetGCPs() *GCP {
+// SetGCPs2 runs the GDALSetGCPs2 function
+func (ds *Dataset) SetGCPs2(GCPList []GCP, sr *SpatialRef, opts ...SetGCPsOption) error {
+	setGCPsOpts := setGCPsOpts{}
+	for _, opt := range opts {
+		opt.setGCPsOpt(&setGCPsOpts)
+	}
+	cgc := createCGOContext(nil, setGCPsOpts.errorHandler)
+
+	srHandle := C.OGRSpatialReferenceH(nil)
+	if sr != nil {
+		srHandle = sr.handle
+	}
+
+	C.godalSetGCPs2(cgc.cPointer(), ds.handle(), C.int(len(GCPList)), goGCPArrayToGDALGCP(GCPList), srHandle)
+	if err := cgc.close(); err != nil {
+		return err
+	}
 	return nil
 }
 
