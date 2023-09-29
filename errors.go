@@ -373,7 +373,7 @@ func (ec errorCallback) setGridOpt(o *gridOpts) {
 func (ec errorCallback) setNearblackOpt(o *nearBlackOpts) {
 	o.errorHandler = ec.fn
 }
-func (ec errorCallback) setGCPsOpt(o *setGCPsOpts) {
+func (ec errorCallback) setSetGCPsOpt(o *setGCPsOpts) {
 	o.errorHandler = ec.fn
 }
 

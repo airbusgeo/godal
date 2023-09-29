@@ -4016,7 +4016,7 @@ func (ds *Dataset) GetGCPProjection() string {
 func (ds *Dataset) SetGCPs(GCPList []GCP, pszGCPProjection string, opts ...SetGCPsOption) error {
 	setGCPsOpts := setGCPsOpts{}
 	for _, opt := range opts {
-		opt.setGCPsOpt(&setGCPsOpts)
+		opt.setSetGCPsOpt(&setGCPsOpts)
 	}
 	cgc := createCGOContext(nil, setGCPsOpts.errorHandler)
 
@@ -4034,7 +4034,7 @@ func (ds *Dataset) SetGCPs(GCPList []GCP, pszGCPProjection string, opts ...SetGC
 func (ds *Dataset) SetGCPs2(GCPList []GCP, sr *SpatialRef, opts ...SetGCPsOption) error {
 	setGCPsOpts := setGCPsOpts{}
 	for _, opt := range opts {
-		opt.setGCPsOpt(&setGCPsOpts)
+		opt.setSetGCPsOpt(&setGCPsOpts)
 	}
 	cgc := createCGOContext(nil, setGCPsOpts.errorHandler)
 

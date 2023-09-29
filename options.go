@@ -1260,7 +1260,7 @@ type setGCPsOpts struct {
 
 // SetGCPsOption is an option that can be passed to Dataset.SetGCPs()
 type SetGCPsOption interface {
-	setGCPsOpt(sgOpt *setGCPsOpts)
+	setSetGCPsOpt(sgOpt *setGCPsOpts)
 }
 
 // RasterizeGeometryOption is an option that can be passed tp Dataset.RasterizeGeometry()
