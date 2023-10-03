@@ -903,7 +903,7 @@ func (ds *Dataset) SetNoData(nd float64, opts ...SetNoDataOption) error {
 	return cgc.close()
 }
 
-// SetScale sets the band's scale and offset
+// SetScaleOffset sets the band's scale and offset
 func (ds *Dataset) SetScaleOffset(scale, offset float64, opts ...SetScaleOffsetOption) error {
 	setterOpts := &setScaleOffsetOpts{}
 	for _, opt := range opts {
