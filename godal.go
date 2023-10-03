@@ -1265,8 +1265,20 @@ func RegisterAll() {
 	C.GDALAllRegister()
 }
 
-func GDALRegisterPlugins() {
+func RegisterPlugins() {
 	C.godalRegisterPlugins()
+}
+
+func RegisterPlugin(name string, opts ...RegisterPluginOption) error {
+	ro := registerPluginOpts{}
+	for _, o := range opts {
+		o.setRegisterPluginOpt(&ro)
+	}
+	cgc := createCGOContext(nil, ro.errorHandler)
+	cname := C.CString(name)
+	defer C.free(unsafe.Pointer(cname))
+	C.godalRegisterPlugin(cgc.cPointer(), cname)
+	return cgc.close()
 }
 
 // RegisterRaster registers a raster driver by name.

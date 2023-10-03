@@ -153,6 +153,7 @@ func ErrLogger(fn ErrorHandler) interface {
 	GridOption
 	NearblackOption
 	SetGCPsOption
+	RegisterPluginOption
 } {
 	return errorCallback{fn}
 }
@@ -374,6 +375,9 @@ func (ec errorCallback) setNearblackOpt(o *nearBlackOpts) {
 	o.errorHandler = ec.fn
 }
 func (ec errorCallback) setSetGCPsOpt(o *setGCPsOpts) {
+	o.errorHandler = ec.fn
+}
+func (ec errorCallback) setRegisterPluginOpt(o *registerPluginOpts) {
 	o.errorHandler = ec.fn
 }
 
