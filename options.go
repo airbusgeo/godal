@@ -1256,11 +1256,45 @@ type NearblackOption interface {
 
 type setGCPsOpts struct {
 	errorHandler ErrorHandler
+	projString   string
+	sr           *SpatialRef
 }
 
 // SetGCPsOption is an option that can be passed to Dataset.SetGCPs()
 type SetGCPsOption interface {
 	setSetGCPsOpt(sgOpt *setGCPsOpts)
+}
+
+type gcpProjStringOpt struct {
+	projString string
+}
+
+// GCPProjection sets the projection string as an option for SetGCPs
+//
+// NOTE: A non-nil `sr` takes precedence over `projString`
+func GCPProjection(projStr string) interface {
+	SetGCPsOption
+} {
+	return gcpProjStringOpt{projString: projStr}
+}
+func (gps gcpProjStringOpt) setSetGCPsOpt(sgOpt *setGCPsOpts) {
+	sgOpt.projString = gps.projString
+}
+
+type gcpSpatialRefOpt struct {
+	sr *SpatialRef
+}
+
+// GCPSpatialRef sets the *SpatialRef as an option for SetGCPs
+//
+// NOTE: A non-nil `sr` takes precedence over `projString
+func GCPSpatialRef(sr *SpatialRef) interface {
+	SetGCPsOption
+} {
+	return gcpSpatialRefOpt{sr: sr}
+}
+func (gsr gcpSpatialRefOpt) setSetGCPsOpt(sgOpt *setGCPsOpts) {
+	sgOpt.sr = gsr.sr
 }
 
 // RasterizeGeometryOption is an option that can be passed tp Dataset.RasterizeGeometry()
