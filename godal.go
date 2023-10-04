@@ -4013,37 +4013,21 @@ func (ds *Dataset) GetGCPProjection() string {
 }
 
 // SetGCPs runs the GDALSetGCPs function
-func (ds *Dataset) SetGCPs(GCPList []GCP, pszGCPProjection string, opts ...SetGCPsOption) error {
+func (ds *Dataset) SetGCPs(GCPList []GCP, opts ...SetGCPsOption) error {
 	setGCPsOpts := setGCPsOpts{}
 	for _, opt := range opts {
 		opt.setSetGCPsOpt(&setGCPsOpts)
 	}
+
 	cgc := createCGOContext(nil, setGCPsOpts.errorHandler)
-
-	GCPProj := C.CString(pszGCPProjection)
-	defer C.free(unsafe.Pointer(GCPProj))
-
-	C.godalSetGCPs(cgc.cPointer(), ds.handle(), C.int(len(GCPList)), goGCPArrayToGDALGCP(GCPList), GCPProj)
-	if err := cgc.close(); err != nil {
-		return err
-	}
-	return nil
-}
-
-// SetGCPs2 runs the GDALSetGCPs2 function
-func (ds *Dataset) SetGCPs2(GCPList []GCP, sr *SpatialRef, opts ...SetGCPsOption) error {
-	setGCPsOpts := setGCPsOpts{}
-	for _, opt := range opts {
-		opt.setSetGCPsOpt(&setGCPsOpts)
-	}
-	cgc := createCGOContext(nil, setGCPsOpts.errorHandler)
-
-	srHandle := C.OGRSpatialReferenceH(nil)
-	if sr != nil {
-		srHandle = sr.handle
+	if setGCPsOpts.sr != nil {
+		C.godalSetGCPs2(cgc.cPointer(), ds.handle(), C.int(len(GCPList)), goGCPArrayToGDALGCP(GCPList), setGCPsOpts.sr.handle)
+	} else {
+		GCPProj := C.CString(setGCPsOpts.projString)
+		defer C.free(unsafe.Pointer(GCPProj))
+		C.godalSetGCPs(cgc.cPointer(), ds.handle(), C.int(len(GCPList)), goGCPArrayToGDALGCP(GCPList), GCPProj)
 	}
 
-	C.godalSetGCPs2(cgc.cPointer(), ds.handle(), C.int(len(GCPList)), goGCPArrayToGDALGCP(GCPList), srHandle)
 	if err := cgc.close(); err != nil {
 		return err
 	}

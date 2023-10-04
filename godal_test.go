@@ -4604,7 +4604,7 @@ func TestSetGCPsAddTwoGCPs(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	err = vrtDs.SetGCPs(gcpList, srWkt)
+	err = vrtDs.SetGCPs(gcpList, GCPProjection(srWkt))
 	if err != nil {
 		t.Error(err)
 	}
@@ -4639,7 +4639,7 @@ func TestSetGCPsAddZeroGCPs(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	err = vrtDs.SetGCPs(gcpList, srWkt)
+	err = vrtDs.SetGCPs(gcpList, GCPProjection(srWkt))
 	if err != nil {
 		t.Error(err)
 	}
@@ -4669,10 +4669,10 @@ func TestSetGCPsInvalidDataset(t *testing.T) {
 	}
 
 	ehc := eh()
-	err = vrtDs.SetGCPs([]GCP{}, srWkt, ErrLogger(ehc.ErrorHandler))
+	err = vrtDs.SetGCPs([]GCP{}, GCPProjection(srWkt), ErrLogger(ehc.ErrorHandler))
 	assert.Error(t, err)
 
-	err = vrtDs.SetGCPs([]GCP{}, srWkt)
+	err = vrtDs.SetGCPs([]GCP{}, GCPProjection(srWkt))
 	assert.Error(t, err)
 }
 
@@ -4718,7 +4718,7 @@ func TestSetGCPs2AddTwoGCPs(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	err = vrtDs.SetGCPs2(gcpList, sr)
+	err = vrtDs.SetGCPs(gcpList, GCPSpatialRef(sr))
 	if err != nil {
 		t.Error(err)
 	}
@@ -4753,7 +4753,7 @@ func TestSetGCPs2AddZeroGCPs(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	err = vrtDs.SetGCPs2(gcpList, sr)
+	err = vrtDs.SetGCPs(gcpList, GCPSpatialRef(sr))
 	if err != nil {
 		t.Error(err)
 	}
@@ -4774,9 +4774,9 @@ func TestSetGCPs2InvalidDataset(t *testing.T) {
 	defer vrtDs.Close()
 
 	ehc := eh()
-	err = vrtDs.SetGCPs2([]GCP{}, &SpatialRef{}, ErrLogger(ehc.ErrorHandler))
+	err = vrtDs.SetGCPs([]GCP{}, GCPSpatialRef(&SpatialRef{}), ErrLogger(ehc.ErrorHandler))
 	assert.Error(t, err)
 
-	err = vrtDs.SetGCPs2([]GCP{}, &SpatialRef{})
+	err = vrtDs.SetGCPs([]GCP{}, GCPSpatialRef(&SpatialRef{}))
 	assert.Error(t, err)
 }
