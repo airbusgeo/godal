@@ -1784,52 +1784,60 @@ const char *godalGetGCPProjection(GDALDatasetH hSrcDS) {
 	return GDALGetGCPProjection(hSrcDS);
 }
 
-void godalSetGCPs(cctx *ctx, GDALDatasetH hSrcDS, int numGCPs, GDAL_GCP *GCPList, const char *pszGCPProjection) {
+void godalSetGCPs(cctx *ctx, GDALDatasetH hSrcDS, int numGCPs, goGCPList GCPList, const char *pszGCPProjection) {
 	godalWrap(ctx);
 
-	CPLErr ret = GDALSetGCPs(hSrcDS, numGCPs, GCPList, pszGCPProjection);
-	if(ret!=0) {
-		forceCPLError(ctx, ret);
-	}
-
-	GDALDeinitGCPs(numGCPs, GCPList);
-	CPLFree(GCPList);
-	
-	godalUnwrap();
-	return;
-}
-
-void godalSetGCPs2(cctx *ctx, GDALDatasetH hSrcDS, int numGCPs, GDAL_GCP *GCPList, OGRSpatialReferenceH hSRS) {
-	godalWrap(ctx);
-
-	CPLErr ret = GDALSetGCPs2(hSrcDS, numGCPs, GCPList, hSRS);
-	if(ret!=0) {
-		forceCPLError(ctx, ret);
-	}
-
-	GDALDeinitGCPs(numGCPs, GCPList);
-	CPLFree(GCPList);
-	
-	godalUnwrap();
-	return;
-}
-
-// Utility function to aid conversion from Go `GCP` type to `GDAL_GCP*`, allocates memory for `GDAL_GCP*` and requires a manual `CPLFree`
-GDAL_GCP *godalGCPPropertiesToGDALGCP(int numGCPs, char **pszIds, char**pszInfos, double *dfGCPPixels, double *dfGCPLines, double *dfGCPXs, double *dfGCPYs, double *dfGCPZs) {
-	GDAL_GCP *ret = static_cast<GDAL_GCP *>(CPLCalloc(numGCPs, sizeof(GDAL_GCP)));
-
-    GDALInitGCPs(numGCPs, ret);
-
+	// Convert `goGCPList` -> `GDAL_GCP*`
+	GDAL_GCP *GDALGCPList = static_cast<GDAL_GCP *>(CPLCalloc(numGCPs, sizeof(GDAL_GCP)));
+    GDALInitGCPs(numGCPs, GDALGCPList);
     for (int i = 0; i < numGCPs; i++)
     {
-		ret[i].pszId = CPLStrdup(pszIds[i]); 
-		ret[i].pszInfo = CPLStrdup(pszInfos[i]);
-        ret[i].dfGCPPixel = dfGCPPixels[i];
-		ret[i].dfGCPLine = dfGCPLines[i];
-		ret[i].dfGCPX = dfGCPXs[i];
-		ret[i].dfGCPY = dfGCPYs[i];
-		ret[i].dfGCPZ = dfGCPZs[i];
+		GDALGCPList[i].pszId = CPLStrdup(GCPList.pszIds[i]); 
+		GDALGCPList[i].pszInfo = CPLStrdup(GCPList.pszInfos[i]);
+        GDALGCPList[i].dfGCPPixel = GCPList.dfGCPPixels[i];
+		GDALGCPList[i].dfGCPLine = GCPList.dfGCPLines[i];
+		GDALGCPList[i].dfGCPX = GCPList.dfGCPXs[i];
+		GDALGCPList[i].dfGCPY = GCPList.dfGCPYs[i];
+		GDALGCPList[i].dfGCPZ = GCPList.dfGCPZs[i];
     }
 
-	return ret;
+	CPLErr ret = GDALSetGCPs(hSrcDS, numGCPs, GDALGCPList, pszGCPProjection);
+	if(ret!=0) {
+		forceCPLError(ctx, ret);
+	}
+	
+	GDALDeinitGCPs(numGCPs, GDALGCPList);
+	CPLFree(GDALGCPList);
+
+	godalUnwrap();
+	return;
+}
+
+void godalSetGCPs2(cctx *ctx, GDALDatasetH hSrcDS, int numGCPs, goGCPList GCPList, OGRSpatialReferenceH hSRS) {
+	godalWrap(ctx);
+
+	// Convert `goGCPList` -> `GDAL_GCP*`
+	GDAL_GCP *GDALGCPList = static_cast<GDAL_GCP *>(CPLCalloc(numGCPs, sizeof(GDAL_GCP)));
+    GDALInitGCPs(numGCPs, GDALGCPList);
+    for (int i = 0; i < numGCPs; i++)
+    {
+		GDALGCPList[i].pszId = CPLStrdup(GCPList.pszIds[i]); 
+		GDALGCPList[i].pszInfo = CPLStrdup(GCPList.pszInfos[i]);
+        GDALGCPList[i].dfGCPPixel = GCPList.dfGCPPixels[i];
+		GDALGCPList[i].dfGCPLine = GCPList.dfGCPLines[i];
+		GDALGCPList[i].dfGCPX = GCPList.dfGCPXs[i];
+		GDALGCPList[i].dfGCPY = GCPList.dfGCPYs[i];
+		GDALGCPList[i].dfGCPZ = GCPList.dfGCPZs[i];
+    }
+
+	CPLErr ret = GDALSetGCPs2(hSrcDS, numGCPs, GDALGCPList, hSRS);
+	if(ret!=0) {
+		forceCPLError(ctx, ret);
+	}
+
+	GDALDeinitGCPs(numGCPs, GDALGCPList);
+	CPLFree(GDALGCPList);
+	
+	godalUnwrap();
+	return;
 }

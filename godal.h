@@ -159,12 +159,20 @@ extern "C" {
 		const GDAL_GCP *gcpList;
 		int numGCPs;
 	} GCPsAndCount;
+	typedef struct {
+		char **pszIds;
+		char **pszInfos;
+		double *dfGCPPixels;
+		double *dfGCPLines;
+		double *dfGCPXs;
+		double *dfGCPYs;
+		double *dfGCPZs;
+	} goGCPList;
 	OGRSpatialReferenceH godalGetGCPSpatialRef(GDALDatasetH hSrcDS);
 	const GCPsAndCount godalGetGCPs(GDALDatasetH hSrcDS);
 	const char *godalGetGCPProjection(GDALDatasetH hSrcDS);
-	void godalSetGCPs(cctx *ctx, GDALDatasetH hSrcDS, int numGCPs, GDAL_GCP *GCPList, const char *pszGCPProjection);
-	void godalSetGCPs2(cctx *ctx, GDALDatasetH hSrcDS, int numGCPs, GDAL_GCP *GCPList, OGRSpatialReferenceH hSRS);
-	GDAL_GCP *godalGCPPropertiesToGDALGCP(int numGCPs, char **pszIds, char**pszInfos, double *dfGCPPixels, double *dfGCPLines, double *dfGCPXs, double *dfGCPYs, double *dfGCPZs);
+	void godalSetGCPs(cctx *ctx, GDALDatasetH hSrcDS, int numGCPs, goGCPList GCPList, const char *pszGCPProjection);
+	void godalSetGCPs2(cctx *ctx, GDALDatasetH hSrcDS, int numGCPs, goGCPList GCPList, OGRSpatialReferenceH hSRS);
 #ifdef __cplusplus
 }
 #endif
