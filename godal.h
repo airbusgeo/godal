@@ -155,9 +155,12 @@ extern "C" {
 	GDALDatasetH godalGrid(cctx *ctx, const char *pszDest, GDALDatasetH hSrcDS, char **switches);
 	GDALDatasetH godalNearblack(cctx *ctx, const char *pszDest, GDALDatasetH hDstDS, GDALDatasetH hSrcDS, char **switches);
 
+	typedef struct {
+		const GDAL_GCP *gcpList;
+		int numGCPs;
+	} GCPsAndCount;
 	OGRSpatialReferenceH godalGetGCPSpatialRef(GDALDatasetH hSrcDS);
-	int godalGetGCPCount(GDALDatasetH hSrcDS);
-	const GDAL_GCP *godalGetGCPs(GDALDatasetH hSrcDS);
+	const GCPsAndCount godalGetGCPs(GDALDatasetH hSrcDS);
 	const char *godalGetGCPProjection(GDALDatasetH hSrcDS);
 	void godalSetGCPs(cctx *ctx, GDALDatasetH hSrcDS, int numGCPs, GDAL_GCP *GCPList, const char *pszGCPProjection);
 	void godalSetGCPs2(cctx *ctx, GDALDatasetH hSrcDS, int numGCPs, GDAL_GCP *GCPList, OGRSpatialReferenceH hSRS);

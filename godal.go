@@ -3966,13 +3966,17 @@ func goGCPArrayToGDALGCP(GCPList []GCP) *C.GDAL_GCP {
 	return C.godalGCPPropertiesToGDALGCP(C.int(len(GCPList)), cIds.cPointer(), cInfos.cPointer(), cDoubleArray(gcpPixels), cDoubleArray(gcpLines), cDoubleArray(gcpXs), cDoubleArray(gcpYs), cDoubleArray(gcpZs))
 }
 
-// gdalGCPToGoGCPArray is a utility function for conversion from `*C.GDAL_GCP` (GDAL) to `[]GCP` (Go)
-func gdalGCPToGoGCPArray(gcp *C.GDAL_GCP, numGCPs int) []GCP {
-	var ret = make([]GCP, numGCPs)
+// gdalGCPToGoGCPArray is a utility function for conversion from `C.GCPsAndCount` (GDAL) to `[]GCP` (Go)
+func gdalGCPToGoGCPArray(gcp C.GCPsAndCount) []GCP {
+	var ret []GCP
+	if gcp.gcpList == nil {
+		return ret
+	}
 
 	//https://github.com/golang/go/wiki/cgo#turning-c-arrays-into-go-slices
-	gcps := (*[1 << 30]C.GDAL_GCP)(unsafe.Pointer(gcp))
-	for i := 0; i < numGCPs; i++ {
+	gcps := (*[1 << 30]C.GDAL_GCP)(unsafe.Pointer(gcp.gcpList))
+	ret = make([]GCP, gcp.numGCPs)
+	for i := 0; i < len(ret); i++ {
 		ret[i] = GCP{
 			pszId:      C.GoString(gcps[i].pszId),
 			pszInfo:    C.GoString(gcps[i].pszInfo),
@@ -3983,6 +3987,7 @@ func gdalGCPToGoGCPArray(gcp *C.GDAL_GCP, numGCPs int) []GCP {
 			dfGCPZ:     float64(gcps[i].dfGCPZ),
 		}
 	}
+
 	return ret
 }
 
@@ -3991,20 +3996,11 @@ func (ds *Dataset) GCPSpatialRef() *SpatialRef {
 	return &SpatialRef{handle: C.godalGetGCPSpatialRef(ds.handle()), isOwned: false}
 }
 
-// GetGCPCount runs the GDALGetGCPCount function
-func (ds *Dataset) gcpCount() int {
-	return int(C.godalGetGCPCount(ds.handle()))
-}
-
 // GetGCPs runs the GDALGetGCPs function
 // TODO: This makes 2 cgo calls, we could reduce it to 1 by combining `godalGetGCPs` and `GetGCPCount`
 func (ds *Dataset) GCPs() []GCP {
-	hndl := C.godalGetGCPs(ds.handle())
-	numGCPs := ds.gcpCount()
-	if hndl != nil {
-		return gdalGCPToGoGCPArray(hndl, numGCPs)
-	}
-	return []GCP{}
+	gcpsAndCount := C.godalGetGCPs(ds.handle())
+	return gdalGCPToGoGCPArray(gcpsAndCount)
 }
 
 // GetGCPProjection runs the GDALGetGCPProjection function

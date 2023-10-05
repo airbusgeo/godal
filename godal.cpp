@@ -1773,12 +1773,11 @@ OGRSpatialReferenceH godalGetGCPSpatialRef(GDALDatasetH hSrcDS) {
 	return GDALGetGCPSpatialRef(hSrcDS);
 }
 
-int godalGetGCPCount(GDALDatasetH hSrcDS) {
-	return GDALGetGCPCount(hSrcDS);
-}
-
-const GDAL_GCP *godalGetGCPs(GDALDatasetH hSrcDS) {
-	return GDALGetGCPs(hSrcDS);
+const GCPsAndCount godalGetGCPs(GDALDatasetH hSrcDS) {
+	return GCPsAndCount {
+		.gcpList = GDALGetGCPs(hSrcDS), 
+		.numGCPs = GDALGetGCPCount(hSrcDS),
+	};
 }
 
 const char *godalGetGCPProjection(GDALDatasetH hSrcDS) {
