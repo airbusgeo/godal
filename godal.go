@@ -3977,7 +3977,6 @@ func (ds *Dataset) GCPSpatialRef() *SpatialRef {
 }
 
 // GetGCPs runs the GDALGetGCPs function
-// TODO: This makes 2 cgo calls, we could reduce it to 1 by combining `godalGetGCPs` and `GetGCPCount`
 func (ds *Dataset) GCPs() []GCP {
 	gcpsAndCount := C.godalGetGCPs(ds.handle())
 	return gdalGCPToGoGCPArray(gcpsAndCount)
