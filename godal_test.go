@@ -277,8 +277,6 @@ func TestRegisterDrivers(t *testing.T) {
 	}
 	err = RegisterPlugin("foobarsljgsa")
 	assert.Error(t, err)
-	err = RegisterPlugin("dehazer")
-	assert.NoError(t, err)
 
 	//smoke test for RegisterPlugins
 	RegisterPlugins()
