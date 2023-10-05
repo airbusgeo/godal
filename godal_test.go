@@ -4571,10 +4571,10 @@ func TestSetGCPsAddTwoGCPs(t *testing.T) {
 	defer vrtDs.Close()
 
 	// Check `Get` methods before setting GCPs
-	assert.Equal(t, &SpatialRef{handle: nil, isOwned: false}, vrtDs.GetGCPSpatialRef())
-	assert.Equal(t, 0, vrtDs.GetGCPCount())
-	assert.Equal(t, []GCP{}, vrtDs.GetGCPs())
-	assert.Equal(t, "", vrtDs.GetGCPProjection())
+	assert.Equal(t, &SpatialRef{handle: nil, isOwned: false}, vrtDs.GCPSpatialRef())
+	gcps := vrtDs.GCPs()
+	assert.Equal(t, 0, len(gcps))
+	assert.Equal(t, "", vrtDs.GCPProjection())
 
 	var gcpList []GCP = []GCP{
 		{
@@ -4610,10 +4610,11 @@ func TestSetGCPsAddTwoGCPs(t *testing.T) {
 	}
 
 	// Check `Get` method after settings GCPs
-	assert.NotEqual(t, nil, vrtDs.GetGCPSpatialRef().handle)
-	assert.Equal(t, 2, vrtDs.GetGCPCount())
-	assert.Equal(t, gcpList, vrtDs.GetGCPs())
-	assert.Equal(t, srWkt, vrtDs.GetGCPProjection())
+	assert.NotEqual(t, nil, vrtDs.GCPSpatialRef().handle)
+	gcps = vrtDs.GCPs()
+	assert.Equal(t, 2, len(gcps))
+	assert.Equal(t, gcpList, gcps)
+	assert.Equal(t, srWkt, vrtDs.GCPProjection())
 }
 
 func TestSetGCPsAddZeroGCPs(t *testing.T) {
@@ -4625,10 +4626,10 @@ func TestSetGCPsAddZeroGCPs(t *testing.T) {
 	defer vrtDs.Close()
 
 	// Check `Get` methods before setting GCPs
-	assert.Equal(t, &SpatialRef{handle: nil, isOwned: false}, vrtDs.GetGCPSpatialRef())
-	assert.Equal(t, 0, vrtDs.GetGCPCount())
-	assert.Equal(t, []GCP{}, vrtDs.GetGCPs())
-	assert.Equal(t, "", vrtDs.GetGCPProjection())
+	assert.Equal(t, &SpatialRef{handle: nil, isOwned: false}, vrtDs.GCPSpatialRef())
+	gcps := vrtDs.GCPs()
+	assert.Equal(t, 0, len(gcps))
+	assert.Equal(t, "", vrtDs.GCPProjection())
 
 	var gcpList []GCP = []GCP{}
 	sr, err := NewSpatialRefFromEPSG(3857)
@@ -4645,10 +4646,10 @@ func TestSetGCPsAddZeroGCPs(t *testing.T) {
 	}
 
 	// Check `Get` method after settings GCPs
-	assert.NotEqual(t, nil, vrtDs.GetGCPSpatialRef().handle)
-	assert.Equal(t, 0, vrtDs.GetGCPCount())
-	assert.Equal(t, gcpList, vrtDs.GetGCPs())
-	assert.Equal(t, srWkt, vrtDs.GetGCPProjection())
+	assert.NotEqual(t, nil, vrtDs.GCPSpatialRef().handle)
+	gcps = vrtDs.GCPs()
+	assert.Equal(t, 0, len(gcps))
+	assert.Equal(t, srWkt, vrtDs.GCPProjection())
 }
 
 func TestSetGCPsInvalidDataset(t *testing.T) {
@@ -4685,10 +4686,10 @@ func TestSetGCPs2AddTwoGCPs(t *testing.T) {
 	defer vrtDs.Close()
 
 	// Check `Get` methods before setting GCPs
-	assert.Equal(t, &SpatialRef{handle: nil, isOwned: false}, vrtDs.GetGCPSpatialRef())
-	assert.Equal(t, 0, vrtDs.GetGCPCount())
-	assert.Equal(t, []GCP{}, vrtDs.GetGCPs())
-	assert.Equal(t, "", vrtDs.GetGCPProjection())
+	assert.Equal(t, &SpatialRef{handle: nil, isOwned: false}, vrtDs.GCPSpatialRef())
+	gcps := vrtDs.GCPs()
+	assert.Equal(t, 0, len(gcps))
+	assert.Equal(t, "", vrtDs.GCPProjection())
 
 	var gcpList []GCP = []GCP{
 		{
@@ -4724,10 +4725,11 @@ func TestSetGCPs2AddTwoGCPs(t *testing.T) {
 	}
 
 	// Check `Get` method after settings GCPs
-	assert.NotEqual(t, nil, vrtDs.GetGCPSpatialRef().handle)
-	assert.Equal(t, 2, vrtDs.GetGCPCount())
-	assert.Equal(t, gcpList, vrtDs.GetGCPs())
-	assert.Equal(t, srWkt, vrtDs.GetGCPProjection())
+	assert.NotEqual(t, nil, vrtDs.GCPSpatialRef().handle)
+	gcps = vrtDs.GCPs()
+	assert.Equal(t, 2, len(gcps))
+	assert.Equal(t, gcpList, gcps)
+	assert.Equal(t, srWkt, vrtDs.GCPProjection())
 }
 
 func TestSetGCPs2AddZeroGCPs(t *testing.T) {
@@ -4739,10 +4741,10 @@ func TestSetGCPs2AddZeroGCPs(t *testing.T) {
 	defer vrtDs.Close()
 
 	// Check `Get` methods before setting GCPs
-	assert.Equal(t, &SpatialRef{handle: nil, isOwned: false}, vrtDs.GetGCPSpatialRef())
-	assert.Equal(t, 0, vrtDs.GetGCPCount())
-	assert.Equal(t, []GCP{}, vrtDs.GetGCPs())
-	assert.Equal(t, "", vrtDs.GetGCPProjection())
+	assert.Equal(t, &SpatialRef{handle: nil, isOwned: false}, vrtDs.GCPSpatialRef())
+	gcps := vrtDs.GCPs()
+	assert.Equal(t, 0, len(gcps))
+	assert.Equal(t, "", vrtDs.GCPProjection())
 
 	var gcpList []GCP = []GCP{}
 	sr, err := NewSpatialRefFromEPSG(3857)
@@ -4759,10 +4761,10 @@ func TestSetGCPs2AddZeroGCPs(t *testing.T) {
 	}
 
 	// Check `Get` method after settings GCPs
-	assert.NotEqual(t, nil, vrtDs.GetGCPSpatialRef().handle)
-	assert.Equal(t, 0, vrtDs.GetGCPCount())
-	assert.Equal(t, gcpList, vrtDs.GetGCPs())
-	assert.Equal(t, srWkt, vrtDs.GetGCPProjection())
+	assert.NotEqual(t, nil, vrtDs.GCPSpatialRef().handle)
+	gcps = vrtDs.GCPs()
+	assert.Equal(t, 0, len(gcps))
+	assert.Equal(t, srWkt, vrtDs.GCPProjection())
 }
 
 func TestSetGCPs2InvalidDataset(t *testing.T) {

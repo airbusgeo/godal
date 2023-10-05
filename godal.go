@@ -3987,20 +3987,20 @@ func gdalGCPToGoGCPArray(gcp *C.GDAL_GCP, numGCPs int) []GCP {
 }
 
 // GetGCPSpatialRef runs the GDALGetGCPSpatialRef function
-func (ds *Dataset) GetGCPSpatialRef() *SpatialRef {
+func (ds *Dataset) GCPSpatialRef() *SpatialRef {
 	return &SpatialRef{handle: C.godalGetGCPSpatialRef(ds.handle()), isOwned: false}
 }
 
 // GetGCPCount runs the GDALGetGCPCount function
-func (ds *Dataset) GetGCPCount() int {
+func (ds *Dataset) gcpCount() int {
 	return int(C.godalGetGCPCount(ds.handle()))
 }
 
 // GetGCPs runs the GDALGetGCPs function
 // TODO: This makes 2 cgo calls, we could reduce it to 1 by combining `godalGetGCPs` and `GetGCPCount`
-func (ds *Dataset) GetGCPs() []GCP {
+func (ds *Dataset) GCPs() []GCP {
 	hndl := C.godalGetGCPs(ds.handle())
-	numGCPs := ds.GetGCPCount()
+	numGCPs := ds.gcpCount()
 	if hndl != nil {
 		return gdalGCPToGoGCPArray(hndl, numGCPs)
 	}
@@ -4008,7 +4008,7 @@ func (ds *Dataset) GetGCPs() []GCP {
 }
 
 // GetGCPProjection runs the GDALGetGCPProjection function
-func (ds *Dataset) GetGCPProjection() string {
+func (ds *Dataset) GCPProjection() string {
 	return C.GoString(C.godalGetGCPProjection(ds.handle()))
 }
 
