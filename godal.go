@@ -539,27 +539,39 @@ func (band Band) SetStatistics(min, max, mean, std float64, opts ...SetStatistic
 }
 
 func cIntArray(in []int) *C.int {
+	var ptr *C.int
+	if len(in) > 0 {
 	ret := make([]C.int, len(in))
 	for i := range in {
 		ret[i] = C.int(in[i])
 	}
-	return (*C.int)(unsafe.Pointer(&ret[0]))
+		ptr = (*C.int)(unsafe.Pointer(&ret[0]))
+	}
+	return ptr
 }
 
 func cLongArray(in []int64) *C.longlong {
+	var ptr *C.longlong
+	if len(in) > 0 {
 	ret := make([]C.longlong, len(in))
 	for i := range in {
 		ret[i] = C.longlong(in[i])
 	}
-	return (*C.longlong)(unsafe.Pointer(&ret[0]))
+		ptr = (*C.longlong)(unsafe.Pointer(&ret[0]))
+	}
+	return ptr
 }
 
 func cDoubleArray(in []float64) *C.double {
+	var ptr *C.double
+	if len(in) > 0 {
 	ret := make([]C.double, len(in))
 	for i := range in {
 		ret[i] = C.double(in[i])
 	}
-	return (*C.double)(unsafe.Pointer(&ret[0]))
+		ptr = (*C.double)(unsafe.Pointer(&ret[0]))
+	}
+	return ptr
 }
 
 type cStringArray struct {
