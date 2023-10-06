@@ -4561,3 +4561,35 @@ func TestNearblackIntoNoSrcDs(t *testing.T) {
 	err = nbDs.NearblackInto(nil, []string{}, ErrLogger(ehc.ErrorHandler))
 	assert.Error(t, err)
 }
+
+// Algorithm A invalid switch (also test with and w/o errorLogger) [DONE]
+func TestDemInvalidSwitch(t *testing.T) {
+	fname := "/vsimem/test.tiff"
+	vrtDs, err := Create(Memory, fname, 1, Byte, 256, 256)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() { _ = VSIUnlink(fname) }()
+	defer vrtDs.Close()
+
+	_, err = vrtDs.Dem("test", "hillshade", nil, []string{"-invalidswitch"})
+	assert.Error(t, err)
+	ehc := eh()
+	_, err = vrtDs.Dem("test", "hillshade", nil, []string{"-invalidswitch"}, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+}
+// Algorithm "Color" + nil colorFileName -> error
+func TestDemColorReliefNilFilename(t *testing.T) {
+	fname := "/vsimem/test.tiff"
+	vrtDs, err := Create(Memory, fname, 1, Byte, 256, 256)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() { _ = VSIUnlink(fname) }()
+	defer vrtDs.Close()
+
+	_, err = vrtDs.Dem("./testdata/jotunheimen_color_relief.tif", "color-relief", nil, []string{})
+	assert.Error(t, err)
+}

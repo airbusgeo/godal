@@ -1254,6 +1254,15 @@ type NearblackOption interface {
 	setNearblackOpt(nbOpt *nearBlackOpts)
 }
 
+type demOpts struct {
+	errorHandler ErrorHandler
+}
+
+// DemOption is an option that can be passed to Dataset.Dem()
+type DemOption interface {
+	setDemOpt(demOpt *demOpts)
+}
+
 // RasterizeGeometryOption is an option that can be passed tp Dataset.RasterizeGeometry()
 type RasterizeGeometryOption interface {
 	setRasterizeGeometryOpt(o *rasterizeGeometryOpts)
