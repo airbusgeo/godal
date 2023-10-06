@@ -194,6 +194,25 @@ int godalRegisterDriver(const char *fnname) {
 	return -1;
 }
 
+void godalRegisterPlugins(){
+#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 8, 0)
+  GDALRegisterPlugins();
+#endif
+}
+
+void godalRegisterPlugin(cctx *ctx, const char *name){
+  godalWrap(ctx);
+#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 8, 0)
+  CPLErr ret = GDALRegisterPlugin(name);
+  if (ret != 0) {
+	  forceCPLError(ctx, ret);
+  }
+#else
+	CPLError(CE_Failure, CPLE_NotSupported, "GDALRegisterPlugin is only supported in GDAL version >= 3.8");
+#endif
+	godalUnwrap();
+}
+
 GDALDatasetH godalCreate(cctx *ctx, GDALDriverH drv, const char* name, int width, int height, int nbands,
 							GDALDataType dtype, char **options) {
 	godalWrap(ctx);

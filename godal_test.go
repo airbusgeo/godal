@@ -264,6 +264,22 @@ func TestRegisterDrivers(t *testing.T) {
 	assert.True(t, ok)
 	_, ok = VectorDriver("Mapinfo File")
 	assert.True(t, ok)
+
+	runtimeVersion := Version()
+	supported := runtimeVersion.Major() > 3 ||
+		(runtimeVersion.Major() == 3 && runtimeVersion.Minor() >= 8)
+
+	ehc := eh()
+	err = RegisterPlugin("foobarsljgsa", ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+	if !supported {
+		assert.Contains(t, err.Error(), "GDALRegisterPlugin is only supported")
+	}
+	err = RegisterPlugin("foobarsljgsa")
+	assert.Error(t, err)
+
+	//smoke test for RegisterPlugins
+	RegisterPlugins()
 }
 
 func TestVectorCreate(t *testing.T) {

@@ -47,6 +47,8 @@ extern "C" {
 
 	void godalClose(cctx *ctx, GDALDatasetH ds);
 	int godalRegisterDriver(const char *funcname);
+	void godalRegisterPlugins();
+	void godalRegisterPlugin(cctx *ctx, const char *name);
 	void godalRasterSize(GDALDatasetH ds, int *xsize, int *ysize);
 
 	//returns a null terminated list of bands. the caller must free the returned list

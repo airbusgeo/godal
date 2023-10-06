@@ -1297,6 +1297,15 @@ func (gsr gcpSpatialRefOpt) setSetGCPsOpt(sgOpt *setGCPsOpts) {
 	sgOpt.sr = gsr.sr
 }
 
+type registerPluginOpts struct {
+	errorHandler ErrorHandler
+}
+
+// RegisterPluginOption is an option that can be passed to RegisterPlugin()
+type RegisterPluginOption interface {
+	setRegisterPluginOpt(rpOpt *registerPluginOpts)
+}
+
 // RasterizeGeometryOption is an option that can be passed tp Dataset.RasterizeGeometry()
 type RasterizeGeometryOption interface {
 	setRasterizeGeometryOpt(o *rasterizeGeometryOpts)
