@@ -4562,7 +4562,124 @@ func TestNearblackIntoNoSrcDs(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// Algorithm A invalid switch (also test with and w/o errorLogger) [DONE]
+func TestDemHillshade(t *testing.T) {
+	// 1. Create an image, linearly interpolated, from dark (on the left) to white (on the right), using `Grid()`
+	var (
+		outXSize = 2048
+		outYSize = 2048
+	)
+	vrtDs, err := CreateVector(Memory, "")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer vrtDs.Close()
+	geom, err := NewGeometryFromWKT("POLYGON((500000 500000 10, 500000 600000 10, 600000 600000 2026, 600000 500000 2026))", nil)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer geom.Close()
+	_, err = vrtDs.CreateLayer("grid", nil, GTPolygon)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = vrtDs.Layers()[0].NewFeature(geom)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	// As of GDAL v3.6, `GDALGrid` will swap `yMin` and `yMax` if `yMin` < `yMax`. In order to make the output of
+	// earlier GDAL versions (< 3.6) consistent with this, we're setting `yMin` > `yMax`.
+	yMin := 600000
+	yMax := 500000
+	argsString := fmt.Sprintf("-a linear -txe 500000 600000 -tye %d %d -outsize %d %d -ot Int16", yMin, yMax, outXSize, outYSize)
+	fname := "/vsimem/grid.tiff"
+	gridDs, err := vrtDs.Grid(fname, strings.Split(argsString, " "))
+	if err != nil {
+		// Handles QHull error differently here, as it's a compatibility issue not a gridding error
+		isQhullError := strings.HasSuffix(err.Error(), "without QHull support")
+		if isQhullError {
+			t.Log(`Skipping test, GDAL was built without "Delaunay triangulation" support which is required for the "Linear" gridding algorithm`)
+			return
+		} else {
+			t.Error(err)
+			return
+		}
+	}
+	gridDs.SetProjection("epsg:32632")
+	defer func() { _ = VSIUnlink(fname) }()
+	defer gridDs.Close()
+
+	fname2 := "/vsimem/dem.tif"
+	demDs, err := gridDs.Dem(fname2, "hillshade", nil, []string{})
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() { _ = VSIUnlink(fname2) }()
+	defer demDs.Close()
+
+	demBuf := make([]uint8, outXSize*outYSize)
+	err = demDs.Read(0, 0, demBuf, outXSize, outYSize)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	// Expected value of border is NODATA (0): https://gdal.org/programs/gdaldem.html
+	var nodata uint8 = 0
+	assert.Equal(t, nodata, demBuf[0])
+	assert.Equal(t, nodata, demBuf[outXSize-1])
+	assert.Equal(t, nodata, demBuf[(outXSize*(outYSize-1))])
+	assert.Equal(t, nodata, demBuf[(outXSize*outYSize)-1])
+
+	// Values in each "column" should be equal
+	// NOTE: Skips the outer pixel border since it's set to the NODATA value
+	for x := 1; x < 256; x++ {
+		var topValInColumn = demBuf[(1*outXSize)+x]
+		for y := 1; y < 2047; y++ {
+			thisColVal := demBuf[(y*outXSize)+x]
+			assert.Equal(t, topValInColumn, thisColVal)
+		}
+	}
+
+	// Iterate through lines on the middle row of the output dataset checking that
+	// each line has equal spacing between it and the next line
+	var (
+		expLineThickness    = 2
+		thisLineThickness   = 0
+		expInterLineSpaces  = 62
+		thisInterLineSpaces = 0
+		row                 = (outYSize / 2)
+
+		expSpaceVal uint8 = 183
+		expLineVal  uint8 = 182
+	)
+	for x := 1; x < outXSize-1; x++ {
+		thisCoordVal := demBuf[(row*outYSize)+x]
+		switch thisCoordVal {
+		case expSpaceVal:
+			if thisLineThickness > 0 {
+				assert.Equal(t, expLineThickness, thisLineThickness)
+				thisLineThickness = 0
+			}
+			thisInterLineSpaces++
+		case expLineVal:
+			if thisInterLineSpaces > 0 {
+				assert.Equal(t, expInterLineSpaces, thisInterLineSpaces)
+				thisInterLineSpaces = 0
+			}
+			thisLineThickness++
+		default:
+			t.Errorf("found coordinate with value not in: [%d, %d]", expSpaceVal, expLineVal)
+			return
+		}
+	}
+}
+
 func TestDemInvalidSwitch(t *testing.T) {
 	fname := "/vsimem/test.tiff"
 	vrtDs, err := Create(Memory, fname, 1, Byte, 256, 256)
@@ -4579,7 +4696,125 @@ func TestDemInvalidSwitch(t *testing.T) {
 	_, err = vrtDs.Dem("test", "hillshade", nil, []string{"-invalidswitch"}, ErrLogger(ehc.ErrorHandler))
 	assert.Error(t, err)
 }
-// Algorithm "Color" + nil colorFileName -> error
+
+func TestDemSlope(t *testing.T) {
+	// 1. Create an image, linearly interpolated, from black (on the left) to white (on the right), using `Grid()`
+	var (
+		outXSize = 2048
+		outYSize = 2048
+	)
+	vrtDs, err := CreateVector(Memory, "")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer vrtDs.Close()
+	geom, err := NewGeometryFromWKT("POLYGON((500000 500000 10, 500000 600000 10, 600000 600000 2026, 600000 500000 2026))", nil)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer geom.Close()
+	_, err = vrtDs.CreateLayer("grid", nil, GTPolygon)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = vrtDs.Layers()[0].NewFeature(geom)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	// As of GDAL v3.6, `GDALGrid` will swap `yMin` and `yMax` if `yMin` < `yMax`. In order to make the output of
+	// earlier GDAL versions (< 3.6) consistent with this, we're setting `yMin` > `yMax`.
+	yMin := 600000
+	yMax := 500000
+	argsString := fmt.Sprintf("-a linear -txe 500000 600000 -tye %d %d -outsize %d %d -ot Int16", yMin, yMax, outXSize, outYSize)
+	fname := "/vsimem/grid.tiff"
+	gridDs, err := vrtDs.Grid(fname, strings.Split(argsString, " "))
+	if err != nil {
+		// Handles QHull error differently here, as it's a compatibility issue not a gridding error
+		isQhullError := strings.HasSuffix(err.Error(), "without QHull support")
+		if isQhullError {
+			t.Log(`Skipping test, GDAL was built without "Delaunay triangulation" support which is required for the "Linear" gridding algorithm`)
+			return
+		} else {
+			t.Error(err)
+			return
+		}
+	}
+	gridDs.SetProjection("epsg:32632")
+	defer func() { _ = VSIUnlink(fname) }()
+	defer gridDs.Close()
+
+	fname2 := "/vsimem/dem.tif"
+	demDs, err := gridDs.Dem(fname2, "slope", nil, []string{"-p"})
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() { _ = VSIUnlink(fname2) }()
+	defer demDs.Close()
+
+	demBuf := make([]float32, outXSize*outYSize)
+	err = demDs.Read(0, 0, demBuf, outXSize, outYSize)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	// Expected value of border is NODATA (0): https://gdal.org/programs/gdaldem.html
+	var nodata float32 = -9999
+	assert.Equal(t, nodata, demBuf[0])
+	assert.Equal(t, nodata, demBuf[outXSize-1])
+	assert.Equal(t, nodata, demBuf[(outXSize*(outYSize-1))])
+	assert.Equal(t, nodata, demBuf[(outXSize*outYSize)-1])
+
+	// Values in each "column" should be equal
+	// NOTE: Skips the outer pixel border since it's set to the NODATA value
+	for x := 1; x < 256; x++ {
+		var firstVal = demBuf[(1*outXSize)+x]
+		for y := 1; y < 2047; y++ {
+			thisCoord := demBuf[(y*outXSize)+x]
+			assert.Equal(t, firstVal, thisCoord)
+		}
+	}
+
+	// Iterate through lines on the middle row of the output dataset checking that
+	// each line has equal spacing between it and the next line
+	var (
+		expLineThickness    = 2
+		thisLineThickness   = 0
+		expInterLineSpaces  = 62
+		thisInterLineSpaces = 0
+		row                 = (outYSize / 2)
+
+		expSpaceVal float32 = 2.048
+		expLineVal  float32 = 1.024
+	)
+	for x := 1; x < outXSize-1; x++ {
+		thisCoordVal := demBuf[(row*outYSize)+x]
+		switch thisCoordVal {
+		case expSpaceVal:
+			if thisLineThickness > 0 {
+				assert.Equal(t, expLineThickness, thisLineThickness)
+				thisLineThickness = 0
+			}
+			thisInterLineSpaces++
+		case expLineVal:
+			if thisInterLineSpaces > 0 {
+				assert.Equal(t, expInterLineSpaces, thisInterLineSpaces)
+				thisInterLineSpaces = 0
+			}
+			thisLineThickness++
+		default:
+			t.Errorf("found coordinate with value not in: [%f, %f]", expSpaceVal, expLineVal)
+			return
+		}
+	}
+}
+
 func TestDemColorReliefNilFilename(t *testing.T) {
 	fname := "/vsimem/test.tiff"
 	vrtDs, err := Create(Memory, fname, 1, Byte, 256, 256)
@@ -4590,6 +4825,21 @@ func TestDemColorReliefNilFilename(t *testing.T) {
 	defer func() { _ = VSIUnlink(fname) }()
 	defer vrtDs.Close()
 
-	_, err = vrtDs.Dem("./testdata/jotunheimen_color_relief.tif", "color-relief", nil, []string{})
+	_, err = vrtDs.Dem("/vsimem/out.tiff", "color-relief", nil, []string{})
+	assert.Error(t, err)
+}
+
+func TestDemColorReliefInvalidFilename(t *testing.T) {
+	fname := "/vsimem/test.tiff"
+	vrtDs, err := Create(Memory, fname, 1, Byte, 256, 256)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() { _ = VSIUnlink(fname) }()
+	defer vrtDs.Close()
+
+	invalidColorReliefFilename := "invalid_file"
+	_, err = vrtDs.Dem("/vsimem/out.tiff", "color-relief", &invalidColorReliefFilename, []string{})
 	assert.Error(t, err)
 }
