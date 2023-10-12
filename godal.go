@@ -3849,23 +3849,16 @@ func (ds *Dataset) Grid(destPath string, switches []string, opts ...GridOption) 
 	return &Dataset{majorObject{C.GDALMajorObjectH(dsRet)}}, nil
 }
 
-// TODO: Rewrite this for gdaldem
-// Grid runs the library version of gdal_grid.
-// See the gdal_grid doc page to determine the valid flags/opts that can be set in switches.
+// Dem runs the library version of gdaldem.
+// See the gdaldem doc page to determine the valid flags/opts that can be set in switches.
 //
-// Example switches :
+// Example switches (for "hillshade", switches differ per mode):
 //
-//	[]string{"-a", "maximum", "-txe", "0", "1"}
+//	[]string{"-s", "111120", "-alt", "45"}
 //
 // Creation options and driver may be set in the switches slice with
 //
 //	switches:=[]string{"-co","TILED=YES","-of","GTiff"}
-//
-// NOTE: Some switches are NOT compatible with this binding, as a `nullptr` is passed to a later call to
-// `GDALGridOptionsNew()` (as the 2nd argument). Those switches are: "-oo", "-q", "-quiet"
-// According to GDAL docs `pszColorFilename` is "mandatory for "color-relief" processing, should be NULL otherwise)"
-// TODO: processingMode should be an enum?
-// TODO: For COLORRELIEF processing, pszColorFilename needs to be specified
 func (ds *Dataset) Dem(destPath, processingMode string, colorFilename *string, switches []string, opts ...DemOption) (*Dataset, error) {
 	demOpts := demOpts{}
 	for _, opt := range opts {
@@ -3878,8 +3871,7 @@ func (ds *Dataset) Dem(destPath, processingMode string, colorFilename *string, s
 	dest := unsafe.Pointer(C.CString(destPath))
 	defer C.free(unsafe.Pointer(dest))
 	alg := unsafe.Pointer(C.CString(processingMode))
-	// TODO: Review why this free causes issues
-	// defer C.free(unsafe.Pointer(alg))
+	defer C.free(unsafe.Pointer(alg))
 	var colorFn unsafe.Pointer
 	if colorFilename != nil {
 		colorFn = unsafe.Pointer(C.CString(*colorFilename))
