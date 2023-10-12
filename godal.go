@@ -539,27 +539,39 @@ func (band Band) SetStatistics(min, max, mean, std float64, opts ...SetStatistic
 }
 
 func cIntArray(in []int) *C.int {
-	ret := make([]C.int, len(in))
-	for i := range in {
-		ret[i] = C.int(in[i])
+	var ptr *C.int
+	if len(in) > 0 {
+		ret := make([]C.int, len(in))
+		for i := range in {
+			ret[i] = C.int(in[i])
+		}
+		ptr = (*C.int)(unsafe.Pointer(&ret[0]))
 	}
-	return (*C.int)(unsafe.Pointer(&ret[0]))
+	return ptr
 }
 
 func cLongArray(in []int64) *C.longlong {
-	ret := make([]C.longlong, len(in))
-	for i := range in {
-		ret[i] = C.longlong(in[i])
+	var ptr *C.longlong
+	if len(in) > 0 {
+		ret := make([]C.longlong, len(in))
+		for i := range in {
+			ret[i] = C.longlong(in[i])
+		}
+		ptr = (*C.longlong)(unsafe.Pointer(&ret[0]))
 	}
-	return (*C.longlong)(unsafe.Pointer(&ret[0]))
+	return ptr
 }
 
 func cDoubleArray(in []float64) *C.double {
-	ret := make([]C.double, len(in))
-	for i := range in {
-		ret[i] = C.double(in[i])
+	var ptr *C.double
+	if len(in) > 0 {
+		ret := make([]C.double, len(in))
+		for i := range in {
+			ret[i] = C.double(in[i])
+		}
+		ptr = (*C.double)(unsafe.Pointer(&ret[0]))
 	}
-	return (*C.double)(unsafe.Pointer(&ret[0]))
+	return ptr
 }
 
 type cStringArray struct {
@@ -1251,6 +1263,22 @@ func (ds *Dataset) IO(rw IOOperation, srcX, srcY int, buffer interface{}, bufWid
 //   - godal.RegisterVector(godal.Shapefile)
 func RegisterAll() {
 	C.GDALAllRegister()
+}
+
+func RegisterPlugins() {
+	C.godalRegisterPlugins()
+}
+
+func RegisterPlugin(name string, opts ...RegisterPluginOption) error {
+	ro := registerPluginOpts{}
+	for _, o := range opts {
+		o.setRegisterPluginOpt(&ro)
+	}
+	cgc := createCGOContext(nil, ro.errorHandler)
+	cname := C.CString(name)
+	defer C.free(unsafe.Pointer(cname))
+	C.godalRegisterPlugin(cgc.cPointer(), cname)
+	return cgc.close()
 }
 
 // RegisterRaster registers a raster driver by name.
@@ -3958,6 +3986,113 @@ func (ds *Dataset) NearblackInto(sourceDs *Dataset, switches []string, opts ...N
 		return err
 	}
 
+	return nil
+}
+
+// GCP mirrors the structure of the GDAL_GCP type
+type GCP struct {
+	pszId      string
+	pszInfo    string
+	dfGCPPixel float64
+	dfGCPLine  float64
+	dfGCPX     float64
+	dfGCPY     float64
+	dfGCPZ     float64
+}
+
+// gdalGCPToGoGCPArray is a utility function for conversion from `C.GCPsAndCount` (GDAL) to `[]GCP` (Go)
+func gdalGCPToGoGCPArray(gcp C.GCPsAndCount) []GCP {
+	var ret []GCP
+	if gcp.gcpList == nil {
+		return ret
+	}
+
+	//https://github.com/golang/go/wiki/cgo#turning-c-arrays-into-go-slices
+	gcps := (*[1 << 30]C.GDAL_GCP)(unsafe.Pointer(gcp.gcpList))
+	ret = make([]GCP, gcp.numGCPs)
+	for i := 0; i < len(ret); i++ {
+		ret[i] = GCP{
+			pszId:      C.GoString(gcps[i].pszId),
+			pszInfo:    C.GoString(gcps[i].pszInfo),
+			dfGCPPixel: float64(gcps[i].dfGCPPixel),
+			dfGCPLine:  float64(gcps[i].dfGCPLine),
+			dfGCPX:     float64(gcps[i].dfGCPX),
+			dfGCPY:     float64(gcps[i].dfGCPY),
+			dfGCPZ:     float64(gcps[i].dfGCPZ),
+		}
+	}
+
+	return ret
+}
+
+// GetGCPSpatialRef runs the GDALGetGCPSpatialRef function
+func (ds *Dataset) GCPSpatialRef() *SpatialRef {
+	return &SpatialRef{handle: C.godalGetGCPSpatialRef(ds.handle()), isOwned: false}
+}
+
+// GetGCPs runs the GDALGetGCPs function
+func (ds *Dataset) GCPs() []GCP {
+	gcpsAndCount := C.godalGetGCPs(ds.handle())
+	return gdalGCPToGoGCPArray(gcpsAndCount)
+}
+
+// GetGCPProjection runs the GDALGetGCPProjection function
+func (ds *Dataset) GCPProjection() string {
+	return C.GoString(C.godalGetGCPProjection(ds.handle()))
+}
+
+// SetGCPs runs the GDALSetGCPs function
+func (ds *Dataset) SetGCPs(GCPList []GCP, opts ...SetGCPsOption) error {
+	setGCPsOpts := setGCPsOpts{}
+	for _, opt := range opts {
+		opt.setSetGCPsOpt(&setGCPsOpts)
+	}
+
+	// Convert `[]GCP` -> `C.goGCPList`
+	var gcpList C.goGCPList
+	var (
+		ids       = make([]string, len(GCPList))
+		infos     = make([]string, len(GCPList))
+		gcpPixels = make([]float64, len(GCPList))
+		gcpLines  = make([]float64, len(GCPList))
+		gcpXs     = make([]float64, len(GCPList))
+		gcpYs     = make([]float64, len(GCPList))
+		gcpZs     = make([]float64, len(GCPList))
+	)
+	for i, g := range GCPList {
+		ids[i] = g.pszId
+		infos[i] = g.pszInfo
+		gcpPixels[i] = (g.dfGCPPixel)
+		gcpLines[i] = (g.dfGCPLine)
+		gcpXs[i] = (g.dfGCPX)
+		gcpYs[i] = (g.dfGCPY)
+		gcpZs[i] = (g.dfGCPZ)
+	}
+	cIds := sliceToCStringArray(ids)
+	defer cIds.free()
+	cInfos := sliceToCStringArray(infos)
+	defer cInfos.free()
+
+	gcpList.pszIds = cIds.cPointer()
+	gcpList.pszInfos = cInfos.cPointer()
+	gcpList.dfGCPPixels = cDoubleArray(gcpPixels)
+	gcpList.dfGCPLines = cDoubleArray(gcpLines)
+	gcpList.dfGCPXs = cDoubleArray(gcpXs)
+	gcpList.dfGCPYs = cDoubleArray(gcpYs)
+	gcpList.dfGCPZs = cDoubleArray(gcpZs)
+
+	cgc := createCGOContext(nil, setGCPsOpts.errorHandler)
+	if setGCPsOpts.sr != nil {
+		C.godalSetGCPs2(cgc.cPointer(), ds.handle(), C.int(len(GCPList)), gcpList, setGCPsOpts.sr.handle)
+	} else {
+		GCPProj := C.CString(setGCPsOpts.projString)
+		defer C.free(unsafe.Pointer(GCPProj))
+		C.godalSetGCPs(cgc.cPointer(), ds.handle(), C.int(len(GCPList)), gcpList, GCPProj)
+	}
+
+	if err := cgc.close(); err != nil {
+		return err
+	}
 	return nil
 }
 

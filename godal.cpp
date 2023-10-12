@@ -194,6 +194,25 @@ int godalRegisterDriver(const char *fnname) {
 	return -1;
 }
 
+void godalRegisterPlugins(){
+#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 8, 0)
+  GDALRegisterPlugins();
+#endif
+}
+
+void godalRegisterPlugin(cctx *ctx, const char *name){
+  godalWrap(ctx);
+#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 8, 0)
+  CPLErr ret = GDALRegisterPlugin(name);
+  if (ret != 0) {
+	  forceCPLError(ctx, ret);
+  }
+#else
+	CPLError(CE_Failure, CPLE_NotSupported, "GDALRegisterPlugin is only supported in GDAL version >= 3.8");
+#endif
+	godalUnwrap();
+}
+
 GDALDatasetH godalCreate(cctx *ctx, GDALDriverH drv, const char* name, int width, int height, int nbands,
 							GDALDataType dtype, char **options) {
 	godalWrap(ctx);
@@ -1787,5 +1806,72 @@ GDALDatasetH godalDem(cctx *ctx, const char *pszDest, const char *pszProcessing,
 	}
 
 	godalUnwrap();
+	return ret;
+}
+
+OGRSpatialReferenceH godalGetGCPSpatialRef(GDALDatasetH hSrcDS) {
+	return GDALGetGCPSpatialRef(hSrcDS);
+}
+
+const GCPsAndCount godalGetGCPs(GDALDatasetH hSrcDS) {
+	return GCPsAndCount {
+		.gcpList = GDALGetGCPs(hSrcDS), 
+		.numGCPs = GDALGetGCPCount(hSrcDS),
+	};
+}
+
+const char *godalGetGCPProjection(GDALDatasetH hSrcDS) {
+	return GDALGetGCPProjection(hSrcDS);
+}
+
+void godalSetGCPs(cctx *ctx, GDALDatasetH hSrcDS, int numGCPs, goGCPList GCPList, const char *pszGCPProjection) {
+	godalWrap(ctx);
+
+	GDAL_GCP *GDALGCPList = goGCPListToGDALGCP(GCPList, numGCPs);
+
+	CPLErr ret = GDALSetGCPs(hSrcDS, numGCPs, GDALGCPList, pszGCPProjection);
+	if(ret!=0) {
+		forceCPLError(ctx, ret);
+	}
+	
+	GDALDeinitGCPs(numGCPs, GDALGCPList);
+	CPLFree(GDALGCPList);
+
+	godalUnwrap();
+	return;
+}
+
+void godalSetGCPs2(cctx *ctx, GDALDatasetH hSrcDS, int numGCPs, goGCPList GCPList, OGRSpatialReferenceH hSRS) {
+	godalWrap(ctx);
+
+	GDAL_GCP *GDALGCPList = goGCPListToGDALGCP(GCPList, numGCPs);
+
+	CPLErr ret = GDALSetGCPs2(hSrcDS, numGCPs, GDALGCPList, hSRS);
+	if(ret!=0) {
+		forceCPLError(ctx, ret);
+	}
+
+	GDALDeinitGCPs(numGCPs, GDALGCPList);
+	CPLFree(GDALGCPList);
+	
+	godalUnwrap();
+	return;
+}
+
+GDAL_GCP *goGCPListToGDALGCP(goGCPList GCPList, int numGCPs) {
+	GDAL_GCP *ret = static_cast<GDAL_GCP *>(CPLCalloc(numGCPs, sizeof(GDAL_GCP)));
+	GDALInitGCPs(numGCPs, ret);
+
+	for (int i = 0; i < numGCPs; i++)
+	{
+		ret[i].pszId = CPLStrdup(GCPList.pszIds[i]); 
+		ret[i].pszInfo = CPLStrdup(GCPList.pszInfos[i]);
+		ret[i].dfGCPPixel = GCPList.dfGCPPixels[i];
+		ret[i].dfGCPLine = GCPList.dfGCPLines[i];
+		ret[i].dfGCPX = GCPList.dfGCPXs[i];
+		ret[i].dfGCPY = GCPList.dfGCPYs[i];
+		ret[i].dfGCPZ = GCPList.dfGCPZs[i];
+	}
+
 	return ret;
 }

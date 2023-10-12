@@ -264,6 +264,22 @@ func TestRegisterDrivers(t *testing.T) {
 	assert.True(t, ok)
 	_, ok = VectorDriver("Mapinfo File")
 	assert.True(t, ok)
+
+	runtimeVersion := Version()
+	supported := runtimeVersion.Major() > 3 ||
+		(runtimeVersion.Major() == 3 && runtimeVersion.Minor() >= 8)
+
+	ehc := eh()
+	err = RegisterPlugin("foobarsljgsa", ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+	if !supported {
+		assert.Contains(t, err.Error(), "GDALRegisterPlugin is only supported")
+	}
+	err = RegisterPlugin("foobarsljgsa")
+	assert.Error(t, err)
+
+	//smoke test for RegisterPlugins
+	RegisterPlugins()
 }
 
 func TestVectorCreate(t *testing.T) {
@@ -4559,6 +4575,227 @@ func TestNearblackIntoNoSrcDs(t *testing.T) {
 	defer nbDs.Close()
 	ehc := eh()
 	err = nbDs.NearblackInto(nil, []string{}, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+}
+
+func TestSetGCPsAddTwoGCPs(t *testing.T) {
+	vrtDs, err := Create(Memory, "", 1, Byte, 256, 256)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer vrtDs.Close()
+
+	// Check `Get` methods before setting GCPs
+	assert.Equal(t, &SpatialRef{handle: nil, isOwned: false}, vrtDs.GCPSpatialRef())
+	gcps := vrtDs.GCPs()
+	assert.Equal(t, 0, len(gcps))
+	assert.Equal(t, "", vrtDs.GCPProjection())
+
+	var gcpList []GCP = []GCP{
+		{
+			pszId:      "",
+			pszInfo:    "",
+			dfGCPPixel: 0,
+			dfGCPLine:  1,
+			dfGCPX:     0,
+			dfGCPY:     0,
+			dfGCPZ:     0,
+		},
+		{
+			pszId:      "hello",
+			pszInfo:    "world",
+			dfGCPPixel: 1,
+			dfGCPLine:  0,
+			dfGCPX:     1,
+			dfGCPY:     1,
+			dfGCPZ:     1,
+		},
+	}
+	sr, err := NewSpatialRefFromEPSG(3857)
+	if err != nil {
+		t.Error(err)
+	}
+	srWkt, err := sr.WKT()
+	if err != nil {
+		t.Error(err)
+	}
+	err = vrtDs.SetGCPs(gcpList, GCPProjection(srWkt))
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Check `Get` method after settings GCPs
+	assert.NotEqual(t, nil, vrtDs.GCPSpatialRef().handle)
+	gcps = vrtDs.GCPs()
+	assert.Equal(t, 2, len(gcps))
+	assert.Equal(t, gcpList, gcps)
+	assert.Equal(t, srWkt, vrtDs.GCPProjection())
+}
+
+func TestSetGCPsAddZeroGCPs(t *testing.T) {
+	vrtDs, err := Create(Memory, "", 1, Byte, 256, 256)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer vrtDs.Close()
+
+	// Check `Get` methods before setting GCPs
+	assert.Equal(t, &SpatialRef{handle: nil, isOwned: false}, vrtDs.GCPSpatialRef())
+	gcps := vrtDs.GCPs()
+	assert.Equal(t, 0, len(gcps))
+	assert.Equal(t, "", vrtDs.GCPProjection())
+
+	var gcpList []GCP = []GCP{}
+	sr, err := NewSpatialRefFromEPSG(3857)
+	if err != nil {
+		t.Error(err)
+	}
+	srWkt, err := sr.WKT()
+	if err != nil {
+		t.Error(err)
+	}
+	err = vrtDs.SetGCPs(gcpList, GCPProjection(srWkt))
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Check `Get` method after settings GCPs
+	assert.NotEqual(t, nil, vrtDs.GCPSpatialRef().handle)
+	gcps = vrtDs.GCPs()
+	assert.Equal(t, 0, len(gcps))
+	assert.Equal(t, srWkt, vrtDs.GCPProjection())
+}
+
+func TestSetGCPsInvalidDataset(t *testing.T) {
+	vrtDs, err := CreateVector(Memory, "")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer vrtDs.Close()
+
+	sr, err := NewSpatialRefFromEPSG(3857)
+	if err != nil {
+		t.Error(err)
+	}
+	srWkt, err := sr.WKT()
+	if err != nil {
+		t.Error(err)
+	}
+
+	ehc := eh()
+	err = vrtDs.SetGCPs([]GCP{}, GCPProjection(srWkt), ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+
+	err = vrtDs.SetGCPs([]GCP{}, GCPProjection(srWkt))
+	assert.Error(t, err)
+}
+
+func TestSetGCPs2AddTwoGCPs(t *testing.T) {
+	vrtDs, err := Create(Memory, "", 1, Byte, 256, 256)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer vrtDs.Close()
+
+	// Check `Get` methods before setting GCPs
+	assert.Equal(t, &SpatialRef{handle: nil, isOwned: false}, vrtDs.GCPSpatialRef())
+	gcps := vrtDs.GCPs()
+	assert.Equal(t, 0, len(gcps))
+	assert.Equal(t, "", vrtDs.GCPProjection())
+
+	var gcpList []GCP = []GCP{
+		{
+			pszId:      "",
+			pszInfo:    "",
+			dfGCPPixel: 0,
+			dfGCPLine:  1,
+			dfGCPX:     0,
+			dfGCPY:     0,
+			dfGCPZ:     0,
+		},
+		{
+			pszId:      "hello",
+			pszInfo:    "world",
+			dfGCPPixel: 1,
+			dfGCPLine:  0,
+			dfGCPX:     1,
+			dfGCPY:     1,
+			dfGCPZ:     1,
+		},
+	}
+	sr, err := NewSpatialRefFromEPSG(3857)
+	if err != nil {
+		t.Error(err)
+	}
+	srWkt, err := sr.WKT()
+	if err != nil {
+		t.Error(err)
+	}
+	err = vrtDs.SetGCPs(gcpList, GCPSpatialRef(sr))
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Check `Get` method after settings GCPs
+	assert.NotEqual(t, nil, vrtDs.GCPSpatialRef().handle)
+	gcps = vrtDs.GCPs()
+	assert.Equal(t, 2, len(gcps))
+	assert.Equal(t, gcpList, gcps)
+	assert.Equal(t, srWkt, vrtDs.GCPProjection())
+}
+
+func TestSetGCPs2AddZeroGCPs(t *testing.T) {
+	vrtDs, err := Create(Memory, "", 1, Byte, 256, 256)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer vrtDs.Close()
+
+	// Check `Get` methods before setting GCPs
+	assert.Equal(t, &SpatialRef{handle: nil, isOwned: false}, vrtDs.GCPSpatialRef())
+	gcps := vrtDs.GCPs()
+	assert.Equal(t, 0, len(gcps))
+	assert.Equal(t, "", vrtDs.GCPProjection())
+
+	var gcpList []GCP = []GCP{}
+	sr, err := NewSpatialRefFromEPSG(3857)
+	if err != nil {
+		t.Error(err)
+	}
+	srWkt, err := sr.WKT()
+	if err != nil {
+		t.Error(err)
+	}
+	err = vrtDs.SetGCPs(gcpList, GCPSpatialRef(sr))
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Check `Get` method after settings GCPs
+	assert.NotEqual(t, nil, vrtDs.GCPSpatialRef().handle)
+	gcps = vrtDs.GCPs()
+	assert.Equal(t, 0, len(gcps))
+	assert.Equal(t, srWkt, vrtDs.GCPProjection())
+}
+
+func TestSetGCPs2InvalidDataset(t *testing.T) {
+	vrtDs, err := CreateVector(Memory, "")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer vrtDs.Close()
+
+	ehc := eh()
+	err = vrtDs.SetGCPs([]GCP{}, GCPSpatialRef(&SpatialRef{}), ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+
+	err = vrtDs.SetGCPs([]GCP{}, GCPSpatialRef(&SpatialRef{}))
 	assert.Error(t, err)
 }
 
