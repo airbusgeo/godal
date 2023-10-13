@@ -4851,7 +4851,7 @@ func TestDemHillshade(t *testing.T) {
 	defer gridDs.Close()
 
 	fname2 := "/vsimem/dem.tif"
-	demDs, err := gridDs.Dem(fname2, "hillshade", nil, []string{})
+	demDs, err := gridDs.Dem(fname2, "hillshade", "", []string{})
 	if err != nil {
 		t.Error(err)
 		return
@@ -4927,10 +4927,10 @@ func TestDemInvalidSwitch(t *testing.T) {
 	defer func() { _ = VSIUnlink(fname) }()
 	defer vrtDs.Close()
 
-	_, err = vrtDs.Dem("test", "hillshade", nil, []string{"-invalidswitch"})
+	_, err = vrtDs.Dem("test", "hillshade", "", []string{"-invalidswitch"})
 	assert.Error(t, err)
 	ehc := eh()
-	_, err = vrtDs.Dem("test", "hillshade", nil, []string{"-invalidswitch"}, ErrLogger(ehc.ErrorHandler))
+	_, err = vrtDs.Dem("test", "hillshade", "", []string{"-invalidswitch"}, ErrLogger(ehc.ErrorHandler))
 	assert.Error(t, err)
 }
 
@@ -4986,7 +4986,7 @@ func TestDemSlope(t *testing.T) {
 	defer gridDs.Close()
 
 	fname2 := "/vsimem/dem.tif"
-	demDs, err := gridDs.Dem(fname2, "slope", nil, []string{"-p"})
+	demDs, err := gridDs.Dem(fname2, "slope", "", []string{"-p"})
 	if err != nil {
 		t.Error(err)
 		return
@@ -5062,7 +5062,7 @@ func TestDemColorReliefNilFilename(t *testing.T) {
 	defer func() { _ = VSIUnlink(fname) }()
 	defer vrtDs.Close()
 
-	_, err = vrtDs.Dem("/vsimem/out.tiff", "color-relief", nil, []string{})
+	_, err = vrtDs.Dem("/vsimem/out.tiff", "color-relief", "", []string{})
 	assert.Error(t, err)
 }
 
@@ -5077,6 +5077,6 @@ func TestDemColorReliefInvalidFilename(t *testing.T) {
 	defer vrtDs.Close()
 
 	invalidColorReliefFilename := "invalid_file"
-	_, err = vrtDs.Dem("/vsimem/out.tiff", "color-relief", &invalidColorReliefFilename, []string{})
+	_, err = vrtDs.Dem("/vsimem/out.tiff", "color-relief", invalidColorReliefFilename, []string{})
 	assert.Error(t, err)
 }

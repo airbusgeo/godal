@@ -3887,7 +3887,7 @@ func (ds *Dataset) Grid(destPath string, switches []string, opts ...GridOption) 
 // Creation options and driver may be set in the switches slice with
 //
 //	switches:=[]string{"-co","TILED=YES","-of","GTiff"}
-func (ds *Dataset) Dem(destPath, processingMode string, colorFilename *string, switches []string, opts ...DemOption) (*Dataset, error) {
+func (ds *Dataset) Dem(destPath, processingMode string, colorFilename string, switches []string, opts ...DemOption) (*Dataset, error) {
 	demOpts := demOpts{}
 	for _, opt := range opts {
 		opt.setDemOpt(&demOpts)
@@ -3900,14 +3900,14 @@ func (ds *Dataset) Dem(destPath, processingMode string, colorFilename *string, s
 	defer C.free(unsafe.Pointer(dest))
 	alg := unsafe.Pointer(C.CString(processingMode))
 	defer C.free(unsafe.Pointer(alg))
-	var colorFn unsafe.Pointer
-	if colorFilename != nil {
-		colorFn = unsafe.Pointer(C.CString(*colorFilename))
+	var colorFn *C.char
+	if colorFilename != "" {
+		colorFn = C.CString(colorFilename)
 		defer C.free(unsafe.Pointer(colorFn))
 	}
 
 	cgc := createCGOContext(nil, demOpts.errorHandler)
-	dsRet := C.godalDem(cgc.cPointer(), (*C.char)(dest), (*C.char)(alg), (*C.char)(colorFn), ds.handle(), cswitches.cPointer())
+	dsRet := C.godalDem(cgc.cPointer(), (*C.char)(dest), (*C.char)(alg), colorFn, ds.handle(), cswitches.cPointer())
 	if err := cgc.close(); err != nil {
 		return nil, err
 	}
