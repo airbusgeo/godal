@@ -1788,6 +1788,27 @@ GDALDatasetH godalNearblack(cctx *ctx, const char *pszDest, GDALDatasetH hDstDS,
 	return ret;
 }
 
+GDALDatasetH godalDem(cctx *ctx, const char *pszDest, const char *pszProcessing, const char *pszColorFilename, GDALDatasetH hSrcDS, char **switches) {
+	godalWrap(ctx);
+
+	GDALDEMProcessingOptions *demopts = GDALDEMProcessingOptionsNew(switches,nullptr);
+	if(failed(ctx)) {
+		GDALDEMProcessingOptionsFree(demopts);
+		godalUnwrap();
+		return nullptr;
+	}
+
+	int usageErr=0;
+	GDALDatasetH ret = GDALDEMProcessing(pszDest, hSrcDS, pszProcessing, pszColorFilename, demopts, &usageErr);
+	GDALDEMProcessingOptionsFree(demopts);
+	if(ret==nullptr || usageErr!=0) {
+		forceError(ctx);
+	}
+
+	godalUnwrap();
+	return ret;
+}
+
 OGRSpatialReferenceH godalGetGCPSpatialRef(GDALDatasetH hSrcDS) {
 	return GDALGetGCPSpatialRef(hSrcDS);
 }

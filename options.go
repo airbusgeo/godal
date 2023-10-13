@@ -1254,6 +1254,14 @@ type NearblackOption interface {
 	setNearblackOpt(nbOpt *nearBlackOpts)
 }
 
+type demOpts struct {
+	errorHandler ErrorHandler
+}
+
+// DemOption is an option that can be passed to Dataset.Dem()
+type DemOption interface {
+	setDemOpt(demOpt *demOpts)
+}
 type setGCPsOpts struct {
 	errorHandler ErrorHandler
 	projString   string

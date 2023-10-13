@@ -3877,6 +3877,47 @@ func (ds *Dataset) Grid(destPath string, switches []string, opts ...GridOption) 
 	return &Dataset{majorObject{C.GDALMajorObjectH(dsRet)}}, nil
 }
 
+// Dem runs the library version of gdaldem.
+// See the gdaldem doc page to determine the valid flags/opts that can be set in switches.
+//
+// Example switches (for "hillshade", switches differ per mode):
+//
+//	[]string{"-s", "111120", "-alt", "45"}
+//
+// Creation options and driver may be set in the switches slice with
+//
+//	switches:=[]string{"-co","TILED=YES","-of","GTiff"}
+//
+// NOTE: `colorFilename` is a "text-based color configuration file" that MUST ONLY be
+// provided when `processingMode` == "color-relief"
+func (ds *Dataset) Dem(destPath, processingMode string, colorFilename string, switches []string, opts ...DemOption) (*Dataset, error) {
+	demOpts := demOpts{}
+	for _, opt := range opts {
+		opt.setDemOpt(&demOpts)
+	}
+
+	cswitches := sliceToCStringArray(switches)
+	defer cswitches.free()
+
+	dest := unsafe.Pointer(C.CString(destPath))
+	defer C.free(unsafe.Pointer(dest))
+	alg := unsafe.Pointer(C.CString(processingMode))
+	defer C.free(unsafe.Pointer(alg))
+	var colorFn *C.char
+	if colorFilename != "" {
+		colorFn = C.CString(colorFilename)
+		defer C.free(unsafe.Pointer(colorFn))
+	}
+
+	cgc := createCGOContext(nil, demOpts.errorHandler)
+	dsRet := C.godalDem(cgc.cPointer(), (*C.char)(dest), (*C.char)(alg), colorFn, ds.handle(), cswitches.cPointer())
+	if err := cgc.close(); err != nil {
+		return nil, err
+	}
+
+	return &Dataset{majorObject{C.GDALMajorObjectH(dsRet)}}, nil
+}
+
 // Nearblack runs the library version of nearblack
 //
 // See the nearblack doc page to determine the valid flags/opts that can be set in switches.
