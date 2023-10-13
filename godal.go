@@ -3887,6 +3887,9 @@ func (ds *Dataset) Grid(destPath string, switches []string, opts ...GridOption) 
 // Creation options and driver may be set in the switches slice with
 //
 //	switches:=[]string{"-co","TILED=YES","-of","GTiff"}
+//
+// NOTE: `colorFilename` is a "text-based color configuration file" that MUST ONLY be
+// provided when `processingMode` == "color-relief"
 func (ds *Dataset) Dem(destPath, processingMode string, colorFilename string, switches []string, opts ...DemOption) (*Dataset, error) {
 	demOpts := demOpts{}
 	for _, opt := range opts {
