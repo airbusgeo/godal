@@ -1875,3 +1875,14 @@ GDAL_GCP *goGCPListToGDALGCP(goGCPList GCPList, int numGCPs) {
 
 	return ret;
 }
+
+int godalGCPListToGeoTransform(goGCPList GCPList, int numGCPs, double *gt){
+	GDAL_GCP *GDALGCPList = goGCPListToGDALGCP(GCPList, numGCPs);
+
+	int retval = GDALGCPsToGeoTransform(numGCPs,GDALGCPList,gt,TRUE);
+
+	GDALDeinitGCPs(numGCPs, GDALGCPList);
+	CPLFree(GDALGCPList);
+
+	return retval;
+}

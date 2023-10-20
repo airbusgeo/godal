@@ -4099,6 +4099,56 @@ func (ds *Dataset) SetGCPs(GCPList []GCP, opts ...SetGCPsOption) error {
 	return nil
 }
 
+// Convert list of GCPs to a GDAL GeoTransorm array
+func GCPsToGeoTransform(GCPList []GCP) (*[6]float64, error) {
+	// Convert `[]GCP` -> `C.goGCPList`
+	var gcpList C.goGCPList
+	var (
+		ids       = make([]string, len(GCPList))
+		infos     = make([]string, len(GCPList))
+		gcpPixels = make([]float64, len(GCPList))
+		gcpLines  = make([]float64, len(GCPList))
+		gcpXs     = make([]float64, len(GCPList))
+		gcpYs     = make([]float64, len(GCPList))
+		gcpZs     = make([]float64, len(GCPList))
+	)
+	for i, g := range GCPList {
+		ids[i] = g.pszId
+		infos[i] = g.pszInfo
+		gcpPixels[i] = (g.dfGCPPixel)
+		gcpLines[i] = (g.dfGCPLine)
+		gcpXs[i] = (g.dfGCPX)
+		gcpYs[i] = (g.dfGCPY)
+		gcpZs[i] = (g.dfGCPZ)
+	}
+	cIds := sliceToCStringArray(ids)
+	defer cIds.free()
+	cInfos := sliceToCStringArray(infos)
+	defer cInfos.free()
+
+	gcpList.pszIds = cIds.cPointer()
+	gcpList.pszInfos = cInfos.cPointer()
+	gcpList.dfGCPPixels = cDoubleArray(gcpPixels)
+	gcpList.dfGCPLines = cDoubleArray(gcpLines)
+	gcpList.dfGCPXs = cDoubleArray(gcpXs)
+	gcpList.dfGCPYs = cDoubleArray(gcpYs)
+	gcpList.dfGCPZs = cDoubleArray(gcpZs)
+
+	gt := make([]C.double, 6)
+	cgt := (*C.double)(unsafe.Pointer(&gt[0]))
+	if C.godalGCPListToGeoTransform(gcpList, C.int(len(GCPList)), cgt) == 0 {
+		return nil, errors.New("Error translating a list of GCPs list a GeoTransform")
+	}
+
+	// Copy the values from the C Array into a Go array
+	ret := [6]float64{}
+	for i := range gt {
+		ret[i] = float64(gt[i])
+	}
+
+	return &ret, nil
+}
+
 type cgoContext struct {
 	cctx *C.cctx
 	opts cStringArray
