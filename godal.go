@@ -4100,7 +4100,12 @@ func (ds *Dataset) SetGCPs(GCPList []GCP, opts ...SetGCPsOption) error {
 }
 
 // Convert list of GCPs to a GDAL GeoTransorm array
-func GCPsToGeoTransform(GCPList []GCP) (*[6]float64, error) {
+func GCPsToGeoTransform(GCPList []GCP, opts ...GCPsToGeoTransformOption) (*[6]float64, error) {
+	gco := gcpsToGeoTransformOpts{}
+	for _, opt := range opts {
+		opt.setGCPsToGeoTransformOpts(&gco)
+	}
+
 	// Convert `[]GCP` -> `C.goGCPList`
 	var gcpList C.goGCPList
 	var (
@@ -4136,8 +4141,10 @@ func GCPsToGeoTransform(GCPList []GCP) (*[6]float64, error) {
 
 	gt := make([]C.double, 6)
 	cgt := (*C.double)(unsafe.Pointer(&gt[0]))
-	if C.godalGCPListToGeoTransform(gcpList, C.int(len(GCPList)), cgt) == 0 {
-		return nil, errors.New("Error translating a list of GCPs list a GeoTransform")
+	var cgc = createCGOContext(nil, gco.errorHandler)
+	C.godalGCPListToGeoTransform(cgc.cPointer(), gcpList, C.int(len(GCPList)), cgt)
+	if err := cgc.close(); err != nil {
+		return nil, err
 	}
 
 	// Copy the values from the C Array into a Go array

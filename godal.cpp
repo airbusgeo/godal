@@ -1876,13 +1876,18 @@ GDAL_GCP *goGCPListToGDALGCP(goGCPList GCPList, int numGCPs) {
 	return ret;
 }
 
-int godalGCPListToGeoTransform(goGCPList GCPList, int numGCPs, double *gt){
+void godalGCPListToGeoTransform(cctx *ctx, goGCPList GCPList, int numGCPs, double *gt){
+	godalWrap(ctx);
+
 	GDAL_GCP *GDALGCPList = goGCPListToGDALGCP(GCPList, numGCPs);
 
-	int retval = GDALGCPsToGeoTransform(numGCPs,GDALGCPList,gt,TRUE);
+	int ret = GDALGCPsToGeoTransform(numGCPs,GDALGCPList,gt,TRUE);
+	if(ret!=TRUE) {
+		forceError(ctx);
+	}
 
 	GDALDeinitGCPs(numGCPs, GDALGCPList);
 	CPLFree(GDALGCPList);
 
-	return retval;
+	godalUnwrap();
 }
