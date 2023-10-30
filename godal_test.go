@@ -4594,22 +4594,22 @@ func TestSetGCPsAddTwoGCPs(t *testing.T) {
 
 	var gcpList []GCP = []GCP{
 		{
-			pszId:      "",
-			pszInfo:    "",
-			dfGCPPixel: 0,
-			dfGCPLine:  1,
-			dfGCPX:     0,
-			dfGCPY:     0,
-			dfGCPZ:     0,
+			PszId:      "",
+			PszInfo:    "",
+			DfGCPPixel: 0,
+			DfGCPLine:  1,
+			DfGCPX:     0,
+			DfGCPY:     0,
+			DfGCPZ:     0,
 		},
 		{
-			pszId:      "hello",
-			pszInfo:    "world",
-			dfGCPPixel: 1,
-			dfGCPLine:  0,
-			dfGCPX:     1,
-			dfGCPY:     1,
-			dfGCPZ:     1,
+			PszId:      "hello",
+			PszInfo:    "world",
+			DfGCPPixel: 1,
+			DfGCPLine:  0,
+			DfGCPX:     1,
+			DfGCPY:     1,
+			DfGCPZ:     1,
 		},
 	}
 	sr, err := NewSpatialRefFromEPSG(3857)
@@ -4709,22 +4709,22 @@ func TestSetGCPs2AddTwoGCPs(t *testing.T) {
 
 	var gcpList []GCP = []GCP{
 		{
-			pszId:      "",
-			pszInfo:    "",
-			dfGCPPixel: 0,
-			dfGCPLine:  1,
-			dfGCPX:     0,
-			dfGCPY:     0,
-			dfGCPZ:     0,
+			PszId:      "",
+			PszInfo:    "",
+			DfGCPPixel: 0,
+			DfGCPLine:  1,
+			DfGCPX:     0,
+			DfGCPY:     0,
+			DfGCPZ:     0,
 		},
 		{
-			pszId:      "hello",
-			pszInfo:    "world",
-			dfGCPPixel: 1,
-			dfGCPLine:  0,
-			dfGCPX:     1,
-			dfGCPY:     1,
-			dfGCPZ:     1,
+			PszId:      "hello",
+			PszInfo:    "world",
+			DfGCPPixel: 1,
+			DfGCPLine:  0,
+			DfGCPX:     1,
+			DfGCPY:     1,
+			DfGCPZ:     1,
 		},
 	}
 	sr, err := NewSpatialRefFromEPSG(3857)
