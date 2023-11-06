@@ -4807,6 +4807,24 @@ func TestGCPsToGeoTransformEmptyList(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestGCPsToGeoTransformInsufficientGCPs(t *testing.T) {
+	var gcpList []GCP = []GCP{
+		{
+			pszId:      "0",
+			pszInfo:    "",
+			dfGCPPixel: 0.5,
+			dfGCPLine:  0.5,
+			dfGCPX:     0,
+			dfGCPY:     0,
+			dfGCPZ:     0,
+		},
+	}
+
+	ehc := eh()
+	_, err := GCPsToGeoTransform(gcpList, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+}
+
 func TestGCPsToGeoTransform(t *testing.T) {
 	var gcpList []GCP = []GCP{
 		{

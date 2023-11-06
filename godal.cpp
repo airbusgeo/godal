@@ -1881,7 +1881,7 @@ void godalGCPListToGeoTransform(cctx *ctx, goGCPList GCPList, int numGCPs, doubl
 
 	GDAL_GCP *GDALGCPList = goGCPListToGDALGCP(GCPList, numGCPs);
 
-	int ret = GDALGCPsToGeoTransform(numGCPs,GDALGCPList,gt,TRUE);
+	int ret = GDALGCPsToGeoTransform(numGCPs, GDALGCPList, gt, TRUE);
 	if(ret!=TRUE) {
 		forceError(ctx);
 	}
