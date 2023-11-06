@@ -4118,13 +4118,13 @@ func GCPsToGeoTransform(GCPList []GCP, opts ...GCPsToGeoTransformOption) ([6]flo
 		gcpZs     = make([]float64, len(GCPList))
 	)
 	for i, g := range GCPList {
-		ids[i] = g.pszId
-		infos[i] = g.pszInfo
-		gcpPixels[i] = (g.dfGCPPixel)
-		gcpLines[i] = (g.dfGCPLine)
-		gcpXs[i] = (g.dfGCPX)
-		gcpYs[i] = (g.dfGCPY)
-		gcpZs[i] = (g.dfGCPZ)
+		ids[i] = g.PszId
+		infos[i] = g.PszInfo
+		gcpPixels[i] = (g.DfGCPPixel)
+		gcpLines[i] = (g.DfGCPLine)
+		gcpXs[i] = (g.DfGCPX)
+		gcpYs[i] = (g.DfGCPY)
+		gcpZs[i] = (g.DfGCPZ)
 	}
 	cIds := sliceToCStringArray(ids)
 	defer cIds.free()
