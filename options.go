@@ -1262,6 +1262,7 @@ type demOpts struct {
 type DemOption interface {
 	setDemOpt(demOpt *demOpts)
 }
+
 type setGCPsOpts struct {
 	errorHandler ErrorHandler
 	projString   string
@@ -1271,6 +1272,15 @@ type setGCPsOpts struct {
 // SetGCPsOption is an option that can be passed to Dataset.SetGCPs()
 type SetGCPsOption interface {
 	setSetGCPsOpt(sgOpt *setGCPsOpts)
+}
+
+type gcpsToGeoTransformOpts struct {
+	errorHandler ErrorHandler
+}
+
+// GCPsToGeoTransformOption is an option that can be passed to GCPsToGeoTransform()
+type GCPsToGeoTransformOption interface {
+	setGCPsToGeoTransformOpts(gcpGtOpt *gcpsToGeoTransformOpts)
 }
 
 type gcpProjStringOpt struct {

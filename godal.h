@@ -177,6 +177,7 @@ extern "C" {
 	void godalSetGCPs(cctx *ctx, GDALDatasetH hSrcDS, int numGCPs, goGCPList GCPList, const char *pszGCPProjection);
 	void godalSetGCPs2(cctx *ctx, GDALDatasetH hSrcDS, int numGCPs, goGCPList GCPList, OGRSpatialReferenceH hSRS);
 	GDAL_GCP *goGCPListToGDALGCP(goGCPList GCPList, int numGCPs);
+	void godalGCPListToGeoTransform(cctx *ctx, goGCPList GCPList, int numGCPs, double *gt);
 #ifdef __cplusplus
 }
 #endif

@@ -154,6 +154,7 @@ func ErrLogger(fn ErrorHandler) interface {
 	NearblackOption
 	DemOption
 	SetGCPsOption
+	GCPsToGeoTransformOption
 	RegisterPluginOption
 } {
 	return errorCallback{fn}
@@ -379,6 +380,9 @@ func (ec errorCallback) setDemOpt(o *demOpts) {
 	o.errorHandler = ec.fn
 }
 func (ec errorCallback) setSetGCPsOpt(o *setGCPsOpts) {
+	o.errorHandler = ec.fn
+}
+func (ec errorCallback) setGCPsToGeoTransformOpts(o *gcpsToGeoTransformOpts) {
 	o.errorHandler = ec.fn
 }
 func (ec errorCallback) setRegisterPluginOpt(o *registerPluginOpts) {

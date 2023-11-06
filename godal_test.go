@@ -4799,6 +4799,84 @@ func TestSetGCPs2InvalidDataset(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestGCPsToGeoTransformEmptyList(t *testing.T) {
+	var gcpList []GCP = []GCP{}
+
+	ehc := eh()
+	_, err := GCPsToGeoTransform(gcpList, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+}
+
+func TestGCPsToGeoTransformInsufficientGCPs(t *testing.T) {
+	var gcpList []GCP = []GCP{
+		{
+			PszId:      "0",
+			PszInfo:    "",
+			DfGCPPixel: 0.5,
+			DfGCPLine:  0.5,
+			DfGCPX:     0,
+			DfGCPY:     0,
+			DfGCPZ:     0,
+		},
+	}
+
+	ehc := eh()
+	_, err := GCPsToGeoTransform(gcpList, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+}
+
+func TestGCPsToGeoTransform(t *testing.T) {
+	var gcpList []GCP = []GCP{
+		{
+			PszId:      "0",
+			PszInfo:    "",
+			DfGCPPixel: 0.5,
+			DfGCPLine:  0.5,
+			DfGCPX:     0,
+			DfGCPY:     0,
+			DfGCPZ:     0,
+		},
+		{
+			PszId:      "1",
+			PszInfo:    "",
+			DfGCPPixel: 1000.5,
+			DfGCPLine:  0.5,
+			DfGCPX:     10,
+			DfGCPY:     0,
+			DfGCPZ:     1,
+		},
+		{
+			PszId:      "2",
+			PszInfo:    "",
+			DfGCPPixel: 1000.5,
+			DfGCPLine:  100.5,
+			DfGCPX:     10,
+			DfGCPY:     20,
+			DfGCPZ:     1,
+		},
+		{
+			PszId:      "3",
+			PszInfo:    "",
+			DfGCPPixel: 0.5,
+			DfGCPLine:  100.5,
+			DfGCPX:     0,
+			DfGCPY:     20,
+			DfGCPZ:     1,
+		},
+	}
+
+	geoTransform, err := GCPsToGeoTransform(gcpList)
+	assert.NoError(t, err)
+
+	// Check `Get` method after settings GCPs
+	assert.Equal(t, -0.005, geoTransform[0])
+	assert.Equal(t, 0.01, geoTransform[1])
+	assert.Equal(t, 0.0, geoTransform[2])
+	assert.Equal(t, -0.1, geoTransform[3])
+	assert.Equal(t, 0.0, geoTransform[4])
+	assert.Equal(t, 0.2, geoTransform[5])
+}
+
 func TestDemHillshade(t *testing.T) {
 	// 1. Create an image, linearly interpolated, from dark (on the left) to white (on the right), using `Grid()`
 	var (
