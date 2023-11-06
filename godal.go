@@ -3994,13 +3994,13 @@ func (ds *Dataset) NearblackInto(sourceDs *Dataset, switches []string, opts ...N
 
 // GCP mirrors the structure of the GDAL_GCP type
 type GCP struct {
-	pszId      string
-	pszInfo    string
-	dfGCPPixel float64
-	dfGCPLine  float64
-	dfGCPX     float64
-	dfGCPY     float64
-	dfGCPZ     float64
+	PszId      string
+	PszInfo    string
+	DfGCPPixel float64
+	DfGCPLine  float64
+	DfGCPX     float64
+	DfGCPY     float64
+	DfGCPZ     float64
 }
 
 // gdalGCPToGoGCPArray is a utility function for conversion from `C.GCPsAndCount` (GDAL) to `[]GCP` (Go)
@@ -4015,13 +4015,13 @@ func gdalGCPToGoGCPArray(gcp C.GCPsAndCount) []GCP {
 	ret = make([]GCP, gcp.numGCPs)
 	for i := 0; i < len(ret); i++ {
 		ret[i] = GCP{
-			pszId:      C.GoString(gcps[i].pszId),
-			pszInfo:    C.GoString(gcps[i].pszInfo),
-			dfGCPPixel: float64(gcps[i].dfGCPPixel),
-			dfGCPLine:  float64(gcps[i].dfGCPLine),
-			dfGCPX:     float64(gcps[i].dfGCPX),
-			dfGCPY:     float64(gcps[i].dfGCPY),
-			dfGCPZ:     float64(gcps[i].dfGCPZ),
+			PszId:      C.GoString(gcps[i].pszId),
+			PszInfo:    C.GoString(gcps[i].pszInfo),
+			DfGCPPixel: float64(gcps[i].dfGCPPixel),
+			DfGCPLine:  float64(gcps[i].dfGCPLine),
+			DfGCPX:     float64(gcps[i].dfGCPX),
+			DfGCPY:     float64(gcps[i].dfGCPY),
+			DfGCPZ:     float64(gcps[i].dfGCPZ),
 		}
 	}
 
@@ -4063,13 +4063,13 @@ func (ds *Dataset) SetGCPs(GCPList []GCP, opts ...SetGCPsOption) error {
 		gcpZs     = make([]float64, len(GCPList))
 	)
 	for i, g := range GCPList {
-		ids[i] = g.pszId
-		infos[i] = g.pszInfo
-		gcpPixels[i] = (g.dfGCPPixel)
-		gcpLines[i] = (g.dfGCPLine)
-		gcpXs[i] = (g.dfGCPX)
-		gcpYs[i] = (g.dfGCPY)
-		gcpZs[i] = (g.dfGCPZ)
+		ids[i] = g.PszId
+		infos[i] = g.PszInfo
+		gcpPixels[i] = (g.DfGCPPixel)
+		gcpLines[i] = (g.DfGCPLine)
+		gcpXs[i] = (g.DfGCPX)
+		gcpYs[i] = (g.DfGCPY)
+		gcpZs[i] = (g.DfGCPZ)
 	}
 	cIds := sliceToCStringArray(ids)
 	defer cIds.free()
