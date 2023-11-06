@@ -4802,7 +4802,8 @@ func TestSetGCPs2InvalidDataset(t *testing.T) {
 func TestGCPsToGeoTransformEmptyList(t *testing.T) {
 	var gcpList []GCP = []GCP{}
 
-	_, err := GCPsToGeoTransform(gcpList)
+	ehc := eh()
+	_, err := GCPsToGeoTransform(gcpList, ErrLogger(ehc.ErrorHandler))
 	assert.Error(t, err)
 }
 
