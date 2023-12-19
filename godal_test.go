@@ -25,6 +25,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -263,6 +264,22 @@ func TestRegisterDrivers(t *testing.T) {
 	assert.True(t, ok)
 	_, ok = VectorDriver("Mapinfo File")
 	assert.True(t, ok)
+
+	runtimeVersion := Version()
+	supported := runtimeVersion.Major() > 3 ||
+		(runtimeVersion.Major() == 3 && runtimeVersion.Minor() >= 8)
+
+	ehc := eh()
+	err = RegisterPlugin("foobarsljgsa", ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+	if !supported {
+		assert.Contains(t, err.Error(), "GDALRegisterPlugin is only supported")
+	}
+	err = RegisterPlugin("foobarsljgsa")
+	assert.Error(t, err)
+
+	//smoke test for RegisterPlugins
+	RegisterPlugins()
 }
 
 func TestVectorCreate(t *testing.T) {
@@ -3975,5 +3992,1169 @@ func TestStatistics(t *testing.T) {
 	assert.Error(t, err)
 	// Test on null band for coverage
 	_, _, err = bnd.GetStatistics()
+	assert.Error(t, err)
+}
+
+func TestGridLinear(t *testing.T) {
+	var (
+		err      error
+		outXSize = 256
+		outYSize = 256
+	)
+
+	vrtDs, err := CreateVector(Memory, "")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	geom, err := NewGeometryFromWKT("POLYGON((0 0 0, 0 1 1, 1 1 0, 1 0 1))", nil)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = vrtDs.CreateLayer("grid", nil, GTPolygon)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = vrtDs.Layers()[0].NewFeature(geom)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	// As of GDAL v3.6, `GDALGrid` will swap `yMin` and `yMax` if `yMin` < `yMax`. In order to make the output of
+	// earlier GDAL versions (< 3.6) consistent with this, we're setting `yMin` > `yMax`.
+	yMin := 1
+	yMax := 0
+	argsString := fmt.Sprintf("-a linear -txe 0 1 -tye %d %d -outsize %d %d -ot Float64", yMin, yMax, outXSize, outYSize)
+	fname := "/vsimem/test.tiff"
+
+	gridDs, err := vrtDs.Grid(fname, strings.Split(argsString, " "))
+	if err != nil {
+		// Handles QHull error differently here, as it's a compatibility issue not a gridding error
+		isQhullError := strings.HasSuffix(err.Error(), "without QHull support")
+		if isQhullError {
+			t.Log(`Skipping test, GDAL was built without "Delaunay triangulation" support which is required for the "Linear" gridding algorithm`)
+			return
+		} else {
+			t.Error(err)
+			return
+		}
+	}
+	defer func() { _ = VSIUnlink(fname) }()
+	defer gridDs.Close()
+
+	var gridBindingPoints = make([]float64, outXSize*outYSize)
+	err = gridDs.Read(0, 0, gridBindingPoints, outXSize, outYSize)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	var (
+		topLeftIndex     = 0
+		topRightIndex    = outXSize - 1
+		bottomLeftIndex  = outXSize * (outYSize - 1)
+		bottomRightIndex = (outXSize * outYSize) - 1
+		imageCentreIndex = outYSize*(outXSize/2) - 1
+	)
+
+	// For linear interpolation, we expect z-values of corners to match the input coordinates
+	// and the centre value to be the average of the 4 corner values
+	// 	TL (0, 0, 0), EXPECTED OUTPUT Z-VAL  = 0
+	// 	TR (1, 0, 1), EXPECTED OUTPUT Z-VAL  = 1
+	// 	BL (0, 1, 0), EXPECTED OUTPUT Z-VAL  = 0
+	// 	BR (1, 1, 1), EXPECTED OUTPUT Z-VAL  = 1
+	//  CR (0.5, 0.5), EXPECTED OUTPUT Z-VAL = (0 + 1 + 0 + 1) / 4 = 0.5
+	//
+	// NOTE: The input X and Y coords are offset slightly in GDAL before they're passed into a a gridding algorithm.
+	// This is why "TR" and "BL" below are expected to be 0.00390625 and NOT 0.
+	// See the `dfXPoint` and `dfYPoint` values in `GDALGridJobProcess()` for how these points are calculated
+	// TL
+	assert.Equal(t, 1.0, gridBindingPoints[topLeftIndex])
+	// TR
+	assert.Equal(t, 0.00390625, gridBindingPoints[topRightIndex])
+	// BL
+	assert.Equal(t, 0.00390625, gridBindingPoints[bottomLeftIndex])
+	// BR
+	assert.Equal(t, 1.0, gridBindingPoints[bottomRightIndex])
+	// Center
+	assert.Equal(t, 0.5, gridBindingPoints[imageCentreIndex])
+}
+
+func TestGridCreateLinear(t *testing.T) {
+	var (
+		err error
+
+		xCoords  = []float64{0, 1, 0, 1}
+		yCoords  = []float64{0, 0, 1, 1}
+		zCoords  = []float64{1, 0, 0, 1}
+		outXSize = 256
+		outYSize = 256
+	)
+
+	var gridCreateBindingPoints = make([]float64, outXSize*outYSize)
+	err = GridCreate("linear", xCoords, yCoords, zCoords, 0, 1, 0, 1, outXSize, outYSize, gridCreateBindingPoints)
+	if err != nil {
+		// Handles QHull error differently here, as it's a compatibility issue not a gridding error
+		isQhullError := strings.HasSuffix(err.Error(), "without QHull support")
+		if isQhullError {
+			t.Log(`Skipping test, GDAL was built without "Delaunay triangulation" support which is required for the "Linear" gridding algorithm`)
+			return
+		} else {
+			t.Error(err)
+			return
+		}
+	}
+
+	var (
+		topLeftIndex     = 0
+		topRightIndex    = outXSize - 1
+		bottomLeftIndex  = outXSize * (outYSize - 1)
+		bottomRightIndex = (outXSize * outYSize) - 1
+		imageCentreIndex = outYSize*(outXSize/2) - 1
+	)
+
+	// For linear interpolation, we expect z-values of corners to match the input coordinates
+	// and the centre value to be the average of the 4 corner values
+	// 	TL (0, 0, 0), EXPECTED OUTPUT Z-VAL  = 0
+	// 	TR (1, 0, 1), EXPECTED OUTPUT Z-VAL  = 1
+	// 	BL (0, 1, 0), EXPECTED OUTPUT Z-VAL  = 0
+	// 	BR (1, 1, 1), EXPECTED OUTPUT Z-VAL  = 1
+	//  CR (0.5, 0.5), EXPECTED OUTPUT Z-VAL = (0 + 1 + 0 + 1) / 4 = 0.5
+	//
+	// NOTE: The input X and Y coords are offset slightly in GDAL before they're passed into a a gridding algorithm.
+	// This is why "TR" and "BL" below are expected to be 0.00390625 and NOT 0.
+	// See the `dfXPoint` and `dfYPoint` values in `GDALGridJobProcess()` for how these points are calculated
+	// TL
+	assert.Equal(t, 1.0, gridCreateBindingPoints[topLeftIndex])
+	// TR
+	assert.Equal(t, 0.00390625, gridCreateBindingPoints[topRightIndex])
+	// BL
+	assert.Equal(t, 0.00390625, gridCreateBindingPoints[bottomLeftIndex])
+	// BR
+	assert.Equal(t, 1.0, gridCreateBindingPoints[bottomRightIndex])
+	// Center
+	assert.Equal(t, 0.5, gridCreateBindingPoints[imageCentreIndex])
+}
+
+func TestGridMaximum(t *testing.T) {
+	var (
+		err      error
+		outXSize = 256
+		outYSize = 256
+	)
+
+	vrtDs, err := CreateVector(Memory, "")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	geom, err := NewGeometryFromWKT("POLYGON((0 0 0, 0 1 1, 1 1 0, 1 0 1))", nil)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = vrtDs.CreateLayer("grid", nil, GTPolygon)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = vrtDs.Layers()[0].NewFeature(geom)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	// NOTE: Flipping the arguments after `-tye` here, to account for `ProcessLayer` (in `GDALGrid`) flipping the coords "north up"
+	argsString := fmt.Sprintf("-a maximum -txe 0 1 -tye 0 1 -outsize %d %d -ot Float64", outXSize, outYSize)
+	fname := "/vsimem/test.tiff"
+
+	gridDs, err := vrtDs.Grid(fname, strings.Split(argsString, " "))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() { _ = VSIUnlink(fname) }()
+	defer gridDs.Close()
+
+	var gridBindingPoints = make([]float64, outXSize*outYSize)
+	err = gridDs.Read(0, 0, gridBindingPoints, outXSize, outYSize)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	var (
+		topLeftIndex     = 0
+		topRightIndex    = outXSize - 1
+		bottomLeftIndex  = outXSize * (outYSize - 1)
+		bottomRightIndex = (outXSize * outYSize) - 1
+		imageCentreIndex = outYSize*(outXSize/2) - 1
+	)
+
+	// All sampled values are expected to match the "maximum" value in the grid i.e. 1
+	// TL
+	assert.Equal(t, 1.0, gridBindingPoints[topLeftIndex])
+	// TR
+	assert.Equal(t, 1.0, gridBindingPoints[topRightIndex])
+	// BL
+	assert.Equal(t, 1.0, gridBindingPoints[bottomLeftIndex])
+	// BR
+	assert.Equal(t, 1.0, gridBindingPoints[bottomRightIndex])
+	// Center
+	assert.Equal(t, 1.0, gridBindingPoints[imageCentreIndex])
+}
+
+func TestGridCreateMaximum(t *testing.T) {
+	var (
+		err error
+
+		xCoords  = []float64{0, 1, 0, 1}
+		yCoords  = []float64{0, 0, 1, 1}
+		zCoords  = []float64{1, 0, 0, 1}
+		outXSize = 256
+		outYSize = 256
+	)
+
+	var gridCreateBindingPoints = make([]float64, outXSize*outYSize)
+	err = GridCreate("maximum", xCoords, yCoords, zCoords, 0, 1, 0, 1, outXSize, outYSize, gridCreateBindingPoints)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	var (
+		topLeftIndex     = 0
+		topRightIndex    = outXSize - 1
+		bottomLeftIndex  = outXSize * (outYSize - 1)
+		bottomRightIndex = (outXSize * outYSize) - 1
+		imageCentreIndex = outYSize*(outXSize/2) - 1
+	)
+	// All sampled values are expected to match the "maximum" value in the grid i.e. 1
+	// TL
+	assert.Equal(t, 1.0, gridCreateBindingPoints[topLeftIndex])
+	// TR
+	assert.Equal(t, 1.0, gridCreateBindingPoints[topRightIndex])
+	// BL
+	assert.Equal(t, 1.0, gridCreateBindingPoints[bottomLeftIndex])
+	// BR
+	assert.Equal(t, 1.0, gridCreateBindingPoints[bottomRightIndex])
+	// Center
+	assert.Equal(t, 1.0, gridCreateBindingPoints[imageCentreIndex])
+}
+
+func TestGridInvalidSwitch(t *testing.T) {
+	vrtDs, err := CreateVector(Memory, "")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	geom, err := NewGeometryFromWKT("POLYGON((0 0 0, 0 1 1, 1 1 0, 1 0 1))", nil)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = vrtDs.CreateLayer("grid", nil, GTPolygon)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = vrtDs.Layers()[0].NewFeature(geom)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = vrtDs.Grid("/vsimem/test.tiff", []string{"-invalidswitch"})
+	assert.Error(t, err)
+	ehc := eh()
+	_, err = vrtDs.Grid("/vsimem/test.tiff", []string{"-invalidswitch"}, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+}
+
+func TestNearblackBlack(t *testing.T) {
+	// 1. Create an image, linearly interpolated, from black (on the left) to white (on the right), using `Grid()`
+	var (
+		outXSize = 256
+		outYSize = 256
+	)
+	vrtDs, err := CreateVector(Memory, "")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer vrtDs.Close()
+	geom, err := NewGeometryFromWKT("POLYGON((0 0 0, 0 1 0, 1 1 255, 1 0 255))", nil)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer geom.Close()
+	_, err = vrtDs.CreateLayer("grid", nil, GTPolygon)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = vrtDs.Layers()[0].NewFeature(geom)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	// As of GDAL v3.6, `GDALGrid` will swap `yMin` and `yMax` if `yMin` < `yMax`. In order to make the output of
+	// earlier GDAL versions (< 3.6) consistent with this, we're setting `yMin` > `yMax`.
+	yMin := 1
+	yMax := 0
+	argsString := fmt.Sprintf("-a linear -txe 0 1 -tye %d %d -outsize %d %d -ot Byte", yMin, yMax, outXSize, outYSize)
+	fname := "/vsimem/test.tiff"
+	gridDs, err := vrtDs.Grid(fname, strings.Split(argsString, " "))
+	if err != nil {
+		// Handles QHull error differently here, as it's a compatibility issue not a gridding error
+		isQhullError := strings.HasSuffix(err.Error(), "without QHull support")
+		if isQhullError {
+			t.Log(`Skipping test, GDAL was built without "Delaunay triangulation" support which is required for the "Linear" gridding algorithm`)
+			return
+		} else {
+			t.Error(err)
+			return
+		}
+	}
+	defer func() { _ = VSIUnlink(fname) }()
+	defer gridDs.Close()
+	originalColors := make([]byte, outXSize*outYSize)
+	gridDs.Read(0, 0, originalColors, outXSize, outYSize)
+
+	// 2. Put the Dataset generated above, through the `Nearblack` function, to set pixels near BLACK to BLACK
+	argsNbString := "-near 10 -nb 0"
+	fname2 := "/vsimem/test1.tiff"
+	nbDs, err := gridDs.Nearblack(fname2, strings.Split(argsNbString, " "))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() { _ = VSIUnlink(fname2) }()
+	defer nbDs.Close()
+	nearblackColors := make([]byte, outXSize*outYSize)
+	nbDs.Read(0, 0, nearblackColors, outXSize, outYSize)
+
+	// 3. Test on all rows that pixels where abs(0 - pixelValue) <= 10, are set to black (0)
+	for i := 0; i < outYSize; i++ {
+		startIndex := i * outXSize
+		assert.Equal(t, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}, originalColors[startIndex:startIndex+13])
+		assert.Equal(t, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 12}, nearblackColors[startIndex:startIndex+13])
+	}
+}
+
+func TestNearblackWhite(t *testing.T) {
+	// 1. Create an image, linearly interpolated, from white (on the left) to black (on the right), using `Grid()`
+	var (
+		outXSize = 256
+		outYSize = 256
+	)
+	vrtDs, err := CreateVector(Memory, "")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer vrtDs.Close()
+	geom, err := NewGeometryFromWKT("POLYGON((0 0 255, 0 1 255, 1 1 0, 1 0 0))", nil)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer geom.Close()
+	_, err = vrtDs.CreateLayer("grid", nil, GTPolygon)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = vrtDs.Layers()[0].NewFeature(geom)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	// As of GDAL v3.6, `GDALGrid` will swap `yMin` and `yMax` if `yMin` < `yMax`. In order to make the output of
+	// earlier GDAL versions (< 3.6) consistent with this, we're setting `yMin` > `yMax`.
+	yMin := 1
+	yMax := 0
+	argsString := fmt.Sprintf("-a linear -txe 0 1 -tye %d %d -outsize %d %d -ot Byte", yMin, yMax, outXSize, outYSize)
+	fname := "/vsimem/test.tiff"
+	gridDs, err := vrtDs.Grid(fname, strings.Split(argsString, " "))
+	if err != nil {
+		// Handles QHull error differently here, as it's a compatibility issue not a gridding error
+		isQhullError := strings.HasSuffix(err.Error(), "without QHull support")
+		if isQhullError {
+			t.Log(`Skipping test, GDAL was built without "Delaunay triangulation" support which is required for the "Linear" gridding algorithm`)
+			return
+		} else {
+			t.Error(err)
+			return
+		}
+	}
+	defer func() { _ = VSIUnlink(fname) }()
+	defer gridDs.Close()
+	originalColors := make([]byte, outXSize*outYSize)
+	gridDs.Read(0, 0, originalColors, outXSize, outYSize)
+
+	// 2. Put the Dataset generated above, through the `Nearblack` function, to set pixels near WHITE to WHITE
+	argsNbString := "-near 10 -nb 0 -white"
+	fname2 := "/vsimem/test1.tiff"
+	nbDs, err := gridDs.Nearblack(fname2, strings.Split(argsNbString, " "))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() { _ = VSIUnlink(fname2) }()
+	defer nbDs.Close()
+	nearblackColors := make([]byte, outXSize*outYSize)
+	nbDs.Read(0, 0, nearblackColors, outXSize, outYSize)
+
+	// 3. Test on all rows that pixels where abs(255 - pixelValue) <= 10, are set to white (255)
+	for i := 0; i < outYSize; i++ {
+		startIndex := i * outXSize
+		assert.Equal(t, []byte{255, 254, 253, 252, 251, 250, 249, 248, 247, 246, 245, 244, 243}, originalColors[startIndex:startIndex+13])
+		assert.Equal(t, []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 244, 243}, nearblackColors[startIndex:startIndex+13])
+	}
+}
+
+func TestNearblackInvalidSwitch(t *testing.T) {
+	// 1. Create a linearly interpolated image that goes from white -> black, using `Grid()`
+	var (
+		outXSize = 256
+		outYSize = 256
+	)
+	fname := "/vsimem/test.tiff"
+	vrtDs, err := Create(Memory, fname, 1, Byte, outXSize, outYSize)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() { _ = VSIUnlink(fname) }()
+	defer vrtDs.Close()
+
+	// 2. Put the Dataset generated above, through the `Nearblack`
+	fname2 := "/vsimem/test1.tiff"
+
+	_, err = vrtDs.Nearblack(fname2, []string{"-invalidswitch"})
+	assert.Error(t, err)
+	ehc := eh()
+	_, err = vrtDs.Nearblack(fname2, []string{"-invalidswitch"}, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+
+	defer func() { _ = VSIUnlink(fname2) }()
+}
+
+func TestNearblackBlackInto(t *testing.T) {
+	// 1. Create an image, linearly interpolated, from black (on the left) to white (on the right), using `Grid()`
+	var (
+		outXSize = 256
+		outYSize = 256
+	)
+	vrtDs, err := CreateVector(Memory, "")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer vrtDs.Close()
+	geom, err := NewGeometryFromWKT("POLYGON((0 0 0, 0 1 0, 1 1 255, 1 0 255))", nil)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer geom.Close()
+	_, err = vrtDs.CreateLayer("grid", nil, GTPolygon)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = vrtDs.Layers()[0].NewFeature(geom)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	// As of GDAL v3.6, `GDALGrid` will swap `yMin` and `yMax` if `yMin` < `yMax`. In order to make the output of
+	// earlier GDAL versions (< 3.6) consistent with this, we're setting `yMin` > `yMax`.
+	yMin := 1
+	yMax := 0
+	argsString := fmt.Sprintf("-a linear -txe 0 1 -tye %d %d -outsize %d %d -ot Byte", yMin, yMax, outXSize, outYSize)
+	fname := "/vsimem/test.tiff"
+	gridDs, err := vrtDs.Grid(fname, strings.Split(argsString, " "))
+	if err != nil {
+		// Handles QHull error differently here, as it's a compatibility issue not a gridding error
+		isQhullError := strings.HasSuffix(err.Error(), "without QHull support")
+		if isQhullError {
+			t.Log(`Skipping test, GDAL was built without "Delaunay triangulation" support which is required for the "Linear" gridding algorithm`)
+			return
+		} else {
+			t.Error(err)
+			return
+		}
+	}
+	defer func() { _ = VSIUnlink(fname) }()
+	defer gridDs.Close()
+	originalColors := make([]byte, outXSize*outYSize)
+	gridDs.Read(0, 0, originalColors, outXSize, outYSize)
+
+	// 2. Put the Dataset generated above, through the `Nearblack` function, to set pixels near BLACK to BLACK
+	nbDs, err := Create(Memory, "nbDs", 1, Byte, outXSize, outYSize)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer nbDs.Close()
+	argsNbString := "-near 10 -nb 0"
+	err = nbDs.NearblackInto(gridDs, strings.Split(argsNbString, " "))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	nearblackColors := make([]byte, outXSize*outYSize)
+	nbDs.Read(0, 0, nearblackColors, outXSize, outYSize)
+
+	// 3. Test on all rows that pixels where abs(0 - pixelValue) <= 10, are set to black (0)
+	for i := 0; i < outYSize; i++ {
+		startIndex := i * outXSize
+		assert.Equal(t, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}, originalColors[startIndex:startIndex+13])
+		assert.Equal(t, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 12}, nearblackColors[startIndex:startIndex+13])
+	}
+}
+
+func TestNearblackIntoInvalidSwitch(t *testing.T) {
+	// 1. Create a linearly interpolated image that goes from white -> black, using `Grid()`
+	var (
+		outXSize = 256
+		outYSize = 256
+	)
+	fname := "/vsimem/test.tiff"
+	vrtDs, err := Create(Memory, fname, 1, Byte, outXSize, outYSize)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() { _ = VSIUnlink(fname) }()
+	defer vrtDs.Close()
+
+	// 2. Put the Dataset generated above, through the `Nearblack`
+	nbDs, err := Create(Memory, "nbDs", 1, Byte, outXSize, outYSize)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer nbDs.Close()
+	err = nbDs.NearblackInto(vrtDs, []string{"-invalidswitch"})
+	assert.Error(t, err)
+	ehc := eh()
+	err = nbDs.NearblackInto(vrtDs, []string{"-invalidswitch"}, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+}
+
+func TestNearblackIntoNoSrcDs(t *testing.T) {
+	// 1. Create a linearly interpolated image that goes from white -> black, using `Grid()`
+	var (
+		outXSize = 256
+		outYSize = 256
+	)
+	fname := "/vsimem/test.tiff"
+	vrtDs, err := Create(Memory, fname, 1, Byte, outXSize, outYSize)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() { _ = VSIUnlink(fname) }()
+	defer vrtDs.Close()
+
+	// 2. Put the Dataset generated above, through the `Nearblack`
+	nbDs, err := Create(Memory, "nbDs", 1, Byte, outXSize, outYSize)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer nbDs.Close()
+	ehc := eh()
+	err = nbDs.NearblackInto(nil, []string{}, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+}
+
+func TestSetGCPsAddTwoGCPs(t *testing.T) {
+	vrtDs, err := Create(Memory, "", 1, Byte, 256, 256)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer vrtDs.Close()
+
+	// Check `Get` methods before setting GCPs
+	assert.Equal(t, &SpatialRef{handle: nil, isOwned: false}, vrtDs.GCPSpatialRef())
+	gcps := vrtDs.GCPs()
+	assert.Equal(t, 0, len(gcps))
+	assert.Equal(t, "", vrtDs.GCPProjection())
+
+	var gcpList []GCP = []GCP{
+		{
+			PszId:      "",
+			PszInfo:    "",
+			DfGCPPixel: 0,
+			DfGCPLine:  1,
+			DfGCPX:     0,
+			DfGCPY:     0,
+			DfGCPZ:     0,
+		},
+		{
+			PszId:      "hello",
+			PszInfo:    "world",
+			DfGCPPixel: 1,
+			DfGCPLine:  0,
+			DfGCPX:     1,
+			DfGCPY:     1,
+			DfGCPZ:     1,
+		},
+	}
+	sr, err := NewSpatialRefFromEPSG(3857)
+	if err != nil {
+		t.Error(err)
+	}
+	srWkt, err := sr.WKT()
+	if err != nil {
+		t.Error(err)
+	}
+	err = vrtDs.SetGCPs(gcpList, GCPProjection(srWkt))
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Check `Get` method after settings GCPs
+	assert.NotEqual(t, nil, vrtDs.GCPSpatialRef().handle)
+	gcps = vrtDs.GCPs()
+	assert.Equal(t, 2, len(gcps))
+	assert.Equal(t, gcpList, gcps)
+	assert.Equal(t, srWkt, vrtDs.GCPProjection())
+}
+
+func TestSetGCPsAddZeroGCPs(t *testing.T) {
+	vrtDs, err := Create(Memory, "", 1, Byte, 256, 256)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer vrtDs.Close()
+
+	// Check `Get` methods before setting GCPs
+	assert.Equal(t, &SpatialRef{handle: nil, isOwned: false}, vrtDs.GCPSpatialRef())
+	gcps := vrtDs.GCPs()
+	assert.Equal(t, 0, len(gcps))
+	assert.Equal(t, "", vrtDs.GCPProjection())
+
+	var gcpList []GCP = []GCP{}
+	sr, err := NewSpatialRefFromEPSG(3857)
+	if err != nil {
+		t.Error(err)
+	}
+	srWkt, err := sr.WKT()
+	if err != nil {
+		t.Error(err)
+	}
+	err = vrtDs.SetGCPs(gcpList, GCPProjection(srWkt))
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Check `Get` method after settings GCPs
+	assert.NotEqual(t, nil, vrtDs.GCPSpatialRef().handle)
+	gcps = vrtDs.GCPs()
+	assert.Equal(t, 0, len(gcps))
+	assert.Equal(t, srWkt, vrtDs.GCPProjection())
+}
+
+func TestSetGCPsInvalidDataset(t *testing.T) {
+	vrtDs, err := CreateVector(Memory, "")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer vrtDs.Close()
+
+	sr, err := NewSpatialRefFromEPSG(3857)
+	if err != nil {
+		t.Error(err)
+	}
+	srWkt, err := sr.WKT()
+	if err != nil {
+		t.Error(err)
+	}
+
+	ehc := eh()
+	err = vrtDs.SetGCPs([]GCP{}, GCPProjection(srWkt), ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+
+	err = vrtDs.SetGCPs([]GCP{}, GCPProjection(srWkt))
+	assert.Error(t, err)
+}
+
+func TestSetGCPs2AddTwoGCPs(t *testing.T) {
+	vrtDs, err := Create(Memory, "", 1, Byte, 256, 256)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer vrtDs.Close()
+
+	// Check `Get` methods before setting GCPs
+	assert.Equal(t, &SpatialRef{handle: nil, isOwned: false}, vrtDs.GCPSpatialRef())
+	gcps := vrtDs.GCPs()
+	assert.Equal(t, 0, len(gcps))
+	assert.Equal(t, "", vrtDs.GCPProjection())
+
+	var gcpList []GCP = []GCP{
+		{
+			PszId:      "",
+			PszInfo:    "",
+			DfGCPPixel: 0,
+			DfGCPLine:  1,
+			DfGCPX:     0,
+			DfGCPY:     0,
+			DfGCPZ:     0,
+		},
+		{
+			PszId:      "hello",
+			PszInfo:    "world",
+			DfGCPPixel: 1,
+			DfGCPLine:  0,
+			DfGCPX:     1,
+			DfGCPY:     1,
+			DfGCPZ:     1,
+		},
+	}
+	sr, err := NewSpatialRefFromEPSG(3857)
+	if err != nil {
+		t.Error(err)
+	}
+	srWkt, err := sr.WKT()
+	if err != nil {
+		t.Error(err)
+	}
+	err = vrtDs.SetGCPs(gcpList, GCPSpatialRef(sr))
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Check `Get` method after settings GCPs
+	assert.NotEqual(t, nil, vrtDs.GCPSpatialRef().handle)
+	gcps = vrtDs.GCPs()
+	assert.Equal(t, 2, len(gcps))
+	assert.Equal(t, gcpList, gcps)
+	assert.Equal(t, srWkt, vrtDs.GCPProjection())
+}
+
+func TestSetGCPs2AddZeroGCPs(t *testing.T) {
+	vrtDs, err := Create(Memory, "", 1, Byte, 256, 256)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer vrtDs.Close()
+
+	// Check `Get` methods before setting GCPs
+	assert.Equal(t, &SpatialRef{handle: nil, isOwned: false}, vrtDs.GCPSpatialRef())
+	gcps := vrtDs.GCPs()
+	assert.Equal(t, 0, len(gcps))
+	assert.Equal(t, "", vrtDs.GCPProjection())
+
+	var gcpList []GCP = []GCP{}
+	sr, err := NewSpatialRefFromEPSG(3857)
+	if err != nil {
+		t.Error(err)
+	}
+	srWkt, err := sr.WKT()
+	if err != nil {
+		t.Error(err)
+	}
+	err = vrtDs.SetGCPs(gcpList, GCPSpatialRef(sr))
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Check `Get` method after settings GCPs
+	assert.NotEqual(t, nil, vrtDs.GCPSpatialRef().handle)
+	gcps = vrtDs.GCPs()
+	assert.Equal(t, 0, len(gcps))
+	assert.Equal(t, srWkt, vrtDs.GCPProjection())
+}
+
+func TestSetGCPs2InvalidDataset(t *testing.T) {
+	vrtDs, err := CreateVector(Memory, "")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer vrtDs.Close()
+
+	ehc := eh()
+	err = vrtDs.SetGCPs([]GCP{}, GCPSpatialRef(&SpatialRef{}), ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+
+	err = vrtDs.SetGCPs([]GCP{}, GCPSpatialRef(&SpatialRef{}))
+	assert.Error(t, err)
+}
+
+func TestGCPsToGeoTransformEmptyList(t *testing.T) {
+	var gcpList []GCP = []GCP{}
+
+	ehc := eh()
+	_, err := GCPsToGeoTransform(gcpList, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+}
+
+func TestGCPsToGeoTransformInsufficientGCPs(t *testing.T) {
+	var gcpList []GCP = []GCP{
+		{
+			PszId:      "0",
+			PszInfo:    "",
+			DfGCPPixel: 0.5,
+			DfGCPLine:  0.5,
+			DfGCPX:     0,
+			DfGCPY:     0,
+			DfGCPZ:     0,
+		},
+	}
+
+	ehc := eh()
+	_, err := GCPsToGeoTransform(gcpList, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+}
+
+func TestGCPsToGeoTransform(t *testing.T) {
+	var gcpList []GCP = []GCP{
+		{
+			PszId:      "0",
+			PszInfo:    "",
+			DfGCPPixel: 0.5,
+			DfGCPLine:  0.5,
+			DfGCPX:     0,
+			DfGCPY:     0,
+			DfGCPZ:     0,
+		},
+		{
+			PszId:      "1",
+			PszInfo:    "",
+			DfGCPPixel: 1000.5,
+			DfGCPLine:  0.5,
+			DfGCPX:     10,
+			DfGCPY:     0,
+			DfGCPZ:     1,
+		},
+		{
+			PszId:      "2",
+			PszInfo:    "",
+			DfGCPPixel: 1000.5,
+			DfGCPLine:  100.5,
+			DfGCPX:     10,
+			DfGCPY:     20,
+			DfGCPZ:     1,
+		},
+		{
+			PszId:      "3",
+			PszInfo:    "",
+			DfGCPPixel: 0.5,
+			DfGCPLine:  100.5,
+			DfGCPX:     0,
+			DfGCPY:     20,
+			DfGCPZ:     1,
+		},
+	}
+
+	geoTransform, err := GCPsToGeoTransform(gcpList)
+	assert.NoError(t, err)
+
+	// Check `Get` method after settings GCPs
+	assert.Equal(t, -0.005, geoTransform[0])
+	assert.Equal(t, 0.01, geoTransform[1])
+	assert.Equal(t, 0.0, geoTransform[2])
+	assert.Equal(t, -0.1, geoTransform[3])
+	assert.Equal(t, 0.0, geoTransform[4])
+	assert.Equal(t, 0.2, geoTransform[5])
+}
+
+func TestDemHillshade(t *testing.T) {
+	// 1. Create an image, linearly interpolated, from dark (on the left) to white (on the right), using `Grid()`
+	var (
+		outXSize = 2048
+		outYSize = 2048
+	)
+	vrtDs, err := CreateVector(Memory, "")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer vrtDs.Close()
+	geom, err := NewGeometryFromWKT("POLYGON((500000 500000 10, 500000 600000 10, 600000 600000 2026, 600000 500000 2026))", nil)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer geom.Close()
+	_, err = vrtDs.CreateLayer("grid", nil, GTPolygon)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = vrtDs.Layers()[0].NewFeature(geom)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	// As of GDAL v3.6, `GDALGrid` will swap `yMin` and `yMax` if `yMin` < `yMax`. In order to make the output of
+	// earlier GDAL versions (< 3.6) consistent with this, we're setting `yMin` > `yMax`.
+	yMin := 600000
+	yMax := 500000
+	argsString := fmt.Sprintf("-a linear -txe 500000 600000 -tye %d %d -outsize %d %d -ot Int16", yMin, yMax, outXSize, outYSize)
+	fname := "/vsimem/grid.tiff"
+	gridDs, err := vrtDs.Grid(fname, strings.Split(argsString, " "))
+	if err != nil {
+		// Handles QHull error differently here, as it's a compatibility issue not a gridding error
+		isQhullError := strings.HasSuffix(err.Error(), "without QHull support")
+		if isQhullError {
+			t.Log(`Skipping test, GDAL was built without "Delaunay triangulation" support which is required for the "Linear" gridding algorithm`)
+			return
+		} else {
+			t.Error(err)
+			return
+		}
+	}
+	gridDs.SetProjection("epsg:32632")
+	defer func() { _ = VSIUnlink(fname) }()
+	defer gridDs.Close()
+
+	fname2 := "/vsimem/dem.tif"
+	demDs, err := gridDs.Dem(fname2, "hillshade", "", []string{})
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() { _ = VSIUnlink(fname2) }()
+	defer demDs.Close()
+
+	demBuf := make([]uint8, outXSize*outYSize)
+	err = demDs.Read(0, 0, demBuf, outXSize, outYSize)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	// Expected value of border is NODATA (0): https://gdal.org/programs/gdaldem.html
+	var nodata uint8 = 0
+	assert.Equal(t, nodata, demBuf[0])
+	assert.Equal(t, nodata, demBuf[outXSize-1])
+	assert.Equal(t, nodata, demBuf[(outXSize*(outYSize-1))])
+	assert.Equal(t, nodata, demBuf[(outXSize*outYSize)-1])
+
+	// Values in each "column" should be equal
+	// NOTE: Skips the outer pixel border since it's set to the NODATA value
+	for x := 1; x < 256; x++ {
+		var topValInColumn = demBuf[(1*outXSize)+x]
+		for y := 1; y < 2047; y++ {
+			thisColVal := demBuf[(y*outXSize)+x]
+			assert.Equal(t, topValInColumn, thisColVal)
+		}
+	}
+
+	// Iterate through lines on the middle row of the output dataset checking that
+	// each line has equal spacing between it and the next line
+	var (
+		expLineThickness    = 2
+		thisLineThickness   = 0
+		expInterLineSpaces  = 62
+		thisInterLineSpaces = 0
+		row                 = (outYSize / 2)
+
+		expSpaceVal uint8 = 183
+		expLineVal  uint8 = 182
+	)
+	for x := 1; x < outXSize-1; x++ {
+		thisCoordVal := demBuf[(row*outYSize)+x]
+		switch thisCoordVal {
+		case expSpaceVal:
+			if thisLineThickness > 0 {
+				assert.Equal(t, expLineThickness, thisLineThickness)
+				thisLineThickness = 0
+			}
+			thisInterLineSpaces++
+		case expLineVal:
+			if thisInterLineSpaces > 0 {
+				assert.Equal(t, expInterLineSpaces, thisInterLineSpaces)
+				thisInterLineSpaces = 0
+			}
+			thisLineThickness++
+		default:
+			t.Errorf("found coordinate with value not in: [%d, %d]", expSpaceVal, expLineVal)
+			return
+		}
+	}
+}
+
+func TestDemInvalidSwitch(t *testing.T) {
+	fname := "/vsimem/test.tiff"
+	vrtDs, err := Create(Memory, fname, 1, Byte, 256, 256)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() { _ = VSIUnlink(fname) }()
+	defer vrtDs.Close()
+
+	_, err = vrtDs.Dem("test", "hillshade", "", []string{"-invalidswitch"})
+	assert.Error(t, err)
+	ehc := eh()
+	_, err = vrtDs.Dem("test", "hillshade", "", []string{"-invalidswitch"}, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+}
+
+func TestDemSlope(t *testing.T) {
+	// 1. Create an image, linearly interpolated, from black (on the left) to white (on the right), using `Grid()`
+	var (
+		outXSize = 2048
+		outYSize = 2048
+	)
+	vrtDs, err := CreateVector(Memory, "")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer vrtDs.Close()
+	geom, err := NewGeometryFromWKT("POLYGON((500000 500000 10, 500000 600000 10, 600000 600000 2026, 600000 500000 2026))", nil)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer geom.Close()
+	_, err = vrtDs.CreateLayer("grid", nil, GTPolygon)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = vrtDs.Layers()[0].NewFeature(geom)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	// As of GDAL v3.6, `GDALGrid` will swap `yMin` and `yMax` if `yMin` < `yMax`. In order to make the output of
+	// earlier GDAL versions (< 3.6) consistent with this, we're setting `yMin` > `yMax`.
+	yMin := 600000
+	yMax := 500000
+	argsString := fmt.Sprintf("-a linear -txe 500000 600000 -tye %d %d -outsize %d %d -ot Int16", yMin, yMax, outXSize, outYSize)
+	fname := "/vsimem/grid.tiff"
+	gridDs, err := vrtDs.Grid(fname, strings.Split(argsString, " "))
+	if err != nil {
+		// Handles QHull error differently here, as it's a compatibility issue not a gridding error
+		isQhullError := strings.HasSuffix(err.Error(), "without QHull support")
+		if isQhullError {
+			t.Log(`Skipping test, GDAL was built without "Delaunay triangulation" support which is required for the "Linear" gridding algorithm`)
+			return
+		} else {
+			t.Error(err)
+			return
+		}
+	}
+	gridDs.SetProjection("epsg:32632")
+	defer func() { _ = VSIUnlink(fname) }()
+	defer gridDs.Close()
+
+	fname2 := "/vsimem/dem.tif"
+	demDs, err := gridDs.Dem(fname2, "slope", "", []string{"-p"})
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() { _ = VSIUnlink(fname2) }()
+	defer demDs.Close()
+
+	demBuf := make([]float32, outXSize*outYSize)
+	err = demDs.Read(0, 0, demBuf, outXSize, outYSize)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	// Expected value of border is NODATA (0): https://gdal.org/programs/gdaldem.html
+	var nodata float32 = -9999
+	assert.Equal(t, nodata, demBuf[0])
+	assert.Equal(t, nodata, demBuf[outXSize-1])
+	assert.Equal(t, nodata, demBuf[(outXSize*(outYSize-1))])
+	assert.Equal(t, nodata, demBuf[(outXSize*outYSize)-1])
+
+	// Values in each "column" should be equal
+	// NOTE: Skips the outer pixel border since it's set to the NODATA value
+	for x := 1; x < 256; x++ {
+		var firstVal = demBuf[(1*outXSize)+x]
+		for y := 1; y < 2047; y++ {
+			thisCoord := demBuf[(y*outXSize)+x]
+			assert.Equal(t, firstVal, thisCoord)
+		}
+	}
+
+	// Iterate through lines on the middle row of the output dataset checking that
+	// each line has equal spacing between it and the next line
+	var (
+		expLineThickness    = 2
+		thisLineThickness   = 0
+		expInterLineSpaces  = 62
+		thisInterLineSpaces = 0
+		row                 = (outYSize / 2)
+
+		expSpaceVal float32 = 2.048
+		expLineVal  float32 = 1.024
+	)
+	for x := 1; x < outXSize-1; x++ {
+		thisCoordVal := demBuf[(row*outYSize)+x]
+		switch thisCoordVal {
+		case expSpaceVal:
+			if thisLineThickness > 0 {
+				assert.Equal(t, expLineThickness, thisLineThickness)
+				thisLineThickness = 0
+			}
+			thisInterLineSpaces++
+		case expLineVal:
+			if thisInterLineSpaces > 0 {
+				assert.Equal(t, expInterLineSpaces, thisInterLineSpaces)
+				thisInterLineSpaces = 0
+			}
+			thisLineThickness++
+		default:
+			t.Errorf("found coordinate with value not in: [%f, %f]", expSpaceVal, expLineVal)
+			return
+		}
+	}
+}
+
+func TestDemColorReliefNilFilename(t *testing.T) {
+	fname := "/vsimem/test.tiff"
+	vrtDs, err := Create(Memory, fname, 1, Byte, 256, 256)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() { _ = VSIUnlink(fname) }()
+	defer vrtDs.Close()
+
+	_, err = vrtDs.Dem("/vsimem/out.tiff", "color-relief", "", []string{})
+	assert.Error(t, err)
+}
+
+func TestDemColorReliefInvalidFilename(t *testing.T) {
+	fname := "/vsimem/test.tiff"
+	vrtDs, err := Create(Memory, fname, 1, Byte, 256, 256)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer func() { _ = VSIUnlink(fname) }()
+	defer vrtDs.Close()
+
+	invalidColorReliefFilename := "invalid_file"
+	_, err = vrtDs.Dem("/vsimem/out.tiff", "color-relief", invalidColorReliefFilename, []string{})
 	assert.Error(t, err)
 }

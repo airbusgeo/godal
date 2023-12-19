@@ -150,6 +150,12 @@ func ErrLogger(fn ErrorHandler) interface {
 	StatisticsOption
 	SetStatisticsOption
 	ClearStatisticsOption
+	GridOption
+	NearblackOption
+	DemOption
+	SetGCPsOption
+	GCPsToGeoTransformOption
+	RegisterPluginOption
 } {
 	return errorCallback{fn}
 }
@@ -359,6 +365,27 @@ func (ec errorCallback) setSetStatisticsOpt(o *setStatisticsOpt) {
 }
 
 func (ec errorCallback) setClearStatisticsOpt(o *clearStatisticsOpt) {
+	o.errorHandler = ec.fn
+}
+func (ec errorCallback) setGridCreateOpt(o *gridCreateOpts) {
+	o.errorHandler = ec.fn
+}
+func (ec errorCallback) setGridOpt(o *gridOpts) {
+	o.errorHandler = ec.fn
+}
+func (ec errorCallback) setNearblackOpt(o *nearBlackOpts) {
+	o.errorHandler = ec.fn
+}
+func (ec errorCallback) setDemOpt(o *demOpts) {
+	o.errorHandler = ec.fn
+}
+func (ec errorCallback) setSetGCPsOpt(o *setGCPsOpts) {
+	o.errorHandler = ec.fn
+}
+func (ec errorCallback) setGCPsToGeoTransformOpts(o *gcpsToGeoTransformOpts) {
+	o.errorHandler = ec.fn
+}
+func (ec errorCallback) setRegisterPluginOpt(o *registerPluginOpts) {
 	o.errorHandler = ec.fn
 }
 

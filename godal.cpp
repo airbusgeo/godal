@@ -28,6 +28,7 @@
 
 #include <gdal_utils.h>
 #include <gdal_alg.h>
+#include <gdalgrid.h>
 
 extern "C" {
 	extern long long int _gogdalSizeCallback(char* key, char** errorString);
@@ -191,6 +192,25 @@ int godalRegisterDriver(const char *fnname) {
 		return 0;
 	}
 	return -1;
+}
+
+void godalRegisterPlugins(){
+#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 8, 0)
+  GDALRegisterPlugins();
+#endif
+}
+
+void godalRegisterPlugin(cctx *ctx, const char *name){
+  godalWrap(ctx);
+#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 8, 0)
+  CPLErr ret = GDALRegisterPlugin(name);
+  if (ret != 0) {
+	  forceCPLError(ctx, ret);
+  }
+#else
+	CPLError(CE_Failure, CPLE_NotSupported, "GDALRegisterPlugin is only supported in GDAL version >= 3.8");
+#endif
+	godalUnwrap();
 }
 
 GDALDatasetH godalCreate(cctx *ctx, GDALDriverH drv, const char* name, int width, int height, int nbands,
@@ -1692,3 +1712,182 @@ void test_godal_error_handling(cctx *ctx) {
 	godalUnwrap();
 }
 
+void godalGridCreate(cctx *ctx, char *pszAlgorithm, GDALGridAlgorithm eAlgorithm, GUInt32 nPoints, const double *padfX, const double *padfY, const double *padfZ, double dfXMin,
+					double dfXMax, double dfYMin, double dfYMax, GUInt32 nXSize, GUInt32 nYSize, GDALDataType eType, void *pData) {
+	godalWrap(ctx);
+	CPLErr ret;
+
+	if (!GDALHasTriangulation() && eAlgorithm == GGA_Linear) {
+		CPLError(CE_Failure, CPLE_AppDefined, "unable to run GGA_Linear algorithm, since GDAL built without QHull support");
+		godalUnwrap();
+		return;
+	}
+
+	void *ppOptions;
+#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 7, 0)
+	ret = GDALGridParseAlgorithmAndOptions(pszAlgorithm, &eAlgorithm, &ppOptions);
+#else
+	ret = ParseAlgorithmAndOptions(pszAlgorithm, &eAlgorithm, &ppOptions);
+#endif
+	if(ret!=0) {
+		forceCPLError(ctx, ret);
+		godalUnwrap();
+		return;
+	}
+
+	ret = GDALGridCreate(eAlgorithm, ppOptions, nPoints, padfX, padfY,
+                      padfZ, dfXMin, dfXMax, dfYMin, dfYMax, nXSize, nYSize, 
+					  eType,  pData, nullptr, nullptr);
+	if(ret!=0) {
+		forceCPLError(ctx, ret);
+	}
+
+	godalUnwrap();
+}
+
+GDALDatasetH godalGrid(cctx *ctx, const char *pszDest, GDALDatasetH hSrcDS, char **switches) {
+	godalWrap(ctx);
+
+	GDALGridOptions *gridopts = GDALGridOptionsNew(switches,nullptr);
+	if(failed(ctx)) {
+		GDALGridOptionsFree(gridopts);
+		godalUnwrap();
+		return nullptr;
+	}
+
+
+	int usageErr=0;
+	GDALDatasetH ret = GDALGrid(pszDest, hSrcDS, gridopts, &usageErr);
+	GDALGridOptionsFree(gridopts);
+	if(ret==nullptr || usageErr!=0) {
+		forceError(ctx);
+	}
+
+	godalUnwrap();
+	return ret;
+}
+
+GDALDatasetH godalNearblack(cctx *ctx, const char *pszDest, GDALDatasetH hDstDS, GDALDatasetH hSrcDS, char **switches) {
+	godalWrap(ctx);
+
+	GDALNearblackOptions *nbopts = GDALNearblackOptionsNew(switches,nullptr);
+	if(failed(ctx)) {
+		GDALNearblackOptionsFree(nbopts);
+		godalUnwrap();
+		return nullptr;
+	}
+
+	int usageErr=0;
+	GDALDatasetH ret = GDALNearblack(pszDest, hDstDS, hSrcDS, nbopts, &usageErr);
+	GDALNearblackOptionsFree(nbopts);
+	if(ret==nullptr || usageErr!=0) {
+		forceError(ctx);
+	}
+
+	godalUnwrap();
+	return ret;
+}
+
+GDALDatasetH godalDem(cctx *ctx, const char *pszDest, const char *pszProcessing, const char *pszColorFilename, GDALDatasetH hSrcDS, char **switches) {
+	godalWrap(ctx);
+
+	GDALDEMProcessingOptions *demopts = GDALDEMProcessingOptionsNew(switches,nullptr);
+	if(failed(ctx)) {
+		GDALDEMProcessingOptionsFree(demopts);
+		godalUnwrap();
+		return nullptr;
+	}
+
+	int usageErr=0;
+	GDALDatasetH ret = GDALDEMProcessing(pszDest, hSrcDS, pszProcessing, pszColorFilename, demopts, &usageErr);
+	GDALDEMProcessingOptionsFree(demopts);
+	if(ret==nullptr || usageErr!=0) {
+		forceError(ctx);
+	}
+
+	godalUnwrap();
+	return ret;
+}
+
+OGRSpatialReferenceH godalGetGCPSpatialRef(GDALDatasetH hSrcDS) {
+	return GDALGetGCPSpatialRef(hSrcDS);
+}
+
+const GCPsAndCount godalGetGCPs(GDALDatasetH hSrcDS) {
+	return GCPsAndCount {
+		.gcpList = GDALGetGCPs(hSrcDS), 
+		.numGCPs = GDALGetGCPCount(hSrcDS),
+	};
+}
+
+const char *godalGetGCPProjection(GDALDatasetH hSrcDS) {
+	return GDALGetGCPProjection(hSrcDS);
+}
+
+void godalSetGCPs(cctx *ctx, GDALDatasetH hSrcDS, int numGCPs, goGCPList GCPList, const char *pszGCPProjection) {
+	godalWrap(ctx);
+
+	GDAL_GCP *GDALGCPList = goGCPListToGDALGCP(GCPList, numGCPs);
+
+	CPLErr ret = GDALSetGCPs(hSrcDS, numGCPs, GDALGCPList, pszGCPProjection);
+	if(ret!=0) {
+		forceCPLError(ctx, ret);
+	}
+	
+	GDALDeinitGCPs(numGCPs, GDALGCPList);
+	CPLFree(GDALGCPList);
+
+	godalUnwrap();
+	return;
+}
+
+void godalSetGCPs2(cctx *ctx, GDALDatasetH hSrcDS, int numGCPs, goGCPList GCPList, OGRSpatialReferenceH hSRS) {
+	godalWrap(ctx);
+
+	GDAL_GCP *GDALGCPList = goGCPListToGDALGCP(GCPList, numGCPs);
+
+	CPLErr ret = GDALSetGCPs2(hSrcDS, numGCPs, GDALGCPList, hSRS);
+	if(ret!=0) {
+		forceCPLError(ctx, ret);
+	}
+
+	GDALDeinitGCPs(numGCPs, GDALGCPList);
+	CPLFree(GDALGCPList);
+	
+	godalUnwrap();
+	return;
+}
+
+GDAL_GCP *goGCPListToGDALGCP(goGCPList GCPList, int numGCPs) {
+	GDAL_GCP *ret = static_cast<GDAL_GCP *>(CPLCalloc(numGCPs, sizeof(GDAL_GCP)));
+	GDALInitGCPs(numGCPs, ret);
+
+	for (int i = 0; i < numGCPs; i++)
+	{
+		ret[i].pszId = CPLStrdup(GCPList.pszIds[i]); 
+		ret[i].pszInfo = CPLStrdup(GCPList.pszInfos[i]);
+		ret[i].dfGCPPixel = GCPList.dfGCPPixels[i];
+		ret[i].dfGCPLine = GCPList.dfGCPLines[i];
+		ret[i].dfGCPX = GCPList.dfGCPXs[i];
+		ret[i].dfGCPY = GCPList.dfGCPYs[i];
+		ret[i].dfGCPZ = GCPList.dfGCPZs[i];
+	}
+
+	return ret;
+}
+
+void godalGCPListToGeoTransform(cctx *ctx, goGCPList GCPList, int numGCPs, double *gt){
+	godalWrap(ctx);
+
+	GDAL_GCP *GDALGCPList = goGCPListToGDALGCP(GCPList, numGCPs);
+
+	int ret = GDALGCPsToGeoTransform(numGCPs, GDALGCPList, gt, TRUE);
+	if(ret!=TRUE) {
+		forceError(ctx);
+	}
+
+	GDALDeinitGCPs(numGCPs, GDALGCPList);
+	CPLFree(GDALGCPList);
+
+	godalUnwrap();
+}
