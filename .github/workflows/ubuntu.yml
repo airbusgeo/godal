@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        gdal: [ 'release/3.5', 'release/3.6', 'release/3.7', 'master' ]
+        gdal: [ 'release/3.5', 'release/3.6', 'release/3.7', 'release/3.8', 'master' ]
     steps:
       - name: optgdal
         run: sudo mkdir /optgdal && sudo chown -R $USER /optgdal
@@ -52,7 +52,7 @@ jobs:
     strategy:
       matrix:
         go: [ '1.20', '1.21' ]
-        gdal: [  'release/3.5', 'release/3.6', 'release/3.7', 'master' ]
+        gdal: [  'release/3.5', 'release/3.6', 'release/3.7', 'release/3.8', 'master' ]
     name: Go ${{ matrix.go }} + GDAL ${{ matrix.gdal }} test
     steps:
       - name: APT
