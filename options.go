@@ -578,6 +578,7 @@ type updateFeatureOpts struct {
 type UpdateFeatureOption interface {
 	setUpdateFeatureOpt(o *updateFeatureOpts)
 }
+
 type deleteFeatureOpts struct {
 	errorHandler ErrorHandler
 }
@@ -588,6 +589,18 @@ type deleteFeatureOpts struct {
 //   - ErrLogger
 type DeleteFeatureOption interface {
 	setDeleteFeatureOpt(o *deleteFeatureOpts)
+}
+
+type setGeometryColumnNameOpts struct {
+	errorHandler ErrorHandler
+}
+
+// SetGeometryColumnNameOption is an option passed to Layer.SetGeometryColumnName() or Feature.SetGeometryColumnName()
+//
+// Available options are:
+//   - ErrLogger
+type SetGeometryColumnNameOption interface {
+	setGeometryColumnNameOpt(o *setGeometryColumnNameOpts)
 }
 
 type geometryTransformOpts struct {

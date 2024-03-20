@@ -134,6 +134,7 @@ func ErrLogger(fn ErrorHandler) interface {
 	SetNoDataOption
 	SetScaleOffsetOption
 	SetGeoTransformOption
+	SetGeometryColumnNameOption
 	SetProjectionOption
 	SetSpatialRefOption
 	SieveFilterOption
@@ -239,6 +240,9 @@ func (ec errorCallback) setFillnodataOpt(o *fillnodataOpts) {
 	o.errorHandler = ec.fn
 }
 func (ec errorCallback) setGeojsonOpt(o *geojsonOpts) {
+	o.errorHandler = ec.fn
+}
+func (ec errorCallback) setGeometryColumnNameOpt(o *setGeometryColumnNameOpts) {
 	o.errorHandler = ec.fn
 }
 func (ec errorCallback) setGeometryTransformOpt(o *geometryTransformOpts) {

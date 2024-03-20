@@ -104,6 +104,8 @@ extern "C" {
 	void godalLayerCreateFeature(cctx *ctx, OGRLayerH layer, OGRFeatureH feat);
 	OGRFeatureH godalLayerNewFeature(cctx *ctx, OGRLayerH layer, OGRGeometryH geom);
 	void godalLayerDeleteFeature(cctx *ctx, OGRLayerH layer, OGRFeatureH feat);
+	void godalLayerSetGeometryColumnName(cctx *ctx, OGRLayerH layer, char *name);
+	void godalFeatureSetGeometryColumnName(cctx *ctx, OGRFeatureH feat, char *name);
 	void godalFeatureSetGeometry(cctx *ctx, OGRFeatureH feat, OGRGeometryH geom);
 	void godalFeatureSetFieldInteger(cctx *ctx, OGRFeatureH feat, int fieldIndex, int value);
 	void godalFeatureSetFieldInteger64(cctx *ctx, OGRFeatureH feat, int fieldIndex, long long value);
