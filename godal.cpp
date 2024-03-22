@@ -816,6 +816,29 @@ void godalLayerSetFeature(cctx *ctx, OGRLayerH layer, OGRFeatureH feat) {
 	godalUnwrap();
 }
 
+void godalLayerSetGeometryColumnName(cctx *ctx, OGRLayerH layer, char *name) {
+	godalWrap(ctx);
+#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 6, 0)
+	OGRGeomFieldDefnH fieldWithNewName = OGR_GFld_Create(name, OGRwkbGeometryType(0));
+	OGRErr gret = OGR_L_AlterGeomFieldDefn(layer, 0, fieldWithNewName, ALTER_GEOM_FIELD_DEFN_NAME_FLAG);
+	if(gret!=0){
+		forceOGRError(ctx,gret);
+	}
+#else
+  	CPLError(CE_Failure, CPLE_NotSupported, "OGR_L_AlterGeomFieldDefn is only supported in GDAL version >= 3.6");
+#endif
+	godalUnwrap();
+}
+
+void godalFeatureSetGeometryColumnName(cctx *ctx, OGRFeatureH feat, char *name) {
+	godalWrap(ctx);
+	OGRGeomFieldDefnH gfdef = OGR_F_GetGeomFieldDefnRef(feat, 0);
+	if(gfdef != nullptr){
+		OGR_GFld_SetName(gfdef, name);
+	}
+	godalUnwrap();
+}
+
 void godalFeatureSetGeometry(cctx *ctx, OGRFeatureH feat, OGRGeometryH geom) {
 	godalWrap(ctx);
 	OGRErr gret = OGR_F_SetGeometry(feat,geom);

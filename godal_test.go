@@ -2677,6 +2677,11 @@ func TestLayerModifyFeatures(t *testing.T) {
 	ds, _ := Open("testdata/test.geojson") //read-only
 	defer ds.Close()
 	l := ds.Layers()[0]
+
+	ehc := eh()
+	err := l.SetGeometryColumnName("error", ErrLogger(ehc.ErrorHandler)) // can't set geometry colum name on geojson
+	assert.Error(t, err)
+
 	for {
 		ff := l.NextFeature()
 		if ff == nil {
@@ -2696,6 +2701,15 @@ func TestLayerModifyFeatures(t *testing.T) {
 	dsm, _ := ds.VectorTranslate("", []string{"-of", "Memory"})
 	defer dsm.Close()
 	l = dsm.Layers()[0]
+
+	err = l.SetGeometryColumnName("no_error_after_3.6")
+	runtimeVersion := Version()
+	if runtimeVersion.Major() <= 3 && runtimeVersion.Minor() < 6 {
+		assert.Error(t, err)
+	} else {
+		assert.NoError(t, err)
+	}
+
 	for {
 		ff := l.NextFeature()
 		if ff == nil {
@@ -3066,7 +3080,16 @@ func TestFeatureAttributes(t *testing.T) {
 	assert.NoError(t, err)
 	fc, _ := lyr.FeatureCount()
 	assert.Equal(t, fc, 1)
-	nf.SetGeometryColumnName("no_error")
+
+	ehc = eh()
+	err = nf.SetGeometryColumnName("no_error_before_3_9", ErrLogger(ehc.ErrorHandler))
+	runtimeVersion := Version()
+	if runtimeVersion.Major() <= 3 && runtimeVersion.Minor() < 9 {
+		assert.NoError(t, err)
+	} else {
+		assert.Error(t, err)
+	}
+
 	nf.SetFID(99999999999)
 	attrs := nf.Fields()
 	intCol := attrs["intCol"]

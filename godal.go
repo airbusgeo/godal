@@ -2862,13 +2862,18 @@ func (f *Feature) SetGeometry(geom *Geometry, opts ...SetGeometryOption) error {
 }
 
 // SetGeometryColumnName set the name of feature first geometry field.
-func (f *Feature) SetGeometryColumnName(name string) {
+// Deprecated when running with GDAL 3.6+, use SetGeometryColumnName on Layer instead.
+// No more supported when running with GDAL 3.9+.
+func (f *Feature) SetGeometryColumnName(name string, opts ...SetGeometryColumnNameOption) error {
+	so := &setGeometryColumnNameOpts{}
+	for _, o := range opts {
+		o.setGeometryColumnNameOpt(so)
+	}
 	cname := C.CString(name)
 	defer C.free(unsafe.Pointer(cname))
-	gfdef := C.OGR_F_GetGeomFieldDefnRef(f.handle, C.int(0))
-	if gfdef != nil {
-		C.OGR_GFld_SetName(gfdef, (*C.char)(unsafe.Pointer(cname)))
-	}
+	cgc := createCGOContext(nil, so.errorHandler)
+	C.godalFeatureSetGeometryColumnName(cgc.cPointer(), f.handle, (*C.char)(cname))
+	return cgc.close()
 }
 
 // SetFID set feature identifier
@@ -3268,6 +3273,20 @@ func (layer Layer) DeleteFeature(feat *Feature, opts ...DeleteFeatureOption) err
 	}
 	cgc := createCGOContext(nil, do.errorHandler)
 	C.godalLayerDeleteFeature(cgc.cPointer(), layer.handle(), feat.handle)
+	return cgc.close()
+}
+
+// SetGeometryColumnName set the name of feature first geometry field.
+// Only supported when running with GDAL 3.6+.
+func (layer Layer) SetGeometryColumnName(name string, opts ...SetGeometryColumnNameOption) error {
+	so := &setGeometryColumnNameOpts{}
+	for _, o := range opts {
+		o.setGeometryColumnNameOpt(so)
+	}
+	cname := C.CString(name)
+	defer C.free(unsafe.Pointer(cname))
+	cgc := createCGOContext(nil, so.errorHandler)
+	C.godalLayerSetGeometryColumnName(cgc.cPointer(), layer.handle(), (*C.char)(cname))
 	return cgc.close()
 }
 
