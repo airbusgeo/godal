@@ -3517,11 +3517,7 @@ func (g *Geometry) GML(opts ...GMLExportOption) (string, error) {
 	for _, o := range opts {
 		o.setGMLExportOpt(gmlo)
 	}
-	switches := make([]string, len(gmlo.creation))
-	for i, copt := range gmlo.creation {
-		switches[i] = copt
-	}
-	cswitches := sliceToCStringArray(switches)
+	cswitches := sliceToCStringArray(gmlo.creation)
 	defer cswitches.free()
 	cgc := createCGOContext(nil, gmlo.errorHandler)
 	cgml := C.godalExportGeometryGML(cgc.cPointer(), g.handle, cswitches.cPointer())
@@ -3974,8 +3970,8 @@ func (ds *Dataset) Nearblack(dstDS string, switches []string, opts ...NearblackO
 
 	cgc := createCGOContext(nil, nearBlackOpts.errorHandler)
 
-	ret, err := C.godalNearblack(cgc.cPointer(), (*C.char)(dest), nil, ds.handle(), cswitches.cPointer())
-	if err = cgc.close(); err != nil {
+	ret := C.godalNearblack(cgc.cPointer(), (*C.char)(dest), nil, ds.handle(), cswitches.cPointer())
+	if err := cgc.close(); err != nil {
 		return nil, err
 	}
 
