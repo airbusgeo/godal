@@ -14,7 +14,7 @@ jobs:
     strategy:
       matrix:
         os: [ 'ubuntu-20.04', 'ubuntu-22.04' ]
-        go: [ '1.21' ]
+        go: [ '1.22' ]
     name: Go ${{ matrix.go }} + GDAL on ${{ matrix.os }} test
     steps:
       - name: APT
@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        gdal: [ 'release/3.5', 'release/3.6', 'release/3.7', 'release/3.8', 'master' ]
+        gdal: [ 'release/3.6', 'release/3.7', 'release/3.8', 'release/3.9', 'master' ]
     steps:
       - name: optgdal
         run: sudo mkdir /optgdal && sudo chown -R $USER /optgdal
@@ -51,8 +51,8 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        go: [ '1.20', '1.21' ]
-        gdal: [  'release/3.5', 'release/3.6', 'release/3.7', 'release/3.8', 'master' ]
+        go: [ '1.21', '1.22' ]
+        gdal: [  'release/3.6', 'release/3.7', 'release/3.8', 'release/3.9', 'master' ]
     name: Go ${{ matrix.go }} + GDAL ${{ matrix.gdal }} test
     steps:
       - name: APT
@@ -90,12 +90,12 @@ jobs:
         env:
           PKG_CONFIG_PATH: /optgdal/lib/pkgconfig/
       - name: Send coverage
-        if: ${{ matrix.go == '1.21' && matrix.gdal == 'master' }}
+        if: ${{ matrix.go == '1.22' && matrix.gdal == 'master' }}
         uses: shogo82148/actions-goveralls@v1
         with:
           path-to-profile: profile.cov
       - name: golangci-lint
-        if: ${{ matrix.go == '1.21' && matrix.gdal == 'master' }}
+        if: ${{ matrix.go == '1.22' && matrix.gdal == 'master' }}
         uses: reviewdog/action-golangci-lint@v1
         env:
           PKG_CONFIG_PATH: /optgdal/lib/pkgconfig/
