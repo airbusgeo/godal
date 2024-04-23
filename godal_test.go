@@ -265,9 +265,7 @@ func TestRegisterDrivers(t *testing.T) {
 	_, ok = VectorDriver("Mapinfo File")
 	assert.True(t, ok)
 
-	runtimeVersion := Version()
-	supported := runtimeVersion.Major() > 3 ||
-		(runtimeVersion.Major() == 3 && runtimeVersion.Minor() >= 8)
+	supported := CheckMinVersion(3, 8, 0)
 
 	ehc := eh()
 	err = RegisterPlugin("foobarsljgsa", ErrLogger(ehc.ErrorHandler))
@@ -343,7 +341,7 @@ func TestConfigOptions(t *testing.T) {
 	//Create. withtout the configoption create() will fail
 	ds, err := Create(GTiff, tiffile, 1, Byte, 1024, 1024, CreationOption("INVALID_OPTION=TRUE"), ConfigOption("GDAL_VALIDATE_CREATION_OPTIONS=FALSE"))
 	assert.NoError(t, err)
-	_, _ = ds.CreateMaskBand(0x02) //tmpdir/testfile.msk
+	_, _ = ds.CreateMaskBand(0x02) //For gdal <3.9, this will create tmpdir/testfile.msk
 	_ = ds.Close()
 
 	//Open
@@ -395,7 +393,11 @@ func TestConfigOptions(t *testing.T) {
 	ds, _ = Open(tiffile, ConfigOption("GDAL_DISABLE_READDIR_ON_OPEN=EMPTY_DIR"))
 	_, err = ds.GeoTransform()
 	assert.Error(t, err)
-	assert.NotEqual(t, 0x02, ds.Bands()[0].MaskFlags())
+	if CheckMinVersion(3, 9, 0) {
+		assert.Equal(t, 0x02, ds.Bands()[0].MaskFlags()) //gdal 3.9+ will not create a separate mask file by default
+	} else {
+		assert.NotEqual(t, 0x02, ds.Bands()[0].MaskFlags())
+	}
 }
 
 func TestHistogram(t *testing.T) {
@@ -628,6 +630,8 @@ func TestStructure(t *testing.T) {
 
 func TestVersion(t *testing.T) {
 	AssertMinVersion(3, 0, 0)
+	assert.False(t, CheckMinVersion(99, 99, 99))
+	assert.True(t, CheckMinVersion(3, 0, 0))
 	assert.Panics(t, func() { AssertMinVersion(99, 99, 99) })
 }
 
@@ -1303,9 +1307,12 @@ func TestOpenUpdate(t *testing.T) {
 	}
 	uds, _ = Open(tt)
 	flags := uds.Bands()[0].MaskFlags()
-	if flags != 0x8 {
-		t.Errorf("mask was used: %d", flags)
+	if CheckMinVersion(3, 9, 0) {
+		assert.Equal(t, 0x2, flags, "mask not set")
+	} else {
+		assert.Equal(t, 0x8, flags, "mask not being set from nodata values")
 	}
+
 	_ = uds.Close()
 	uds, _ = Open(tt, SiblingFiles(filepath.Base(tt+".msk")))
 	flags = uds.Bands()[0].MaskFlags()
@@ -1641,7 +1648,7 @@ func TestProjMisc(t *testing.T) {
 	attr, ok := sr.AttrValue("GEOGCS", 0)
 	assert.True(t, ok)
 	assert.Equal(t, "WGS 84", attr)
-	attr, ok = sr.AttrValue("GEOGCS", 9999)
+	_, ok = sr.AttrValue("GEOGCS", 9999)
 	assert.False(t, ok)
 
 	err = sr.AutoIdentifyEPSG()
@@ -2703,8 +2710,7 @@ func TestLayerModifyFeatures(t *testing.T) {
 	l = dsm.Layers()[0]
 
 	err = l.SetGeometryColumnName("no_error_after_3.6")
-	runtimeVersion := Version()
-	if runtimeVersion.Major() <= 3 && runtimeVersion.Minor() < 6 {
+	if !CheckMinVersion(3, 6, 0) {
 		assert.Error(t, err)
 	} else {
 		assert.NoError(t, err)
@@ -3083,8 +3089,7 @@ func TestFeatureAttributes(t *testing.T) {
 
 	ehc = eh()
 	err = nf.SetGeometryColumnName("no_error_before_3_9", ErrLogger(ehc.ErrorHandler))
-	runtimeVersion := Version()
-	if runtimeVersion.Major() <= 3 && runtimeVersion.Minor() < 9 {
+	if !CheckMinVersion(3, 9, 0) {
 		assert.NoError(t, err)
 	} else {
 		assert.Error(t, err)
@@ -3941,16 +3946,15 @@ func TestStatistics(t *testing.T) {
 	assert.Equal(t, 10., stats.Mean)
 	assert.Equal(t, 0.29, stats.Std)
 	assert.Equal(t, false, stats.Approximate)
-	runtimeVersion := Version()
 	err = ds.ClearStatistics()
-	if runtimeVersion.Major() <= 3 && runtimeVersion.Minor() < 2 {
+	if !CheckMinVersion(3, 2, 0) {
 		assert.Error(t, err)
 	} else {
 		assert.NoError(t, err)
 	}
 	ehc = eh()
 	err = ds.ClearStatistics(ErrLogger(ehc.ErrorHandler))
-	if runtimeVersion.Major() <= 3 && runtimeVersion.Minor() < 2 {
+	if !CheckMinVersion(3, 2, 0) {
 		assert.Error(t, err)
 	} else {
 		assert.NoError(t, err)

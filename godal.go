@@ -1582,13 +1582,22 @@ func (lv LibVersion) Revision() int {
 
 // AssertMinVersion will panic if the runtime version is not at least major.minor.revision
 func AssertMinVersion(major, minor, revision int) {
+	if !CheckMinVersion(major, minor, revision) {
+		runtimeVersion := Version()
+		panic(fmt.Errorf("runtime version %d.%d.%d < %d.%d.%d",
+			runtimeVersion.Major(), runtimeVersion.Minor(), runtimeVersion.Revision(), major, minor, revision))
+	}
+}
+
+// CheckMinVersion will return true if the runtime version is at least major.minor.revision
+func CheckMinVersion(major, minor, revision int) bool {
 	runtimeVersion := Version()
 	if runtimeVersion.Major() < major ||
 		(runtimeVersion.Major() == major && runtimeVersion.Minor() < minor) ||
 		(runtimeVersion.Major() == major && runtimeVersion.Minor() == minor && runtimeVersion.Revision() < revision) {
-		panic(fmt.Errorf("runtime version %d.%d.%d < %d.%d.%d",
-			runtimeVersion.Major(), runtimeVersion.Minor(), runtimeVersion.Revision(), major, minor, revision))
+		return false
 	}
+	return true
 }
 
 func init() {
