@@ -77,6 +77,12 @@ func TestCBuffer(t *testing.T) {
 	assert.Equal(t, 1, bufferType(buf).Size())
 	assert.Panics(t, func() { cBuffer(buf, 101) })
 
+	buf = make([]int8, 100)
+	_ = cBuffer(buf, 100)
+	assert.Equal(t, Int8, bufferType(buf))
+	assert.Equal(t, 1, bufferType(buf).Size())
+	assert.Panics(t, func() { cBuffer(buf, 101) })
+
 	buf = make([]int16, 100)
 	_ = cBuffer(buf, 100)
 	assert.Equal(t, Int16, bufferType(buf))
@@ -222,6 +228,19 @@ func TestCreate(t *testing.T) {
 
 	if st1.Size() == st2.Size() {
 		t.Errorf("sizes: %d/%d", st1.Size(), st2.Size())
+	}
+
+	ehc = eh()
+	tmpname3 := tempfile()
+	defer os.Remove(tmpname3)
+	ds, err = Create(GTiff, tmpname3, 1, Int8, 20, 20, ErrLogger(ehc.ErrorHandler))
+	if CheckMinVersion(3, 7, 0) {
+		assert.NoError(t, err)
+
+		err = ds.Close(ErrLogger(ehc.ErrorHandler))
+		assert.NoError(t, err)
+	} else if err == nil {
+		panic("godal.Int8 is not supported with GDAL<3.7.0, but godal.Create returns no error")
 	}
 }
 
