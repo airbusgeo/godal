@@ -25,6 +25,10 @@
 
 #if GDAL_VERSION_NUM < 3000000
 	#error "this code is only compatible with gdal version >= 3.0"
+#elif GDAL_VERSION_NUM < GDAL_COMPUTE_VERSION(3, 7, 0)
+typedef enum {
+    /*! 8-bit signed integer (GDAL >= 3.7) */ GDT_Int8 = -1
+} FutureGDALDataType;
 #endif
 
 #ifdef __cplusplus

@@ -77,6 +77,12 @@ func TestCBuffer(t *testing.T) {
 	assert.Equal(t, 1, bufferType(buf).Size())
 	assert.Panics(t, func() { cBuffer(buf, 101) })
 
+	buf = make([]int8, 100)
+	_ = cBuffer(buf, 100)
+	assert.Equal(t, Int8, bufferType(buf))
+	assert.Equal(t, 1, bufferType(buf).Size())
+	assert.Panics(t, func() { cBuffer(buf, 101) })
+
 	buf = make([]int16, 100)
 	_ = cBuffer(buf, 100)
 	assert.Equal(t, Int16, bufferType(buf))

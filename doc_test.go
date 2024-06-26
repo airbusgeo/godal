@@ -289,6 +289,14 @@ func Example_rasterTutorial() {
 	poDstDS.Bands()[0].Write(0, 0, abyRaster, 512, 512)
 	poDstDS.Close()
 
+	if godal.Int8 != -1 { // Test valid for gdal > 3.7.0
+		poDstDSInt8, _ := godal.Create(godal.GTiff, pszDstFilename, 1, godal.Int8, 512, 512)
+		defer poDstDSInt8.Close() //Close can be defered / called more than once (second+ calls are no-ops)
+
+		// ... now populate with data
+		poDstDSInt8.Bands()[0].Write(0, 0, abyRaster, 512, 512)
+		poDstDSInt8.Close()
+	}
 	// Output:
 	// Size is 10x10x3
 	// Projection is 'GEOGCS["WGS 84",DATU...'
