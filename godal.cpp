@@ -1389,7 +1389,7 @@ namespace cpl
 							   ) override;
 
 		int Stat(const char *pszFilename, VSIStatBufL *pStatBuf, int nFlags) override;
-#if GDAL_VERSION_NUM >= 3020000
+#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 2, 0)
         char **SiblingFiles(const char *pszFilename) override;
 #endif
         int HasOptimizedReadMultiRange(const char *pszPath) override;
@@ -1403,17 +1403,22 @@ namespace cpl
     {
         CPL_DISALLOW_COPY_ASSIGN(VSIGoHandle)
     private:
-        char *m_filename;
-        vsi_l_offset m_cur, m_size;
-        int m_eof;
-
+        char *m_filename = nullptr;
+        vsi_l_offset m_cur = 0;
+        vsi_l_offset m_size = 0;
+        int m_eof = 0;
+        bool m_bError = false;
     public:
         VSIGoHandle(const char *filename, vsi_l_offset size);
         ~VSIGoHandle() override;
 
-#if GDAL_VERSION_NUM >= 3060000
-		  bool HasPRead() const override;
-		  size_t PRead(void * /*pBuffer*/, size_t /* nSize */, vsi_l_offset /*nOffset*/) const override;
+#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 6, 0)
+        bool HasPRead() const override;
+        size_t PRead(void * /*pBuffer*/, size_t /* nSize */, vsi_l_offset /*nOffset*/) const override;
+#endif
+#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 10, 0)
+        void ClearErr() override;
+        int Error() override;
 #endif
         vsi_l_offset Tell() override;
         int Seek(vsi_l_offset nOffset, int nWhence) override;
@@ -1430,8 +1435,6 @@ namespace cpl
     VSIGoHandle::VSIGoHandle(const char *filename, vsi_l_offset size)
     {
         m_filename = strdup(filename);
-        m_cur = 0;
-        m_eof = 0;
         m_size = size;
     }
 
@@ -1443,16 +1446,19 @@ namespace cpl
     size_t VSIGoHandle::Write(const void *pBuffer, size_t nSize, size_t nCount)
     {
         CPLError(CE_Failure, CPLE_AppDefined, "Write not implemented for go handlers");
+        m_bError = true;
         return -1;
     }
     int VSIGoHandle::Flush() 
     {
         CPLError(CE_Failure, CPLE_AppDefined, "Flush not implemented for go handlers");
+        m_bError = true;
         return -1;
     }
     int VSIGoHandle::Truncate(vsi_l_offset nNewSize) 
     {
         CPLError(CE_Failure, CPLE_AppDefined, "Truncate not implemented for go handlers");
+        m_bError = true;
         return -1;
     }
     int VSIGoHandle::Seek(vsi_l_offset nOffset, int nWhence)
@@ -1501,6 +1507,7 @@ namespace cpl
             CPLError(CE_Failure, CPLE_AppDefined, "%s", err);
             errno = EIO;
             free(err);
+            m_bError = true;
             return 0;
         }
         if (read != nSize * nCount)
@@ -1512,28 +1519,38 @@ namespace cpl
         return readblocks;
     }
 
-#if GDAL_VERSION_NUM >= 3060000
-	 bool VSIGoHandle::HasPRead() const
-	 {
-		 return true;
-	 }
-	 size_t VSIGoHandle::PRead( void* pBuffer, size_t nSize, vsi_l_offset nOffset ) const
-	 {
-		 char *err = nullptr;
-		 _gogdalMultiReadCallback(m_filename, 1, &pBuffer, (void *)&nOffset, (void *)&nSize,
-														&err);
-		 if (err)
-		 {
-			 CPLError(CE_Failure, CPLE_AppDefined, "%s", err);
-			 errno = EIO;
-			 free(err);
-			 return 0;
-		 }
-		 return nSize;
-	 }
+#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 6, 0)
+    bool VSIGoHandle::HasPRead() const
+    {
+        return true;
+    }
+    size_t VSIGoHandle::PRead( void* pBuffer, size_t nSize, vsi_l_offset nOffset ) const
+    {
+        char *err = nullptr;
+        _gogdalMultiReadCallback(m_filename, 1, &pBuffer, (void *)&nOffset, (void *)&nSize, &err);
+        if (err)
+        {
+            CPLError(CE_Failure, CPLE_AppDefined, "%s", err);
+            errno = EIO;
+            free(err);
+            return 0;
+        }
+        return nSize;
+    }
+#endif
+#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 10, 0)
+    void VSIGoHandle::ClearErr()
+    {
+        m_bError = false;
+    }
+
+    int VSIGoHandle::Error()
+    {
+        return m_bError ? TRUE : FALSE;
+    }
 #endif
 
-	 int VSIGoHandle::ReadMultiRange(int nRanges, void **ppData, const vsi_l_offset *panOffsets, const size_t *panSizes)
+    int VSIGoHandle::ReadMultiRange(int nRanges, void **ppData, const vsi_l_offset *panOffsets, const size_t *panSizes)
     {
         int iRange;
         int nMergedRanges = 1;
@@ -1553,6 +1570,7 @@ namespace cpl
                 CPLError(CE_Failure, CPLE_AppDefined, "%s", err);
                 errno = EIO;
                 free(err);
+                m_bError = true;
                 return -1;
             }
             return ret;
@@ -1609,6 +1627,7 @@ namespace cpl
             CPLError(CE_Failure, CPLE_AppDefined, "%s", err);
             errno = EIO;
             free(err);
+            m_bError = true;
             ret = -1;
         }
 
@@ -1635,15 +1654,15 @@ namespace cpl
     }
     VSIGoFilesystemHandler::~VSIGoFilesystemHandler() {}
 
-	VSIVirtualHandle *VSIGoFilesystemHandler::Open(const char *pszFilename,
-												   const char *pszAccess,
-												   bool bSetError
+    VSIVirtualHandle *VSIGoFilesystemHandler::Open(const char *pszFilename,
+                                                   const char *pszAccess,
+                                                   bool bSetError
 #if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 3, 0)
-												   , CSLConstList /*papszOptions*/
+                                                   , CSLConstList /*papszOptions*/
 #endif
-	)
-	{
-		if (strchr(pszAccess, 'w') != NULL ||
+    )
+    {
+        if (strchr(pszAccess, 'w') != NULL ||
             strchr(pszAccess, '+') != NULL)
         {
             CPLError(CE_Failure, CPLE_AppDefined, "Only read-only mode is supported");
@@ -1669,9 +1688,9 @@ namespace cpl
         {
             return VSICreateCachedFile(new VSIGoHandle(pszFilename, s), m_buffer, m_cache);
         }
-	}
+    }
 
-	int VSIGoFilesystemHandler::Stat(const char *pszFilename,
+    int VSIGoFilesystemHandler::Stat(const char *pszFilename,
                                      VSIStatBufL *pStatBuf,
                                      int nFlags)
     {
@@ -1701,7 +1720,7 @@ namespace cpl
         return TRUE;
     }
 
-#if GDAL_VERSION_NUM >= 3020000
+#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 2, 0)
     char **VSIGoFilesystemHandler::SiblingFiles(const char *pszFilename)
     {
         return (char **)calloc(1, sizeof(char *));
@@ -1712,27 +1731,27 @@ namespace cpl
 
 void VSIInstallGoHandler(cctx *ctx, const char *pszPrefix, size_t bufferSize, size_t cacheSize)
 {
-	godalWrap(ctx);
+    godalWrap(ctx);
     CSLConstList papszPrefix = VSIFileManager::GetPrefixes();
     for( size_t i = 0; papszPrefix && papszPrefix[i]; ++i ) {
         if(strcmp(papszPrefix[i],pszPrefix)==0) {
             CPLError(CE_Failure, CPLE_AppDefined, "handler already registered on prefix");
-			godalUnwrap();
-			return;
+            godalUnwrap();
+            return;
         }
     }
     VSIFilesystemHandler *poHandler = new cpl::VSIGoFilesystemHandler(bufferSize, cacheSize);
     const std::string sPrefix(pszPrefix);
     VSIFileManager::InstallHandler(sPrefix, poHandler);
-	godalUnwrap();
+    godalUnwrap();
 }
 
 void test_godal_error_handling(cctx *ctx) {
-	godalWrap(ctx);
-	CPLDebug("godal","this is a debug message");
-	CPLError(CE_Warning, CPLE_AppDefined, "this is a warning message");
-	CPLError(CE_Failure, CPLE_AppDefined, "this is a failure message");
-	godalUnwrap();
+    godalWrap(ctx);
+    CPLDebug("godal","this is a debug message");
+    CPLError(CE_Warning, CPLE_AppDefined, "this is a warning message");
+    CPLError(CE_Failure, CPLE_AppDefined, "this is a failure message");
+    godalUnwrap();
 }
 
 void godalGridCreate(cctx *ctx, char *pszAlgorithm, GDALGridAlgorithm eAlgorithm, GUInt32 nPoints, const double *padfX, const double *padfY, const double *padfZ, double dfXMin,
