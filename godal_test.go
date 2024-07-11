@@ -239,8 +239,8 @@ func TestCreate(t *testing.T) {
 
 		err = ds.Close(ErrLogger(ehc.ErrorHandler))
 		assert.NoError(t, err)
-	} else if err == nil {
-		panic("godal.Int8 is not supported with GDAL<3.7.0, but godal.Create returns no error")
+	} else {
+	        assert.Error(t, err, "godal.Int8 is not supported with GDAL<3.7.0, but godal.Create did not return an error")
 	}
 }
 
