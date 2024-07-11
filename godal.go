@@ -45,6 +45,9 @@ const (
 	Byte = DataType(C.GDT_Byte)
 	//UInt16 DataType
 	UInt16 = DataType(C.GDT_UInt16)
+	//Int8 DataType (GDAL>=3.7.0)
+	// [RFC 87]: https://gdal.org/development/rfc/rfc87_signed_int8.html
+	Int8 = DataType(C.GDT_Int8)
 	//Int16 DataType
 	Int16 = DataType(C.GDT_Int16)
 	//UInt32 DataType
@@ -89,7 +92,7 @@ func (dtype DataType) String() string {
 // Size retruns the number of bytes needed for one instance of DataType
 func (dtype DataType) Size() int {
 	switch dtype {
-	case Byte:
+	case Byte, Int8:
 		return 1
 	case Int16, UInt16:
 		return 2
@@ -1780,6 +1783,8 @@ func bufferType(buffer interface{}) DataType {
 	switch buffer.(type) {
 	case []byte:
 		return Byte
+	case []int8:
+		return Int8
 	case []int16:
 		return Int16
 	case []uint16:
@@ -1811,6 +1816,9 @@ func cBuffer(buffer interface{}, minsize int) unsafe.Pointer {
 	}
 	switch buf := buffer.(type) {
 	case []byte:
+		sizecheck(len(buf))
+		return unsafe.Pointer(&buf[0])
+	case []int8:
 		sizecheck(len(buf))
 		return unsafe.Pointer(&buf[0])
 	case []int16:
