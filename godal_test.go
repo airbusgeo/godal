@@ -240,7 +240,7 @@ func TestCreate(t *testing.T) {
 		err = ds.Close(ErrLogger(ehc.ErrorHandler))
 		assert.NoError(t, err)
 	} else {
-	        assert.Error(t, err, "godal.Int8 is not supported with GDAL<3.7.0, but godal.Create did not return an error")
+		assert.Error(t, err, "godal.Int8 is not supported with GDAL<3.7.0, but godal.Create did not return an error")
 	}
 }
 
@@ -2541,6 +2541,82 @@ func TestVectorTranslate(t *testing.T) {
 	ehc := eh()
 	_, err = ds.VectorTranslate("foobar", []string{"-f", "bogusdriver"}, ErrLogger(ehc.ErrorHandler))
 	assert.Error(t, err)
+}
+
+func TestExecuteSQL(t *testing.T) {
+
+	el := ErrLogger(eh().ErrorHandler)
+
+	sqld := DriverName("SQLite")
+	err := RegisterVector(sqld)
+	if err != nil {
+		panic(err)
+	}
+
+	ds, err := CreateVector(sqld, "/vsimem/test.db", CreationOption("SPATIALITE=YES"))
+	if err != nil {
+		panic(err)
+	}
+	defer ds.Close()
+
+	rs, err := ds.ExecuteSQL("CREATE TABLE test(id integer NOT NULL PRIMARY KEY)", el)
+	assert.NoError(t, err)
+	err = ds.ReleaseResultSet(&rs, el)
+	assert.NoError(t, err)
+	_, err = ds.ExecuteSQL("SELECT AddGeometryColumn('test','geom',4326,'POLYGON')", el, SQLiteDialect())
+	assert.NoError(t, err)
+	err = ds.ReleaseResultSet(&rs, el)
+	assert.NoError(t, err)
+
+	tl := ds.LayerByName("test")
+
+	fc, err := tl.FeatureCount()
+	assert.NoError(t, err)
+	assert.Equal(t, 0, fc)
+
+	ins := "INSERT INTO test VALUES (1,ST_GeomFromText('POLYGON ((-72.573946 44.254648, -72.573946 44.255163, -72.573076 44.255163, -72.573076 44.254648, -72.573946 44.254648))',4326)),"
+	ins += "(2,ST_GeomFromText('POLYGON ((-72.576558 44.25799, -72.576558 44.258213, -72.576064 44.258213, -72.576064 44.25799, -72.576558 44.25799))',4326))"
+	assert.NoError(t, err)
+	err = ds.ReleaseResultSet(&rs, el)
+	assert.NoError(t, err)
+
+	err = ds.StartTransaction(el, EmulatedTx())
+	assert.NoError(t, err)
+
+	rs, err = ds.ExecuteSQL(ins, el, SQLiteDialect())
+	assert.NoError(t, err)
+	err = ds.ReleaseResultSet(&rs, el)
+	assert.NoError(t, err)
+
+	err = ds.RollbackTransaction(el)
+	assert.NoError(t, err)
+
+	fc, _ = tl.FeatureCount()
+	assert.Equal(t, 0, fc)
+
+	err = ds.StartTransaction(el)
+	assert.NoError(t, err)
+
+	rs, err = ds.ExecuteSQL(ins, el, SQLiteDialect())
+	assert.NoError(t, err)
+	err = ds.ReleaseResultSet(&rs, el)
+	assert.NoError(t, err)
+
+	err = ds.CommitTransaction()
+	assert.NoError(t, err)
+
+	fc, _ = tl.FeatureCount()
+	assert.Equal(t, 2, fc)
+	wgs84, _ := NewSpatialRef("EPSG:4326")
+	g, _ := NewGeometryFromWKT("POINT (-72.57349970718771 44.25492684820907)", wgs84)
+
+	rs, err = ds.ExecuteSQL("SELECT * FROM test", NewSpatialFilter(g))
+	assert.NoError(t, err)
+	fc, _ = rs.FeatureCount()
+	assert.Equal(t, 1, fc)
+	err = ds.ReleaseResultSet(&rs, el)
+	assert.NoError(t, err)
+
 }
 
 func TestVectorLayer(t *testing.T) {

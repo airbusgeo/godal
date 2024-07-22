@@ -3365,6 +3365,187 @@ func (ds *Dataset) LayerByName(name string) *Layer {
 	return &Layer{majorObject{C.GDALMajorObjectH(hndl)}}
 }
 
+type SpatialFilter struct {
+	geom *Geometry
+}
+
+func (sf SpatialFilter) setExecuteSQLOpt(eso *executeSQLOpts) {
+	eso.spatialFilter = sf
+}
+
+func NewSpatialFilter(geom *Geometry) SpatialFilter {
+	return SpatialFilter{geom}
+}
+
+type executeSQLOpts struct {
+	dialect       SQLDialect
+	spatialFilter SpatialFilter
+	errorHandler  ErrorHandler
+}
+
+type SQLDialect string
+
+func (s SQLDialect) setExecuteSQLOpt(eso *executeSQLOpts) {
+	eso.dialect = s
+}
+
+func OGRSQLDialect() SQLDialect {
+	return SQLDialect("OGRSQL")
+}
+
+func SQLiteDialect() SQLDialect {
+	return SQLDialect("SQLite")
+}
+
+func IndirectSQLite() SQLDialect {
+	return SQLDialect("INDIRECT_SQLITE")
+}
+
+type ExecuteSQLOption interface {
+	setExecuteSQLOpt(eso *executeSQLOpts)
+}
+
+// ExecuteSQL executes an SQL statement against the data store.
+func (ds *Dataset) ExecuteSQL(sql string, opts ...ExecuteSQLOption) (Layer, error) {
+
+	eso := executeSQLOpts{}
+	for _, opt := range opts {
+		opt.setExecuteSQLOpt(&eso)
+	}
+
+	csql := C.CString(sql)
+	defer C.free(unsafe.Pointer(csql))
+
+	cDialect := C.CString(string(eso.dialect))
+	defer C.free(unsafe.Pointer(cDialect))
+
+	if eso.dialect == "" {
+		cDialect = nil
+	}
+
+	g := eso.spatialFilter.geom
+
+	if g == nil {
+		g = &Geometry{}
+	}
+
+	cgc := createCGOContext(nil, eso.errorHandler)
+	hndl := C.GDALDatasetExecuteSQL(ds.handle(), (*C.char)(unsafe.Pointer(csql)), g.handle, (*C.char)(unsafe.Pointer(cDialect)))
+	if err := cgc.close(); err != nil {
+		return Layer{}, err
+	}
+	return Layer{majorObject{C.GDALMajorObjectH(hndl)}}, nil
+}
+
+type releaseResultSetOpts struct {
+	errorHandler ErrorHandler
+}
+
+type ReleaseResultSetOption interface {
+	setReleaseResultSetOpt(rrso *releaseResultSetOpts)
+}
+
+// ReleaseResultSet Release results of ExecuteSQL().
+func (ds *Dataset) ReleaseResultSet(resultSet *Layer, opts ...ReleaseResultSetOption) error {
+	rrso := releaseResultSetOpts{}
+	for _, opt := range opts {
+		opt.setReleaseResultSetOpt(&rrso)
+	}
+
+	if resultSet == nil {
+		return nil
+	}
+
+	cgc := createCGOContext(nil, rrso.errorHandler)
+	C.GDALDatasetReleaseResultSet(ds.handle(), resultSet.handle())
+	err := cgc.close()
+	return err
+
+}
+
+type ForceTx bool
+
+func EmulatedTx() ForceTx {
+	return true
+}
+
+type startTransactionOpts struct {
+	bForce       ForceTx
+	errorHandler ErrorHandler
+}
+
+func (t ForceTx) setStartTransactionOpt(sto *startTransactionOpts) {
+	sto.bForce = t
+}
+
+type StartTransactionOption interface {
+	setStartTransactionOpt(sto *startTransactionOpts)
+}
+
+// StartTransaction creates a transaction for datasets which support transactions
+func (ds *Dataset) StartTransaction(opts ...StartTransactionOption) error {
+
+	sto := startTransactionOpts{}
+	for _, opt := range opts {
+		opt.setStartTransactionOpt(&sto)
+	}
+
+	cEff := C.int(0)
+
+	if sto.bForce == EmulatedTx() {
+		cEff = C.int(1)
+	}
+
+	cgc := createCGOContext(nil, sto.errorHandler)
+	C.GDALDatasetStartTransaction(ds.handle(), cEff)
+	err := cgc.close()
+	return err
+}
+
+type rollbackTransactionOpts struct {
+	errorHandler ErrorHandler
+}
+
+type RollbackTransactionOption interface {
+	setRollbackTransactionOpt(rto *rollbackTransactionOpts)
+}
+
+// RollbackTransaction rolls back a dataset to its state before the start of the current transaction
+func (ds *Dataset) RollbackTransaction(opts ...RollbackTransactionOption) error {
+
+	rto := rollbackTransactionOpts{}
+	for _, opt := range opts {
+		opt.setRollbackTransactionOpt(&rto)
+	}
+
+	cgc := createCGOContext(nil, rto.errorHandler)
+	C.GDALDatasetRollbackTransaction(ds.handle())
+	err := cgc.close()
+	return err
+}
+
+type commitTransactionOpts struct {
+	errorHandler ErrorHandler
+}
+
+type CommitTransactionOption interface {
+	setCommitTransactionOpt(rto *commitTransactionOpts)
+}
+
+// CommitTransaction commits a transaction for datasets which support transactions
+func (ds *Dataset) CommitTransaction(opts ...CommitTransactionOption) error {
+
+	cto := commitTransactionOpts{}
+	for _, opt := range opts {
+		opt.setCommitTransactionOpt(&cto)
+	}
+
+	cgc := createCGOContext(nil, cto.errorHandler)
+	C.GDALDatasetCommitTransaction(ds.handle())
+	err := cgc.close()
+	return err
+}
+
 // NewGeometryFromGeoJSON creates a new Geometry from its GeoJSON representation
 func NewGeometryFromGeoJSON(geoJSON string, opts ...NewGeometryOption) (*Geometry, error) {
 	no := &newGeometryOpts{}
