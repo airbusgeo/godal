@@ -159,7 +159,7 @@ func ErrLogger(fn ErrorHandler) interface {
 	RegisterPluginOption
 	ExecuteSQLOption
 	StartTransactionOption
-	ReleaseResultSetOption
+	CloseResultSetOption
 	RollbackTransactionOption
 	CommitTransactionOption
 } {
@@ -402,7 +402,7 @@ func (ec errorCallback) setExecuteSQLOpt(o *executeSQLOpts) {
 	o.errorHandler = ec.fn
 }
 
-func (ec errorCallback) setReleaseResultSetOpt(o *releaseResultSetOpts) {
+func (ec errorCallback) setReleaseResultSetOpt(o *closeResultSetOpts) {
 	o.errorHandler = ec.fn
 }
 

@@ -3405,8 +3405,22 @@ type ExecuteSQLOption interface {
 	setExecuteSQLOpt(eso *executeSQLOpts)
 }
 
+type ResultSet struct {
+	Layer
+	ds     *Dataset
+	closed bool
+}
+
+type closeResultSetOpts struct {
+	errorHandler ErrorHandler
+}
+
+type CloseResultSetOption interface {
+	setReleaseResultSetOpt(rrso *closeResultSetOpts)
+}
+
 // ExecuteSQL executes an SQL statement against the data store.
-func (ds *Dataset) ExecuteSQL(sql string, opts ...ExecuteSQLOption) (Layer, error) {
+func (ds *Dataset) ExecuteSQL(sql string, opts ...ExecuteSQLOption) (ResultSet, error) {
 
 	eso := executeSQLOpts{}
 	for _, opt := range opts {
@@ -3432,35 +3446,28 @@ func (ds *Dataset) ExecuteSQL(sql string, opts ...ExecuteSQLOption) (Layer, erro
 	cgc := createCGOContext(nil, eso.errorHandler)
 	hndl := C.GDALDatasetExecuteSQL(ds.handle(), (*C.char)(unsafe.Pointer(csql)), g.handle, (*C.char)(unsafe.Pointer(cDialect)))
 	if err := cgc.close(); err != nil {
-		return Layer{}, err
+		return ResultSet{}, err
 	}
-	return Layer{majorObject{C.GDALMajorObjectH(hndl)}}, nil
+	layer := Layer{majorObject{C.GDALMajorObjectH(hndl)}}
+	return ResultSet{layer, ds, false}, nil
 }
 
-type releaseResultSetOpts struct {
-	errorHandler ErrorHandler
-}
-
-type ReleaseResultSetOption interface {
-	setReleaseResultSetOpt(rrso *releaseResultSetOpts)
-}
-
-// ReleaseResultSet Release results of ExecuteSQL().
-func (ds *Dataset) ReleaseResultSet(resultSet *Layer, opts ...ReleaseResultSetOption) error {
-	rrso := releaseResultSetOpts{}
-	for _, opt := range opts {
-		opt.setReleaseResultSetOpt(&rrso)
-	}
-
-	if resultSet == nil {
+// Close Release results of ExecuteSQL().
+func (rs *ResultSet) Close(opts ...CloseResultSetOption) error {
+	if rs.closed {
 		return nil
 	}
 
-	cgc := createCGOContext(nil, rrso.errorHandler)
-	C.GDALDatasetReleaseResultSet(ds.handle(), resultSet.handle())
-	err := cgc.close()
-	return err
+	crso := closeResultSetOpts{}
+	for _, opt := range opts {
+		opt.setReleaseResultSetOpt(&crso)
+	}
 
+	cgc := createCGOContext(nil, crso.errorHandler)
+	C.GDALDatasetReleaseResultSet(rs.ds.handle(), rs.handle())
+	err := cgc.close()
+	rs.closed = true
+	return err
 }
 
 type ForceTx bool
