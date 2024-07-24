@@ -2597,20 +2597,33 @@ func TestExecuteSQL(t *testing.T) {
 	err = rs.Close(el)
 	assert.NoError(t, err)
 
-	err = ds.CommitTransaction()
+	err = ds.CommitTransaction(el)
 	assert.NoError(t, err)
 
 	fc, _ = tl.FeatureCount()
 	assert.Equal(t, 2, fc)
 	g, _ := NewGeometryFromWKT("POINT (-72.57349970718771 44.25492684820907)", wgs84)
 
-	rs, err = ds.ExecuteSQL("SELECT * FROM test", NewSpatialFilter(g), SQLiteDialect())
+	rs, err = ds.ExecuteSQL("SELECT * FROM test", NewSpatialFilter(g), SQLiteDialect(), el)
 	assert.NoError(t, err)
 	fc, _ = rs.FeatureCount()
 	assert.Equal(t, 1, fc)
 	err = rs.Close(el)
 	assert.NoError(t, err)
 
+	rs, err = ds.ExecuteSQL("SELECT * FROM test", OGRSQLDialect(), el)
+	assert.NoError(t, err)
+	fc, _ = rs.FeatureCount()
+	assert.Equal(t, 2, fc)
+	err = rs.Close(el)
+	assert.NoError(t, err)
+
+	rs, err = ds.ExecuteSQL("SELECT * FROM test", IndirectSQLite(), el)
+	assert.NoError(t, err)
+	fc, _ = rs.FeatureCount()
+	assert.Equal(t, 2, fc)
+	err = rs.Close(el)
+	assert.NoError(t, err)
 }
 
 func TestVectorLayer(t *testing.T) {
