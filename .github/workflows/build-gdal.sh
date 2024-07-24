@@ -27,7 +27,7 @@ if [ -f CMakeLists.txt ]; then
 		-DCMAKE_BUILD_TYPE=Release \
 		-DBUILD_TESTING=OFF \
 		-DGDAL_USE_CURL=OFF \
-		-DGDAL_USE_SQLITE3=OFF \
+		-DGDAL_USE_SQLITE3=ON \
 		-DGDAL_USE_TIFF_INTERNAL=ON \
 		-DBUILD_PYTHON_BINDINGS=OFF \
 		-DENABLE_GNM=OFF \
@@ -52,7 +52,6 @@ else
 		--without-cryptopp \
 		--without-gnm \
 		--without-qhull \
-		--without-sqlite3 \
 		--without-pcidsk \
 		--without-lerc  \
 		--without-gif \
@@ -75,8 +74,7 @@ else
 		--without-hdf5 \
 		--without-hdf4 \
 		--without-ogdi \
-		--without-exr \
-		--without-spatialite
+		--without-exr
 
 	make -j4
 	make install
