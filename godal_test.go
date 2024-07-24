@@ -2544,7 +2544,8 @@ func TestVectorTranslate(t *testing.T) {
 }
 
 func TestExecuteSQL(t *testing.T) {
-
+	poly1Wkt := "POLYGON ((-72.573946 44.254648, -72.573946 44.255163, -72.573076 44.255163, -72.573076 44.254648, -72.573946 44.254648))"
+	poly2Wkt := "POLYGON ((-72.576558 44.25799, -72.576558 44.258213, -72.576064 44.258213, -72.576064 44.25799, -72.576558 44.25799))"
 	el := ErrLogger(eh().ErrorHandler)
 
 	sqld := DriverName("SQLite")
@@ -2553,32 +2554,26 @@ func TestExecuteSQL(t *testing.T) {
 		panic(err)
 	}
 
-	ds, err := CreateVector(sqld, "/vsimem/test.db", CreationOption("SPATIALITE=YES"))
+	ds, err := CreateVector(sqld, "/vsimem/test.db")
 	if err != nil {
 		panic(err)
 	}
 	defer ds.Close()
 
-	rs, err := ds.ExecuteSQL("CREATE TABLE test(id integer NOT NULL PRIMARY KEY)", el)
-	assert.NoError(t, err)
-	err = rs.Close(el)
-	assert.NoError(t, err)
-	_, err = ds.ExecuteSQL("SELECT AddGeometryColumn('test','geom',4326,'POLYGON')", el, SQLiteDialect())
-	assert.NoError(t, err)
-	err = rs.Close(el)
+	wgs84, _ := NewSpatialRef("EPSG:4326")
+	tl, err := ds.CreateLayer("test", wgs84, GTPolygon)
 	assert.NoError(t, err)
 
-	tl := ds.LayerByName("test")
+	rs, err := ds.ExecuteSQL("SELECT name FROM sqlite_schema", SQLiteDialect())
+	assert.NoError(t, err)
+	err = rs.Close()
+	assert.NoError(t, err)
 
 	fc, err := tl.FeatureCount()
 	assert.NoError(t, err)
 	assert.Equal(t, 0, fc)
 
-	ins := "INSERT INTO test VALUES (1,ST_GeomFromText('POLYGON ((-72.573946 44.254648, -72.573946 44.255163, -72.573076 44.255163, -72.573076 44.254648, -72.573946 44.254648))',4326)),"
-	ins += "(2,ST_GeomFromText('POLYGON ((-72.576558 44.25799, -72.576558 44.258213, -72.576064 44.258213, -72.576064 44.25799, -72.576558 44.25799))',4326))"
-	assert.NoError(t, err)
-	err = rs.Close(el)
-	assert.NoError(t, err)
+	ins := fmt.Sprintf("INSERT INTO test VALUES (1,'%s'), (2,'%s')", poly1Wkt, poly2Wkt)
 
 	err = ds.StartTransaction(el, EmulatedTx())
 	assert.NoError(t, err)
@@ -2607,10 +2602,9 @@ func TestExecuteSQL(t *testing.T) {
 
 	fc, _ = tl.FeatureCount()
 	assert.Equal(t, 2, fc)
-	wgs84, _ := NewSpatialRef("EPSG:4326")
 	g, _ := NewGeometryFromWKT("POINT (-72.57349970718771 44.25492684820907)", wgs84)
 
-	rs, err = ds.ExecuteSQL("SELECT * FROM test", NewSpatialFilter(g))
+	rs, err = ds.ExecuteSQL("SELECT * FROM test", NewSpatialFilter(g), SQLiteDialect())
 	assert.NoError(t, err)
 	fc, _ = rs.FeatureCount()
 	assert.Equal(t, 1, fc)
