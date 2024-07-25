@@ -2564,7 +2564,7 @@ func TestExecuteSQL(t *testing.T) {
 	tl, err := ds.CreateLayer("test", wgs84, GTPolygon)
 	assert.NoError(t, err)
 
-	rs, err := ds.ExecuteSQL("SELECT name FROM sqlite_schema", SQLiteDialect(), el)
+	rs, err := ds.ExecuteSQL("SELECT 1", SQLiteDialect(), el)
 	assert.NoError(t, err)
 	err = rs.Close()
 	assert.NoError(t, err)
