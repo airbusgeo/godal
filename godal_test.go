@@ -2618,7 +2618,7 @@ func TestExecuteSQL(t *testing.T) {
 	err = rs.Close(el)
 	assert.NoError(t, err)
 
-	rs, err = ds.ExecuteSQL("SELECT * FROM test", IndirectSQLite(), el)
+	rs, err = ds.ExecuteSQL("SELECT * FROM test", IndirectSQLiteDialect(), el)
 	assert.NoError(t, err)
 	fc, _ = rs.FeatureCount()
 	assert.Equal(t, 2, fc)
@@ -2628,9 +2628,22 @@ func TestExecuteSQL(t *testing.T) {
 	err = rs.Close()
 	assert.NoError(t, err)
 
+	// test error handling
+
 	rs, err = ds.ExecuteSQL("SELECT * FROM i_do_not_exist", el)
+	assert.Nil(t, rs)
 	assert.Error(t, err)
 
+	err = ds.RollbackTransaction(el)
+	assert.Error(t, err)
+
+	err = ds.CommitTransaction(el)
+	assert.Error(t, err)
+
+	err = ds.StartTransaction(el)
+	assert.NoError(t, err)
+	err = ds.StartTransaction(el)
+	assert.Error(t, err)
 }
 
 func TestVectorLayer(t *testing.T) {

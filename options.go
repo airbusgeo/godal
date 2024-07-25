@@ -1528,3 +1528,122 @@ func VSIHandlerCacheSize(s int) VSIHandlerOption {
 func VSIHandlerStripPrefix(v bool) VSIHandlerOption {
 	return stripPrefixOpt{v}
 }
+
+type SpatialFilterOption struct {
+	geom *Geometry
+}
+
+func (sf SpatialFilterOption) setExecuteSQLOpt(eso *executeSQLOpts) {
+	eso.spatialFilter = sf
+}
+
+// SpatialFilter filters a ResultSet using the provided Geometry
+func SpatialFilter(geom *Geometry) SpatialFilterOption {
+	return SpatialFilterOption{geom}
+}
+
+type executeSQLOpts struct {
+	dialect       SQLDialect
+	spatialFilter SpatialFilterOption
+	errorHandler  ErrorHandler
+}
+
+// SQLDialect is a SQL dialect that be passed to Dataset.ExecuteSQL
+//
+// Available options are:
+// - OGRSQLDialect
+// - SQLiteDialect
+// - IndirectSQLiteDialect
+type SQLDialect string
+
+func (s SQLDialect) setExecuteSQLOpt(eso *executeSQLOpts) {
+	eso.dialect = s
+}
+
+// OGRSQLDialect is GDAL's built-in SQL dialect. This is the default where
+// the driver does provide its own native SQLDialect
+func OGRSQLDialect() SQLDialect {
+	return "OGRSQL"
+}
+
+// SQLiteDialect is an alternative to the OGRSQLDialect and may be used with any Vector Dataset
+// If GDAL was compiled with Spatialite, this dialect will allow the usage of Spatialite functions.
+func SQLiteDialect() SQLDialect {
+	return "SQLite"
+}
+
+// IndirectSQLiteDialect forces GDAL to use Virtual Tables when the DataSource uses its native SQLiteDialect
+// This should be used sparingly as it is highly likely to degrade performance.
+func IndirectSQLiteDialect() SQLDialect {
+	return "INDIRECT_SQLITE"
+}
+
+// ExecuteSQLOption is an option that can be passed to Dataset.ExecuteSQL
+//
+// Available options are:
+// - SQLDialect
+// - SpatialFilterOption
+type ExecuteSQLOption interface {
+	setExecuteSQLOpt(eso *executeSQLOpts)
+}
+
+type closeResultSetOpts struct {
+	errorHandler ErrorHandler
+}
+
+// CloseResultSetOption is an option that can be passed to ResultSet.Close
+//
+// There are currently no options available
+type CloseResultSetOption interface {
+	setReleaseResultSetOpt(rrso *closeResultSetOpts)
+}
+
+// EmulateTx By default, GDAL only allows transactions deemed by its maintainers to be sufficiently efficienct
+// However it is possible to force the driver to use a potentially slow emulated by providing EmulatedTx to
+// StartTransaction
+type EmulateTx bool
+
+// EmulatedTx forces the driver to allow potentially slow transactions in a Vector Dataset
+// if the driver does not have transaction mechanism deemed sufficiently performant by GDAL's maintainers.
+func EmulatedTx() EmulateTx {
+	return true
+}
+
+type startTransactionOpts struct {
+	bForce       EmulateTx
+	errorHandler ErrorHandler
+}
+
+func (t EmulateTx) setStartTransactionOpt(sto *startTransactionOpts) {
+	sto.bForce = t
+}
+
+// StartTransactionOption is an option that can be passed to Dataset.StartTransaction
+//
+// Available options are:
+// - EmulateTx
+type StartTransactionOption interface {
+	setStartTransactionOpt(sto *startTransactionOpts)
+}
+
+type rollbackTransactionOpts struct {
+	errorHandler ErrorHandler
+}
+
+// RollbackTransactionOption is an option that can be passed to Dataset.RollbackTransaction
+//
+// There are currently no options available
+type RollbackTransactionOption interface {
+	setRollbackTransactionOpt(rto *rollbackTransactionOpts)
+}
+
+type commitTransactionOpts struct {
+	errorHandler ErrorHandler
+}
+
+// CommitTransactionOption is an option that can be passed to Dataset.CommitTransaction
+//
+// There are currently no options available
+type CommitTransactionOption interface {
+	setCommitTransactionOpt(rto *commitTransactionOpts)
+}

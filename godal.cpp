@@ -1012,6 +1012,39 @@ OGRLayerH godalDatasetExecuteSQL(cctx *ctx, GDALDatasetH ds, char *sql, OGRGeome
 	return ret;
 }
 
+void godalReleaseResultSet(cctx *ctx, GDALDatasetH ds, OGRLayerH rs) {
+	godalWrap(ctx);
+	GDALDatasetReleaseResultSet(ds,rs);
+	godalUnwrap();
+}
+
+void godalStartTransaction(cctx *ctx, GDALDatasetH ds, int bForce) {
+	godalWrap(ctx);
+	OGRErr gret = GDALDatasetStartTransaction(ds,bForce);
+    if (gret != OGRERR_NONE) {
+        forceOGRError(ctx,gret);
+    }
+	godalUnwrap();
+}
+
+void godalDatasetRollbackTransaction(cctx *ctx, GDALDatasetH ds) {
+	godalWrap(ctx);
+	OGRErr gret = GDALDatasetRollbackTransaction(ds);
+    if (gret != OGRERR_NONE) {
+        forceOGRError(ctx,gret);
+    }
+	godalUnwrap();
+}
+
+void godalCommitTransaction(cctx *ctx, GDALDatasetH ds) {
+	godalWrap(ctx);
+	OGRErr gret = GDALDatasetCommitTransaction(ds);
+    if (gret != OGRERR_NONE) {
+        forceOGRError(ctx,gret);
+    }
+	godalUnwrap();
+}
+
 void godalLayerGetExtent(cctx *ctx, OGRLayerH layer, OGREnvelope *envelope) {
 	godalWrap(ctx);
 	OGRErr gret = OGR_L_GetExtent(layer, envelope, 1);
