@@ -2604,7 +2604,7 @@ func TestExecuteSQL(t *testing.T) {
 	assert.Equal(t, 2, fc)
 	g, _ := NewGeometryFromWKT("POINT (-72.57349970718771 44.25492684820907)", wgs84)
 
-	rs, err = ds.ExecuteSQL("SELECT * FROM test", NewSpatialFilter(g), SQLiteDialect(), el)
+	rs, err = ds.ExecuteSQL("SELECT * FROM test", SpatialFilter(g), SQLiteDialect(), el)
 	assert.NoError(t, err)
 	fc, _ = rs.FeatureCount()
 	assert.Equal(t, 1, fc)
@@ -2630,8 +2630,6 @@ func TestExecuteSQL(t *testing.T) {
 
 	rs, err = ds.ExecuteSQL("SELECT * FROM i_do_not_exist", el)
 	assert.Error(t, err)
-	err = rs.Close()
-	assert.NoError(t, err)
 
 }
 

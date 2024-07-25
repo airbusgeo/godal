@@ -3365,21 +3365,21 @@ func (ds *Dataset) LayerByName(name string) *Layer {
 	return &Layer{majorObject{C.GDALMajorObjectH(hndl)}}
 }
 
-type SpatialFilter struct {
+type SpatialFilterOption struct {
 	geom *Geometry
 }
 
-func (sf SpatialFilter) setExecuteSQLOpt(eso *executeSQLOpts) {
+func (sf SpatialFilterOption) setExecuteSQLOpt(eso *executeSQLOpts) {
 	eso.spatialFilter = sf
 }
 
-func NewSpatialFilter(geom *Geometry) SpatialFilter {
-	return SpatialFilter{geom}
+func SpatialFilter(geom *Geometry) SpatialFilterOption {
+	return SpatialFilterOption{geom}
 }
 
 type executeSQLOpts struct {
 	dialect       SQLDialect
-	spatialFilter SpatialFilter
+	spatialFilter SpatialFilterOption
 	errorHandler  ErrorHandler
 }
 
@@ -3419,30 +3419,8 @@ type CloseResultSetOption interface {
 	setReleaseResultSetOpt(rrso *closeResultSetOpts)
 }
 
-func clearUnhandledError() {
-	C.CPLErrorReset()
-}
-
-// getLastUnhandledError returns an error not handled through GDAL's standard error handling interface iff such an error exists
-func getLastUnhandledError() error {
-	errNo := int(C.CPLGetLastErrorNo())
-	errMsgP := C.CPLGetLastErrorMsg()
-
-	var errMsg string
-	if errMsgP != nil {
-		errMsg = C.GoString(errMsgP)
-	}
-
-	if errNo != 0 || errMsg != "" {
-		clearUnhandledError()
-		return fmt.Errorf("unhandled error code %d: %s", errNo, errMsg)
-	}
-
-	return nil
-}
-
 // ExecuteSQL executes an SQL statement against the data store.
-func (ds *Dataset) ExecuteSQL(sql string, opts ...ExecuteSQLOption) (ResultSet, error) {
+func (ds *Dataset) ExecuteSQL(sql string, opts ...ExecuteSQLOption) (*ResultSet, error) {
 
 	eso := executeSQLOpts{}
 	for _, opt := range opts {
@@ -3464,21 +3442,16 @@ func (ds *Dataset) ExecuteSQL(sql string, opts ...ExecuteSQLOption) (ResultSet, 
 	if g == nil {
 		g = &Geometry{}
 	}
-	clearUnhandledError()
 	cgc := createCGOContext(nil, eso.errorHandler)
-	hndl := C.GDALDatasetExecuteSQL(ds.handle(), (*C.char)(unsafe.Pointer(csql)), g.handle, (*C.char)(unsafe.Pointer(cDialect)))
+	hndl := C.godalDatasetExecuteSQL(cgc.cPointer(), ds.handle(), (*C.char)(unsafe.Pointer(csql)), g.handle, (*C.char)(unsafe.Pointer(cDialect)))
 
 	if err := cgc.close(); err != nil {
-		return ResultSet{Layer{}, ds, true}, err
-	}
-
-	if err := getLastUnhandledError(); err != nil {
-		return ResultSet{Layer{}, ds, true}, err
+		return nil, err
 	}
 
 	layer := Layer{majorObject{C.GDALMajorObjectH(hndl)}}
 
-	return ResultSet{layer, ds, false}, nil
+	return &ResultSet{layer, ds, false}, nil
 }
 
 // Close Release results of ExecuteSQL().

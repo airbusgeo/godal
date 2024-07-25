@@ -1004,6 +1004,14 @@ OGRLayerH godalCopyLayer(cctx *ctx, GDALDatasetH ds, OGRLayerH layer, char *name
 	return ret;
 }
 
+OGRLayerH godalDatasetExecuteSQL(cctx *ctx, GDALDatasetH ds, char *sql, OGRGeometryH filter, char *dialect) {
+	godalWrap(ctx);
+	OGRLayerH ret = GDALDatasetExecuteSQL(ds, sql, filter, dialect);
+	//a NULL return value is not always an error
+	godalUnwrap();
+	return ret;
+}
+
 void godalLayerGetExtent(cctx *ctx, OGRLayerH layer, OGREnvelope *envelope) {
 	godalWrap(ctx);
 	OGRErr gret = OGR_L_GetExtent(layer, envelope, 1);
