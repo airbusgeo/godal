@@ -3390,15 +3390,15 @@ func (s SQLDialect) setExecuteSQLOpt(eso *executeSQLOpts) {
 }
 
 func OGRSQLDialect() SQLDialect {
-	return SQLDialect("OGRSQL")
+	return "OGRSQL"
 }
 
 func SQLiteDialect() SQLDialect {
-	return SQLDialect("SQLite")
+	return "SQLite"
 }
 
 func IndirectSQLite() SQLDialect {
-	return SQLDialect("INDIRECT_SQLITE")
+	return "INDIRECT_SQLITE"
 }
 
 type ExecuteSQLOption interface {
@@ -3417,6 +3417,28 @@ type closeResultSetOpts struct {
 
 type CloseResultSetOption interface {
 	setReleaseResultSetOpt(rrso *closeResultSetOpts)
+}
+
+func clearUnhandledError() {
+	C.CPLErrorReset()
+}
+
+// getLastUnhandledError returns an error not handled through GDAL's standard error handling interface iff such an error exists
+func getLastUnhandledError() error {
+	errNo := int(C.CPLGetLastErrorNo())
+	errMsgP := C.CPLGetLastErrorMsg()
+
+	var errMsg string
+	if errMsgP != nil {
+		errMsg = C.GoString(errMsgP)
+	}
+
+	if errNo != 0 || errMsg != "" {
+		clearUnhandledError()
+		return fmt.Errorf("unhandled error code %d: %s", errNo, errMsg)
+	}
+
+	return nil
 }
 
 // ExecuteSQL executes an SQL statement against the data store.
@@ -3442,13 +3464,20 @@ func (ds *Dataset) ExecuteSQL(sql string, opts ...ExecuteSQLOption) (ResultSet, 
 	if g == nil {
 		g = &Geometry{}
 	}
-
+	clearUnhandledError()
 	cgc := createCGOContext(nil, eso.errorHandler)
 	hndl := C.GDALDatasetExecuteSQL(ds.handle(), (*C.char)(unsafe.Pointer(csql)), g.handle, (*C.char)(unsafe.Pointer(cDialect)))
+
 	if err := cgc.close(); err != nil {
-		return ResultSet{}, err
+		return ResultSet{Layer{}, ds, true}, err
 	}
+
+	if err := getLastUnhandledError(); err != nil {
+		return ResultSet{Layer{}, ds, true}, err
+	}
+
 	layer := Layer{majorObject{C.GDALMajorObjectH(hndl)}}
+
 	return ResultSet{layer, ds, false}, nil
 }
 
@@ -3462,7 +3491,6 @@ func (rs *ResultSet) Close(opts ...CloseResultSetOption) error {
 	for _, opt := range opts {
 		opt.setReleaseResultSetOpt(&crso)
 	}
-
 	cgc := createCGOContext(nil, crso.errorHandler)
 	C.GDALDatasetReleaseResultSet(rs.ds.handle(), rs.handle())
 	err := cgc.close()
@@ -4414,6 +4442,7 @@ func (cgc cgoContext) close() error {
 		defer C.free(unsafe.Pointer(cgc.cctx.errMessage))
 		return errors.New(C.GoString(cgc.cctx.errMessage))
 	}
+
 	if cgc.cctx.handlerIdx != 0 {
 		defer unregisterErrorHandler(int(cgc.cctx.handlerIdx))
 		return getErrorHandler(int(cgc.cctx.handlerIdx)).err

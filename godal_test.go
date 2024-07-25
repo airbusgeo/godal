@@ -2564,7 +2564,7 @@ func TestExecuteSQL(t *testing.T) {
 	tl, err := ds.CreateLayer("test", wgs84, GTPolygon)
 	assert.NoError(t, err)
 
-	rs, err := ds.ExecuteSQL("SELECT name FROM sqlite_schema", SQLiteDialect())
+	rs, err := ds.ExecuteSQL("SELECT name FROM sqlite_schema", SQLiteDialect(), el)
 	assert.NoError(t, err)
 	err = rs.Close()
 	assert.NoError(t, err)
@@ -2592,7 +2592,7 @@ func TestExecuteSQL(t *testing.T) {
 	err = ds.StartTransaction(el)
 	assert.NoError(t, err)
 
-	rs, err = ds.ExecuteSQL(ins, el, SQLiteDialect())
+	rs, err = ds.ExecuteSQL(ins, el)
 	assert.NoError(t, err)
 	err = rs.Close(el)
 	assert.NoError(t, err)
@@ -2624,6 +2624,15 @@ func TestExecuteSQL(t *testing.T) {
 	assert.Equal(t, 2, fc)
 	err = rs.Close(el)
 	assert.NoError(t, err)
+
+	err = rs.Close()
+	assert.NoError(t, err)
+
+	rs, err = ds.ExecuteSQL("SELECT * FROM i_do_not_exist", el)
+	assert.Error(t, err)
+	err = rs.Close()
+	assert.NoError(t, err)
+
 }
 
 func TestVectorLayer(t *testing.T) {
