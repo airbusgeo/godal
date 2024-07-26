@@ -240,7 +240,7 @@ func TestCreate(t *testing.T) {
 		err = ds.Close(ErrLogger(ehc.ErrorHandler))
 		assert.NoError(t, err)
 	} else {
-	        assert.Error(t, err, "godal.Int8 is not supported with GDAL<3.7.0, but godal.Create did not return an error")
+		assert.Error(t, err, "godal.Int8 is not supported with GDAL<3.7.0, but godal.Create did not return an error")
 	}
 }
 
@@ -2540,6 +2540,109 @@ func TestVectorTranslate(t *testing.T) {
 	assert.Error(t, err)
 	ehc := eh()
 	_, err = ds.VectorTranslate("foobar", []string{"-f", "bogusdriver"}, ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+}
+
+func TestExecuteSQL(t *testing.T) {
+	poly1Wkt := "POLYGON ((-72.573946 44.254648, -72.573946 44.255163, -72.573076 44.255163, -72.573076 44.254648, -72.573946 44.254648))"
+	poly2Wkt := "POLYGON ((-72.576558 44.25799, -72.576558 44.258213, -72.576064 44.258213, -72.576064 44.25799, -72.576558 44.25799))"
+	el := ErrLogger(eh().ErrorHandler)
+
+	sqld := DriverName("SQLite")
+	err := RegisterVector(sqld)
+	if err != nil {
+		panic(err)
+	}
+
+	ds, err := CreateVector(sqld, "/vsimem/test.db")
+	if err != nil {
+		panic(err)
+	}
+	defer ds.Close()
+
+	wgs84, _ := NewSpatialRef("EPSG:4326")
+	tl, err := ds.CreateLayer("test", wgs84, GTPolygon)
+	assert.NoError(t, err)
+
+	rs, err := ds.ExecuteSQL("SELECT 1", SQLiteDialect(), el)
+	assert.NoError(t, err)
+	err = rs.Close()
+	assert.NoError(t, err)
+
+	fc, err := tl.FeatureCount()
+	assert.NoError(t, err)
+	assert.Equal(t, 0, fc)
+
+	ins := fmt.Sprintf("INSERT INTO test VALUES (1,'%s'), (2,'%s')", poly1Wkt, poly2Wkt)
+
+	err = ds.StartTransaction(el, EmulatedTx())
+	assert.NoError(t, err)
+
+	rs, err = ds.ExecuteSQL(ins, el, SQLiteDialect())
+	assert.NoError(t, err)
+	err = rs.Close(el)
+	assert.NoError(t, err)
+
+	err = ds.RollbackTransaction(el)
+	assert.NoError(t, err)
+
+	fc, _ = tl.FeatureCount()
+	assert.Equal(t, 0, fc)
+
+	err = ds.StartTransaction(el)
+	assert.NoError(t, err)
+
+	rs, err = ds.ExecuteSQL(ins, el)
+	assert.NoError(t, err)
+	err = rs.Close(el)
+	assert.NoError(t, err)
+
+	err = ds.CommitTransaction(el)
+	assert.NoError(t, err)
+
+	fc, _ = tl.FeatureCount()
+	assert.Equal(t, 2, fc)
+	g, _ := NewGeometryFromWKT("POINT (-72.57349970718771 44.25492684820907)", wgs84)
+
+	rs, err = ds.ExecuteSQL("SELECT * FROM test", SpatialFilter(g), SQLiteDialect(), el)
+	assert.NoError(t, err)
+	fc, _ = rs.FeatureCount()
+	assert.Equal(t, 1, fc)
+	err = rs.Close(el)
+	assert.NoError(t, err)
+
+	rs, err = ds.ExecuteSQL("SELECT * FROM test", OGRSQLDialect(), el)
+	assert.NoError(t, err)
+	fc, _ = rs.FeatureCount()
+	assert.Equal(t, 2, fc)
+	err = rs.Close(el)
+	assert.NoError(t, err)
+
+	rs, err = ds.ExecuteSQL("SELECT * FROM test", IndirectSQLiteDialect(), el)
+	assert.NoError(t, err)
+	fc, _ = rs.FeatureCount()
+	assert.Equal(t, 2, fc)
+	err = rs.Close(el)
+	assert.NoError(t, err)
+
+	err = rs.Close()
+	assert.NoError(t, err)
+
+	// test error handling
+
+	rs, err = ds.ExecuteSQL("SELECT * FROM i_do_not_exist", el)
+	assert.Nil(t, rs)
+	assert.Error(t, err)
+
+	err = ds.RollbackTransaction(el)
+	assert.Error(t, err)
+
+	err = ds.CommitTransaction(el)
+	assert.Error(t, err)
+
+	err = ds.StartTransaction(el)
+	assert.NoError(t, err)
+	err = ds.StartTransaction(el)
 	assert.Error(t, err)
 }
 

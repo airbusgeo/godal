@@ -125,6 +125,11 @@ extern "C" {
 	void godalFeatureSetFieldBinary(cctx *ctx, OGRFeatureH feat, int fieldIndex, int nbBytes, void *value);
 	OGRLayerH godalCreateLayer(cctx *ctx, GDALDatasetH ds, char *name, OGRSpatialReferenceH sr, OGRwkbGeometryType gtype);
 	OGRLayerH godalCopyLayer(cctx *ctx, GDALDatasetH ds, OGRLayerH layer, char *name);
+	OGRLayerH godalDatasetExecuteSQL(cctx *ctx, GDALDatasetH ds, char *sql, OGRGeometryH filter, char *dialect);
+	void godalReleaseResultSet(cctx *ctx, GDALDatasetH ds, OGRLayerH rs);
+	void godalStartTransaction(cctx *ctx, GDALDatasetH ds, int bForce);
+	void godalDatasetRollbackTransaction(cctx *ctx, GDALDatasetH ds);
+	void godalCommitTransaction(cctx *ctx, GDALDatasetH ds);
 	void VSIInstallGoHandler(cctx *ctx, const char *pszPrefix, size_t bufferSize, size_t cacheSize);
 
 	void godalGetColorTable(GDALRasterBandH bnd, GDALPaletteInterp *interp, int *nEntries, short **entries);
