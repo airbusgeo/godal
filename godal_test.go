@@ -3463,11 +3463,13 @@ func (mvp mvpHandler) ReadAtMulti(k string, buf [][]byte, off []int64) ([]int, e
 func TestVSIPrefix(t *testing.T) {
 	tifdat, _ := ioutil.ReadFile("testdata/test.tif")
 
+	assert.False(t, HasVSIHandler("prefix://"))
 	// stripPrefix false
 	vpa := vpHandler{datas: make(map[string]KeySizerReaderAt)}
 	vpa.datas["prefix://test.tif"] = mbufHandler{tifdat}
 	err := RegisterVSIHandler("prefix://", vpa, VSIHandlerStripPrefix(false))
 	assert.NoError(t, err)
+	assert.True(t, HasVSIHandler("prefix://"))
 
 	ds, err := Open("prefix://test.tif")
 	if err != nil {
