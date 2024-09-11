@@ -3898,6 +3898,11 @@ func RegisterVSIHandler(prefix string, handler KeySizerReaderAt, opts ...VSIHand
 	return nil
 }
 
+// HasVSIHandler returns true if a VSIHandler is registered for this prefix
+func HasVSIHandler(prefix string) bool {
+	return handlers != nil && handlers[prefix].KeySizerReaderAt != nil
+}
+
 // BuildVRT runs the GDALBuildVRT function and creates a VRT dataset from a list of datasets
 func BuildVRT(dstVRTName string, sourceDatasets []string, switches []string, opts ...BuildVRTOption) (*Dataset, error) {
 	bvo := buildVRTOpts{}

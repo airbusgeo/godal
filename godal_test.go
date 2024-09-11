@@ -3459,6 +3459,22 @@ func (mvp mvpHandler) ReadAtMulti(k string, buf [][]byte, off []int64) ([]int, e
 	}
 	return b.(KeyMultiReader).ReadAtMulti(k, buf, off)
 }
+func TestHasVSIHandler(t *testing.T) { // stripPrefix false
+	assert.False(t, HasVSIHandler("unregistered_prefix://"))
+
+	vpa := vpHandler{datas: make(map[string]KeySizerReaderAt)}
+	err := RegisterVSIHandler("registered_prefix://", vpa, VSIHandlerStripPrefix(false))
+	assert.NoError(t, err)
+	assert.True(t, HasVSIHandler("registered_prefix://"))
+
+	// nil handler
+	err = RegisterVSIHandler("nil_prefix://", nil)
+	assert.NoError(t, err)
+	assert.False(t, HasVSIHandler("nil_prefix://"))
+
+	// unregistered_prefix
+	assert.False(t, HasVSIHandler("unregistered_prefix://"))
+}
 
 func TestVSIPrefix(t *testing.T) {
 	tifdat, _ := ioutil.ReadFile("testdata/test.tif")
