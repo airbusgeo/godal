@@ -12,46 +12,49 @@ jobs:
     env:
       GOEXPERIMENT: cgocheck2
     strategy:
+      fail-fast: false
       matrix:
-        os: [ 'ubuntu-20.04', 'ubuntu-22.04' ]
-        go: [ '1.22' ]
+        os: [ 'ubuntu-20.04', 'ubuntu-22.04', 'ubuntu-24.04' ]
+        go: [ '1.23' ]
     name: Go ${{ matrix.go }} + GDAL on ${{ matrix.os }} test
     steps:
       - name: APT
         run: sudo apt-get update && sudo apt-get install gcc g++ pkg-config libgdal-dev
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Setup Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go }}
       - name: Coverage Tests
         run: go test . -race
   install-gdal:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
+      fail-fast: false
       matrix:
         gdal: [ 'release/3.6', 'release/3.7', 'release/3.8', 'release/3.9', 'master' ]
     steps:
       - name: optgdal
         run: sudo mkdir /optgdal && sudo chown -R $USER /optgdal
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: cache gdal lib
         id: cache-gdal
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: /optgdal
-          key: ubuntu-22.04-install-gdal-${{ matrix.gdal }}-${{ hashFiles('.github/workflows/build-gdal.sh') }}
+          key: ubuntu-24.04-install-gdal-${{ matrix.gdal }}-${{ hashFiles('.github/workflows/build-gdal.sh') }}
       - name: Build GDAL
         if: steps.cache-gdal.outputs.cache-hit != 'true'
         run: sudo .github/workflows/build-gdal.sh ${{ matrix.gdal }}
   test:
     needs: install-gdal
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
+      fail-fast: false
       matrix:
-        go: [ '1.21', '1.22' ]
+        go: [ '1.22', '1.23' ]
         gdal: [  'release/3.6', 'release/3.7', 'release/3.8', 'release/3.9', 'master' ]
     name: Go ${{ matrix.go }} + GDAL ${{ matrix.gdal }} test
     steps:
@@ -60,22 +63,18 @@ jobs:
       - name: optgdal
         run: sudo mkdir /optgdal && sudo chown -R $USER /optgdal
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: cache gdal lib
         id: cache-gdal
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
+          fail-on-cache-miss: true
           path: /optgdal
-          key: ubuntu-22.04-install-gdal-${{ matrix.gdal }}-${{ hashFiles('.github/workflows/build-gdal.sh') }}
-      - name: Check GDAL
-        if: steps.cache-gdal.outputs.cache-hit != 'true'
-        uses: actions/github-script@v3
-        with:
-          script: |
-            core.setFailed('gdal installation not recovered from cache')
+          key: ubuntu-24.04-install-gdal-${{ matrix.gdal }}-${{ hashFiles('.github/workflows/build-gdal.sh') }}
       - name: Setup Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
+          cache: false
           go-version: ${{ matrix.go }}
       - name: ldconfig
         run: sudo ldconfig /optgdal/lib
@@ -90,12 +89,12 @@ jobs:
         env:
           PKG_CONFIG_PATH: /optgdal/lib/pkgconfig/
       - name: Send coverage
-        if: ${{ matrix.go == '1.22' && matrix.gdal == 'master' }}
+        if: ${{ matrix.go == '1.23' && matrix.gdal == 'release/3.9' }}
         uses: shogo82148/actions-goveralls@v1
         with:
           path-to-profile: profile.cov
       - name: golangci-lint
-        if: ${{ matrix.go == '1.22' && matrix.gdal == 'master' }}
+        if: ${{ matrix.go == '1.23' && matrix.gdal == 'release/3.9' }}
         uses: reviewdog/action-golangci-lint@v1
         env:
           PKG_CONFIG_PATH: /optgdal/lib/pkgconfig/

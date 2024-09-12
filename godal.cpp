@@ -1816,6 +1816,10 @@ void godalGridCreate(cctx *ctx, char *pszAlgorithm, GDALGridAlgorithm eAlgorithm
 	}
 
 	void *ppOptions;
+//#define __STRINGIFY(TEXT) #TEXT
+//#define __WARNING(TEXT) __STRINGIFY(GCC warning TEXT)
+//#define WARNING(VALUE) __WARNING(__STRINGIFY(N = VALUE))
+//_Pragma (WARNING(GDAL_VERSION_NUM))
 #if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 7, 0)
 	ret = GDALGridParseAlgorithmAndOptions(pszAlgorithm, &eAlgorithm, &ppOptions);
 #else
