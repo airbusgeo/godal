@@ -1819,7 +1819,6 @@ void godalGridCreate(cctx *ctx, char *pszAlgorithm, GDALGridAlgorithm eAlgorithm
 #if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 7, 0)
 	ret = GDALGridParseAlgorithmAndOptions(pszAlgorithm, &eAlgorithm, &ppOptions);
 #else
-	#error GDAL_VERSION_NUM
 	ret = ParseAlgorithmAndOptions(pszAlgorithm, &eAlgorithm, &ppOptions);
 #endif
 	if(ret!=0) {
