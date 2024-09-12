@@ -1770,16 +1770,25 @@ namespace cpl
 
 } // namespace cpl
 
-void VSIInstallGoHandler(cctx *ctx, const char *pszPrefix, size_t bufferSize, size_t cacheSize)
+bool VSIHasGoHandler(const char *pszPrefix)
 {
-    godalWrap(ctx);
     CSLConstList papszPrefix = VSIFileManager::GetPrefixes();
     for( size_t i = 0; papszPrefix && papszPrefix[i]; ++i ) {
         if(strcmp(papszPrefix[i],pszPrefix)==0) {
-            CPLError(CE_Failure, CPLE_AppDefined, "handler already registered on prefix");
-            godalUnwrap();
-            return;
+            return true;
         }
+    }
+    return false;
+}
+
+void VSIInstallGoHandler(cctx *ctx, const char *pszPrefix, size_t bufferSize, size_t cacheSize)
+{
+    bool alreadyExists = VSIHasGoHandler(pszPrefix);
+    godalWrap(ctx);
+    if (alreadyExists) {
+        CPLError(CE_Failure, CPLE_AppDefined, "handler already registered on prefix");
+        godalUnwrap();
+        return;
     }
     VSIFilesystemHandler *poHandler = new cpl::VSIGoFilesystemHandler(bufferSize, cacheSize);
     const std::string sPrefix(pszPrefix);

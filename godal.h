@@ -130,6 +130,7 @@ extern "C" {
 	void godalStartTransaction(cctx *ctx, GDALDatasetH ds, int bForce);
 	void godalDatasetRollbackTransaction(cctx *ctx, GDALDatasetH ds);
 	void godalCommitTransaction(cctx *ctx, GDALDatasetH ds);
+	bool VSIHasGoHandler(const char *pszPrefix);
 	void VSIInstallGoHandler(cctx *ctx, const char *pszPrefix, size_t bufferSize, size_t cacheSize);
 
 	void godalGetColorTable(GDALRasterBandH bnd, GDALPaletteInterp *interp, int *nEntries, short **entries);
