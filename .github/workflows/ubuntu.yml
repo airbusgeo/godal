@@ -13,8 +13,8 @@ jobs:
       GOEXPERIMENT: cgocheck2
     strategy:
       matrix:
-        os: [ 'ubuntu-20.04', 'ubuntu-22.04' ]
-        go: [ '1.22' ]
+        os: [ 'ubuntu-22.04', 'ubuntu-24.04' ]
+        go: [ '1.23' ]
     name: Go ${{ matrix.go }} + GDAL on ${{ matrix.os }} test
     steps:
       - name: APT
@@ -28,7 +28,7 @@ jobs:
       - name: Coverage Tests
         run: go test . -race
   install-gdal:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         gdal: [ 'release/3.6', 'release/3.7', 'release/3.8', 'release/3.9', 'master' ]
@@ -42,16 +42,16 @@ jobs:
         uses: actions/cache@v3
         with:
           path: /optgdal
-          key: ubuntu-22.04-install-gdal-${{ matrix.gdal }}-${{ hashFiles('.github/workflows/build-gdal.sh') }}
+          key: ubuntu-24.04-install-gdal-${{ matrix.gdal }}-${{ hashFiles('.github/workflows/build-gdal.sh') }}
       - name: Build GDAL
         if: steps.cache-gdal.outputs.cache-hit != 'true'
         run: sudo .github/workflows/build-gdal.sh ${{ matrix.gdal }}
   test:
     needs: install-gdal
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
-        go: [ '1.21', '1.22' ]
+        go: [ '1.22', '1.23' ]
         gdal: [  'release/3.6', 'release/3.7', 'release/3.8', 'release/3.9', 'master' ]
     name: Go ${{ matrix.go }} + GDAL ${{ matrix.gdal }} test
     steps:
@@ -66,7 +66,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: /optgdal
-          key: ubuntu-22.04-install-gdal-${{ matrix.gdal }}-${{ hashFiles('.github/workflows/build-gdal.sh') }}
+          key: ubuntu-24.04-install-gdal-${{ matrix.gdal }}-${{ hashFiles('.github/workflows/build-gdal.sh') }}
       - name: Check GDAL
         if: steps.cache-gdal.outputs.cache-hit != 'true'
         uses: actions/github-script@v3
@@ -90,12 +90,12 @@ jobs:
         env:
           PKG_CONFIG_PATH: /optgdal/lib/pkgconfig/
       - name: Send coverage
-        if: ${{ matrix.go == '1.22' && matrix.gdal == 'master' }}
+        if: ${{ matrix.go == '1.23' && matrix.gdal == 'release/3.9' }}
         uses: shogo82148/actions-goveralls@v1
         with:
           path-to-profile: profile.cov
       - name: golangci-lint
-        if: ${{ matrix.go == '1.22' && matrix.gdal == 'master' }}
+        if: ${{ matrix.go == '1.23' && matrix.gdal == 'release/3.9' }}
         uses: reviewdog/action-golangci-lint@v1
         env:
           PKG_CONFIG_PATH: /optgdal/lib/pkgconfig/
