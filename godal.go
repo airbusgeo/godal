@@ -3886,7 +3886,7 @@ func RegisterVSIHandler(prefix string, handler KeySizerReaderAt, opts ...VSIHand
 		return fmt.Errorf("handler already registered on prefix")
 	}
 	cgc := createCGOContext(nil, opt.errorHandler)
-	C.VSIInstallGoHandler(cgc.cPointer(), C.CString(prefix), C.size_t(opt.bufferSize), C.size_t(opt.cacheSize))
+	C.godalVSIInstallGoHandler(cgc.cPointer(), C.CString(prefix), C.size_t(opt.bufferSize), C.size_t(opt.cacheSize))
 	if err := cgc.close(); err != nil {
 		return err
 	}
@@ -3900,7 +3900,7 @@ func RegisterVSIHandler(prefix string, handler KeySizerReaderAt, opts ...VSIHand
 
 // HasVSIHandler returns true if a VSIHandler is registered for this prefix
 func HasVSIHandler(prefix string) bool {
-	return bool(C.VSIHasGoHandler(C.CString(prefix)))
+	return C.godalVSIHasGoHandler(C.CString(prefix)) != 0
 }
 
 // BuildVRT runs the GDALBuildVRT function and creates a VRT dataset from a list of datasets
