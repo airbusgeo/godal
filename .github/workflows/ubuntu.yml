@@ -8,6 +8,7 @@ on:
 
 jobs:
   ubuntu:
+    if: always()
     runs-on: ${{ matrix.os }}
     env:
       GOEXPERIMENT: cgocheck2
@@ -20,7 +21,7 @@ jobs:
       - name: APT
         run: sudo apt-get update && sudo apt-get install gcc g++ pkg-config libgdal-dev
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Setup Go
         uses: actions/setup-go@v3
         with:
@@ -36,10 +37,10 @@ jobs:
       - name: optgdal
         run: sudo mkdir /optgdal && sudo chown -R $USER /optgdal
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: cache gdal lib
         id: cache-gdal
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: /optgdal
           key: ubuntu-24.04-install-gdal-${{ matrix.gdal }}-${{ hashFiles('.github/workflows/build-gdal.sh') }}
@@ -47,6 +48,7 @@ jobs:
         if: steps.cache-gdal.outputs.cache-hit != 'true'
         run: sudo .github/workflows/build-gdal.sh ${{ matrix.gdal }}
   test:
+    if: always()
     needs: install-gdal
     runs-on: ubuntu-24.04
     strategy:
@@ -60,10 +62,10 @@ jobs:
       - name: optgdal
         run: sudo mkdir /optgdal && sudo chown -R $USER /optgdal
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: cache gdal lib
         id: cache-gdal
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: /optgdal
           key: ubuntu-24.04-install-gdal-${{ matrix.gdal }}-${{ hashFiles('.github/workflows/build-gdal.sh') }}
