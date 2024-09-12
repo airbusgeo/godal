@@ -8,11 +8,11 @@ on:
 
 jobs:
   ubuntu:
-    if: always()
     runs-on: ${{ matrix.os }}
     env:
       GOEXPERIMENT: cgocheck2
     strategy:
+      fail-fast: false
       matrix:
         os: [ 'ubuntu-18.04', 'ubuntu-20.04', 'ubuntu-22.04', 'ubuntu-24.04' ]
         go: [ '1.23' ]
@@ -23,7 +23,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Setup Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v4
         with:
           go-version: ${{ matrix.go }}
       - name: Coverage Tests
@@ -31,6 +31,7 @@ jobs:
   install-gdal:
     runs-on: ubuntu-24.04
     strategy:
+      fail-fast: false
       matrix:
         gdal: [ 'release/3.6', 'release/3.7', 'release/3.8', 'release/3.9', 'master' ]
     steps:
@@ -48,10 +49,10 @@ jobs:
         if: steps.cache-gdal.outputs.cache-hit != 'true'
         run: sudo .github/workflows/build-gdal.sh ${{ matrix.gdal }}
   test:
-    if: always()
     needs: install-gdal
     runs-on: ubuntu-24.04
     strategy:
+      fail-fast: false
       matrix:
         go: [ '1.22', '1.23' ]
         gdal: [  'release/3.6', 'release/3.7', 'release/3.8', 'release/3.9', 'master' ]
@@ -71,12 +72,12 @@ jobs:
           key: ubuntu-24.04-install-gdal-${{ matrix.gdal }}-${{ hashFiles('.github/workflows/build-gdal.sh') }}
       - name: Check GDAL
         if: steps.cache-gdal.outputs.cache-hit != 'true'
-        uses: actions/github-script@v3
+        uses: actions/github-script@v7
         with:
           script: |
             core.setFailed('gdal installation not recovered from cache')
       - name: Setup Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v4
         with:
           go-version: ${{ matrix.go }}
       - name: ldconfig
