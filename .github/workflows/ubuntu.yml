@@ -74,6 +74,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
+          cache: false
           go-version: ${{ matrix.go }}
       - name: ldconfig
         run: sudo ldconfig /optgdal/lib
