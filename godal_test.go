@@ -256,13 +256,15 @@ func TestRegisterDrivers(t *testing.T) {
 		_, ok = RasterDriver(HFA)
 		assert.True(t, ok)
 
-		_, ok = VectorDriver(HFA)
-		assert.False(t, ok)
-
 		ds, err := Open("testdata/test.img")
 		assert.NoError(t, err)
 		ds.Close()
+	} else {
+		_, ok = RasterDriver(HFA)
+		assert.False(t, ok)
 	}
+	_, ok = VectorDriver(HFA)
+	assert.False(t, ok)
 
 	_, ok = VectorDriver(GeoJSON)
 	assert.True(t, ok)
