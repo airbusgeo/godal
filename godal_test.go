@@ -1236,8 +1236,7 @@ func TestBandMask(t *testing.T) {
 }
 
 func TestSetNoData(t *testing.T) {
-	_ = RegisterRaster("HFA")
-	ds, _ := Open("testdata/test.img")
+	ds, _ := Open("testdata/test.tif")
 	err := ds.SetNoData(0.5)
 	if err == nil {
 		t.Error("err not raised")
