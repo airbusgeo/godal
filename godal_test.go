@@ -251,9 +251,8 @@ func TestRegisterDrivers(t *testing.T) {
 	_, err := Open("testdata/test.img")
 	assert.Error(t, err)
 
-	if !CheckMinVersion(3, 10, 0) {
-		//HFA is not available by default with gdal >= 3.10
-		_ = RegisterRaster(HFA)
+	hfa_err := RegisterRaster(HFA)
+	if hfa_err == nil { //HFA is not available by default with gdal >= 3.10
 		_, ok = RasterDriver(HFA)
 		assert.True(t, ok)
 
