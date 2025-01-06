@@ -1301,10 +1301,6 @@ func RegisterRaster(drivers ...DriverName) error {
 			C.GDALRegister_MEM()
 		case VRT:
 			C.GDALRegister_VRT()
-		case HFA:
-			C.GDALRegister_HFA()
-		case GTiff:
-			C.GDALRegister_GTiff()
 		default:
 			fnname := fmt.Sprintf("GDALRegister_%s", driver)
 			drv, ok := driverMappings[driver]
