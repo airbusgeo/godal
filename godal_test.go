@@ -251,22 +251,25 @@ func TestRegisterDrivers(t *testing.T) {
 	_, err := Open("testdata/test.img")
 	assert.Error(t, err)
 
-	_ = RegisterRaster(HFA)
-	_, ok = RasterDriver(HFA)
-	assert.True(t, ok)
+	if !CheckMinVersion(3, 10, 0) {
+		//HFA is not available by default with gdal >= 3.10
+		_ = RegisterRaster(HFA)
+		_, ok = RasterDriver(HFA)
+		assert.True(t, ok)
 
-	_, ok = VectorDriver(HFA)
-	assert.False(t, ok)
+		_, ok = VectorDriver(HFA)
+		assert.False(t, ok)
+
+		ds, err := Open("testdata/test.img")
+		assert.NoError(t, err)
+		ds.Close()
+	}
 
 	_, ok = VectorDriver(GeoJSON)
 	assert.True(t, ok)
 
 	_, ok = RasterDriver(GeoJSON)
 	assert.False(t, ok)
-
-	ds, err := Open("testdata/test.img")
-	assert.NoError(t, err)
-	ds.Close()
 
 	_, ok = RasterDriver("bazbaz")
 	assert.False(t, ok)
