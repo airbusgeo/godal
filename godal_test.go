@@ -251,10 +251,18 @@ func TestRegisterDrivers(t *testing.T) {
 	_, err := Open("testdata/test.img")
 	assert.Error(t, err)
 
-	_ = RegisterRaster(HFA)
-	_, ok = RasterDriver(HFA)
-	assert.True(t, ok)
+	hfa_err := RegisterRaster(HFA)
+	if hfa_err == nil { //HFA is not available by default with gdal >= 3.10
+		_, ok = RasterDriver(HFA)
+		assert.True(t, ok)
 
+		ds, err := Open("testdata/test.img")
+		assert.NoError(t, err)
+		ds.Close()
+	} else {
+		_, ok = RasterDriver(HFA)
+		assert.False(t, ok)
+	}
 	_, ok = VectorDriver(HFA)
 	assert.False(t, ok)
 
@@ -263,10 +271,6 @@ func TestRegisterDrivers(t *testing.T) {
 
 	_, ok = RasterDriver(GeoJSON)
 	assert.False(t, ok)
-
-	ds, err := Open("testdata/test.img")
-	assert.NoError(t, err)
-	ds.Close()
 
 	_, ok = RasterDriver("bazbaz")
 	assert.False(t, ok)
@@ -1233,8 +1237,7 @@ func TestBandMask(t *testing.T) {
 }
 
 func TestSetNoData(t *testing.T) {
-	_ = RegisterRaster("HFA")
-	ds, _ := Open("testdata/test.img")
+	ds, _ := Open("testdata/test.tif")
 	err := ds.SetNoData(0.5)
 	if err == nil {
 		t.Error("err not raised")
