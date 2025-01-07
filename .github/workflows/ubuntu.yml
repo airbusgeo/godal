@@ -100,7 +100,7 @@ jobs:
           PKG_CONFIG_PATH: /optgdal/lib/pkgconfig/
         with:
           level: error
-          fail_on_error: true
+          fail_level: error
       - name: golangci-lint
         if: ${{ matrix.go == '1.23' && matrix.gdal == 'release/3.10' }}
         uses: reviewdog/action-golangci-lint@v2
@@ -109,4 +109,5 @@ jobs:
         with:
           golangci_lint_flags: "--timeout=5m --skip-files=doc_test.go"
           level: error
-          fail_on_error: true
+          cache: false
+          fail_level: error
