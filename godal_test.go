@@ -4440,6 +4440,53 @@ func TestGridInvalidSwitch(t *testing.T) {
 	assert.Error(t, err)
 }
 
+// Viewshed Test Ported from: https://github.com/OSGeo/gdal/blob/4ac60a58658296d4c0d568fb6e1b41a47de7fa51/autotest/cpp/test_viewshed.cpp
+// TODO: [P] Fix this test and write more tests
+func TestViewshedAllVisible(t *testing.T) {
+	vrtDs, err := Create(Memory, "", 1, Int8, 3, 3)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	err = vrtDs.SetGeoTransform([6]float64{0, 1, 0, 0, 0, 1})
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	buf := []int8{1, 2, 3, 4, 5, 6, 3, 2, 1}
+	_ = vrtDs.Write(0, 0, buf, 3, 3)
+
+	var (
+		xSize = 3
+		ySize = 3
+	)
+	rds, err := Viewshed(vrtDs.Bands()[0], "mem", "none", 1, 1, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, Normal)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer rds.Close()
+
+	viewshedResult := make([]int8, xSize*ySize)
+	err = rds.Read(0, 0, viewshedResult, xSize, ySize)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	invalidPoints := make([]string, 0, xSize*ySize)
+	for i, p := range viewshedResult {
+		if p != 127 {
+			invalidPoints = append(invalidPoints, fmt.Sprintf("at i = %d, exp: 127, got: %d\n", i, p))
+		}
+	}
+	if len(invalidPoints) > 0 {
+		t.Error(fmt.Errorf("Found one or more invalid points:\n%s", strings.Join(invalidPoints, "\n")))
+	}
+
+}
+
 func TestNearblackBlack(t *testing.T) {
 	// 1. Create an image, linearly interpolated, from black (on the left) to white (on the right), using `Grid()`
 	var (
