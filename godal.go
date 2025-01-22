@@ -4060,6 +4060,62 @@ func (ds *Dataset) Dem(destPath, processingMode string, colorFilename string, sw
 	return &Dataset{majorObject{C.GDALMajorObjectH(dsRet)}}, nil
 }
 
+// TODO: [P] Explanation
+type ViewshedMode int
+
+const (
+	// TODO: [P] Explanation
+	MDiagonal ViewshedMode = iota + 1
+	// TODO: [P] Explanation
+	MEdge
+	// TODO: [P] Explanation
+	MMax
+	// TODO: [P] Explanation
+	MMin
+)
+
+// TODO: [P] Explanation
+type ViewshedOutputType int
+
+const (
+	// TODO: [P] Explanation
+	Normal ViewshedOutputType = iota + 1
+	// TODO: [P] Explanation
+	MinTargetHeightFromDem
+	// TODO: [P] Explanation
+	MinTargetHeightFromGround
+)
+
+// TODO: [P] Add documentation here
+//
+//	ds.Viewshed(dst, switches, CreationOption("TILED=YES","BLOCKXSIZE=256"), GTiff)
+func Viewshed(targetBand Band, driverName DriverName, targetRasterName string, observerX float64, observerY float64, observerHeight float64, targetHeight float64,
+	visibleVal float64, invisibleVal float64, outOfRangeVal float64, noDataVal float64, curveCoeff float64, mode ViewshedMode, maxDistance float64,
+	heightMode ViewshedOutputType, opts ...ViewshedOption) (*Dataset, error) {
+
+	viewshedOpts := viewshedOpts{}
+	for _, opt := range opts {
+		opt.setViewshedOpt(&viewshedOpts)
+	}
+
+	copts := sliceToCStringArray(viewshedOpts.creation)
+	defer copts.free()
+	driver := unsafe.Pointer(C.CString(string(driverName)))
+	defer C.free(unsafe.Pointer(driver))
+	targetRaster := unsafe.Pointer(C.CString(targetRasterName))
+	defer C.free(unsafe.Pointer(targetRaster))
+
+	cgc := createCGOContext(nil, viewshedOpts.errorHandler)
+	dsRet := C.godalViewshed(cgc.cPointer(), targetBand.handle(), (*C.char)(driver), (*C.char)(targetRaster), copts.cPointer(), C.double(observerX),
+		C.double(observerY), C.double(observerHeight), C.double(targetHeight), C.double(visibleVal), C.double(invisibleVal), C.double(outOfRangeVal),
+		C.double(noDataVal), C.double(curveCoeff), C.GDALViewshedMode(mode), C.double(maxDistance), C.GDALViewshedOutputType(heightMode))
+	if err := cgc.close(); err != nil {
+		return nil, err
+	}
+
+	return &Dataset{majorObject{C.GDALMajorObjectH(dsRet)}}, nil
+}
+
 // Nearblack runs the library version of nearblack
 //
 // See the nearblack doc page to determine the valid flags/opts that can be set in switches.

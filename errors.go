@@ -154,6 +154,7 @@ func ErrLogger(fn ErrorHandler) interface {
 	GridOption
 	NearblackOption
 	DemOption
+	ViewshedOption
 	SetGCPsOption
 	GCPsToGeoTransformOption
 	RegisterPluginOption
@@ -386,6 +387,9 @@ func (ec errorCallback) setNearblackOpt(o *nearBlackOpts) {
 	o.errorHandler = ec.fn
 }
 func (ec errorCallback) setDemOpt(o *demOpts) {
+	o.errorHandler = ec.fn
+}
+func (ec errorCallback) setViewshedOpt(o *viewshedOpts) {
 	o.errorHandler = ec.fn
 }
 func (ec errorCallback) setSetGCPsOpt(o *setGCPsOpts) {

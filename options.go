@@ -894,6 +894,7 @@ func CreationOption(opts ...string) interface {
 	DatasetVectorTranslateOption
 	GMLExportOption
 	RasterizeOption
+	ViewshedOption
 } {
 	return creationOpt{opts}
 }
@@ -915,6 +916,9 @@ func (co creationOpt) setGMLExportOpt(gmlo *gmlExportOpts) {
 }
 func (co creationOpt) setRasterizeOpt(o *rasterizeOpts) {
 	o.create = append(o.create, co.creation...)
+}
+func (co creationOpt) setViewshedOpt(dc *viewshedOpts) {
+	dc.creation = append(dc.creation, co.creation...)
 }
 
 type configOpt struct {
@@ -1274,6 +1278,16 @@ type demOpts struct {
 // DemOption is an option that can be passed to Dataset.Dem()
 type DemOption interface {
 	setDemOpt(demOpt *demOpts)
+}
+
+type viewshedOpts struct {
+	creation     []string
+	errorHandler ErrorHandler
+}
+
+// ViewshedOption is an option that can be passed to Viewshed()
+type ViewshedOption interface {
+	setViewshedOpt(viewshedOpt *viewshedOpts)
 }
 
 type setGCPsOpts struct {
