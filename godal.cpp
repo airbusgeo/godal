@@ -1905,6 +1905,20 @@ GDALDatasetH godalDem(cctx *ctx, const char *pszDest, const char *pszProcessing,
 	return ret;
 }
 
+GDALDatasetH godalViewshed(cctx *ctx, GDALRasterBandH bnd, const char *pszDriverName, const char *pszTargetRasterName, const char **papszCreationOptions, double dfObserverX,
+    					   double dfObserverY, double dfObserverHeight, double dfTargetHeight, double dfVisibleVal, double dfInvisibleVal, double dfOutOfRangeVal, 
+						   double dfNoDataVal, double dfCurvCoeff, GDALViewshedMode eMode, double dfMaxDistance, GDALViewshedOutputType heightMode) {
+	godalWrap(ctx);
+
+	GDALDatasetH ret = GDALViewshedGenerate(bnd, pszDriverName, pszTargetRasterName, papszCreationOptions, dfObserverX, dfObserverY, dfObserverHeight, dfTargetHeight, dfVisibleVal, dfInvisibleVal, dfOutOfRangeVal, 
+	dfNoDataVal, dfCurvCoeff, eMode, dfMaxDistance, nullptr, nullptr, heightMode, nullptr);
+	if(ret == nullptr) {
+		forceError(ctx);
+	}
+	godalUnwrap();
+	return ret;
+}
+
 OGRSpatialReferenceH godalGetGCPSpatialRef(GDALDatasetH hSrcDS) {
 	return GDALGetGCPSpatialRef(hSrcDS);
 }
