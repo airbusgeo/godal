@@ -1909,12 +1909,14 @@ GDALDatasetH godalViewshed(cctx *ctx, GDALRasterBandH bnd, const char *pszDriver
     					   double dfObserverY, double dfObserverHeight, double dfTargetHeight, double dfVisibleVal, double dfInvisibleVal, double dfOutOfRangeVal, 
 						   double dfNoDataVal, double dfCurvCoeff, GDALViewshedMode eMode, double dfMaxDistance, GDALViewshedOutputType heightMode) {
 	godalWrap(ctx);
-
-	GDALDatasetH ret = GDALViewshedGenerate(bnd, pszDriverName, pszTargetRasterName, papszCreationOptions, dfObserverX, dfObserverY, dfObserverHeight, dfTargetHeight, dfVisibleVal, dfInvisibleVal, dfOutOfRangeVal, 
+	GDALDatasetH ret = nullptr;
+#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 1, 0)
+	ret = GDALViewshedGenerate(bnd, pszDriverName, pszTargetRasterName, papszCreationOptions, dfObserverX, dfObserverY, dfObserverHeight, dfTargetHeight, dfVisibleVal, dfInvisibleVal, dfOutOfRangeVal, 
 	dfNoDataVal, dfCurvCoeff, eMode, dfMaxDistance, nullptr, nullptr, heightMode, nullptr);
 	if(ret == nullptr) {
 		forceError(ctx);
 	}
+#endif
 	godalUnwrap();
 	return ret;
 }
