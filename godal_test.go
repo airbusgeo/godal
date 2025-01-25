@@ -4509,7 +4509,8 @@ func TestViewshedSimpleHeight(t *testing.T) {
 	}
 
 	// from cpp scope 2: dem
-	{
+	// NOTE: This test fails in releases older than 3.10
+	if CheckMinVersion(3, 10, 0) {
 		rds, err := Viewshed(vrtDs.Bands()[0], &driver, "none", 2, 2, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, MinTargetHeightFromDem)
 		if err != nil {
 			t.Error(err)
