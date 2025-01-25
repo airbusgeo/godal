@@ -4128,7 +4128,7 @@ func Viewshed(targetBand Band, driverName *DriverName, targetRasterName string, 
 	defer C.free(unsafe.Pointer(targetRaster))
 
 	cgc := createCGOContext(nil, viewshedOpts.errorHandler)
-	dsRet := C.godalViewshed(cgc.cPointer(), targetBand.handle(), (*C.char)(driver), (*C.char)(targetRaster), copts.cPointer(), C.double(observerX),
+	dsRet := C.godalViewshedGenerate(cgc.cPointer(), targetBand.handle(), (*C.char)(driver), (*C.char)(targetRaster), copts.cPointer(), C.double(observerX),
 		C.double(observerY), C.double(observerHeight), C.double(targetHeight), C.double(visibleVal), C.double(invisibleVal), C.double(outOfRangeVal),
 		C.double(noDataVal), C.double(curveCoeff), C.GDALViewshedMode(mode), C.double(maxDistance), C.GDALViewshedOutputType(heightMode))
 	if err := cgc.close(); err != nil {

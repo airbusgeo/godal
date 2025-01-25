@@ -1905,7 +1905,7 @@ GDALDatasetH godalDem(cctx *ctx, const char *pszDest, const char *pszProcessing,
 	return ret;
 }
 
-GDALDatasetH godalViewshed(cctx *ctx, GDALRasterBandH bnd, const char *pszDriverName, const char *pszTargetRasterName, const char **papszCreationOptions, double dfObserverX,
+GDALDatasetH godalViewshedGenerate(cctx *ctx, GDALRasterBandH bnd, const char *pszDriverName, const char *pszTargetRasterName, const char **papszCreationOptions, double dfObserverX,
     					   double dfObserverY, double dfObserverHeight, double dfTargetHeight, double dfVisibleVal, double dfInvisibleVal, double dfOutOfRangeVal, 
 						   double dfNoDataVal, double dfCurvCoeff, GDALViewshedMode eMode, double dfMaxDistance, GDALViewshedOutputType heightMode) {
 	godalWrap(ctx);

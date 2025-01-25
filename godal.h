@@ -171,7 +171,7 @@ extern "C" {
 	GDALDatasetH godalGrid(cctx *ctx, const char *pszDest, GDALDatasetH hSrcDS, char **switches);
 	GDALDatasetH godalNearblack(cctx *ctx, const char *pszDest, GDALDatasetH hDstDS, GDALDatasetH hSrcDS, char **switches);
 	GDALDatasetH godalDem(cctx *ctx, const char *pszDest, const char *pszProcessing, const char *pszColorFilename, GDALDatasetH hSrcDS, char **switches);
-	GDALDatasetH godalViewshed(cctx *ctx, GDALRasterBandH bnd, const char *pszDriverName, const char *pszTargetRasterName, const char **papszCreationOptions,
+	GDALDatasetH godalViewshedGenerate(cctx *ctx, GDALRasterBandH bnd, const char *pszDriverName, const char *pszTargetRasterName, const char **papszCreationOptions,
 							   double dfObserverX, double dfObserverY, double dfObserverHeight, double dfTargetHeight, double dfVisibleVal, 
 							   double dfInvisibleVal, double dfOutOfRangeVal,  double dfNoDataVal, double dfCurvCoeff, GDALViewshedMode eMode, 
 							   double dfMaxDistance, GDALViewshedOutputType heightMode);
