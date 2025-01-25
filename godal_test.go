@@ -4440,51 +4440,120 @@ func TestGridInvalidSwitch(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// Viewshed Test Ported from: https://github.com/OSGeo/gdal/blob/4ac60a58658296d4c0d568fb6e1b41a47de7fa51/autotest/cpp/test_viewshed.cpp
-// TODO: [P] Fix this test and write more tests
-func TestViewshedAllVisible(t *testing.T) {
-	vrtDs, err := Create(Memory, "", 1, Int8, 3, 3)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	err = vrtDs.SetGeoTransform([6]float64{0, 1, 0, 0, 0, 1})
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	buf := []int8{1, 2, 3, 4, 5, 6, 3, 2, 1}
-	_ = vrtDs.Write(0, 0, buf, 3, 3)
-
+// Test Ported from: https://github.com/OSGeo/gdal/blob/6cdae8b8f7d09ecf67e24959e984d2e7bbe3ee62/autotest/cpp/test_viewshed.cpp#L98
+func TestViewshedSimpleHeight(t *testing.T) {
+	// setup common to all scopes
 	var (
-		xSize = 3
-		ySize = 3
-	)
-	rds, err := Viewshed(vrtDs.Bands()[0], "mem", "none", 1, 1, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, Normal)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	defer rds.Close()
+		driver = DriverName("MEM")
 
-	viewshedResult := make([]int8, xSize*ySize)
-	err = rds.Read(0, 0, viewshedResult, xSize, ySize)
-	if err != nil {
-		t.Error(err)
-		return
-	}
+		identity = [6]float64{0, 1, 0, 0, 0, 1}
 
-	invalidPoints := make([]string, 0, xSize*ySize)
-	for i, p := range viewshedResult {
-		if p != 127 {
-			invalidPoints = append(invalidPoints, fmt.Sprintf("at i = %d, exp: 127, got: %d\n", i, p))
+		xLen = 5
+		yLen = 5
+		in   = []int8{
+			-1, 0, 1, 0, -1,
+			-1, 2, 0, 4, -1,
+			-1, 1, 0, -1, -1,
+			0, 3, 0, 2, 0,
+			-1, 0, 0, 3, -1,
 		}
+		observable = []float64{
+			4, 2, 0, 4, 8,
+			3, 2, 0, 4, 3,
+			2, 1, 0, -1, -2,
+			4, 3, 0, 2, 1,
+			6, 3, 0, 2, 4,
+		}
+	)
+	vrtDs, err := Create(Memory, "", 1, Int8, xLen, yLen)
+	if err != nil {
+		t.Error(err)
+		return
 	}
-	if len(invalidPoints) > 0 {
-		t.Error(fmt.Errorf("Found one or more invalid points:\n%s", strings.Join(invalidPoints, "\n")))
+	err = vrtDs.SetGeoTransform(identity)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	err = vrtDs.Bands()[0].IO(IOWrite, 0, 0, in, xLen, yLen)
+	if err != nil {
+		t.Error(err)
+		return
 	}
 
+	// from cpp scope 1: normal
+	{
+		rds, err := Viewshed(vrtDs.Bands()[0], &driver, "none", 2, 2, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, Normal)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		defer rds.Close()
+
+		out := make([]int8, xLen*yLen)
+		err = rds.Bands()[0].IO(IORead, 0, 0, out, xLen, yLen)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
+		expected := make([]int8, xLen*yLen)
+		for i := 0; i < len(in); i++ {
+			var v int8 = 0
+			if in[i] >= int8(observable[i]) {
+				v = 127
+			}
+			expected[i] = v
+		}
+		assert.Equal(t, expected, out)
+	}
+
+	// from cpp scope 2: dem
+	{
+		rds, err := Viewshed(vrtDs.Bands()[0], &driver, "none", 2, 2, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, MinTargetHeightFromDem)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		defer rds.Close()
+
+		dem := make([]float64, xLen*yLen)
+		err = rds.Bands()[0].IO(IORead, 0, 0, dem, xLen, yLen)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
+		expected := make([]float64, xLen*yLen)
+		copy(expected, observable)
+		for i := 0; i < len(expected); i++ {
+			expected[i] = math.Max(0.0, expected[i])
+		}
+		assert.Equal(t, expected, dem)
+	}
+
+	// from cpp scope 3: ground
+	{
+		rds, err := Viewshed(vrtDs.Bands()[0], &driver, "none", 2, 2, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, MinTargetHeightFromGround)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		defer rds.Close()
+
+		ground := make([]float64, xLen*yLen)
+		err = rds.Bands()[0].IO(IORead, 0, 0, ground, xLen, yLen)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
+		expected := make([]float64, xLen*yLen)
+		for i := 0; i < len(expected); i++ {
+			expected[i] = math.Max(0.0, observable[i]-float64(in[i]))
+		}
+		assert.Equal(t, expected, ground)
+	}
 }
 
 func TestNearblackBlack(t *testing.T) {
