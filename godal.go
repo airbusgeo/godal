@@ -4060,38 +4060,55 @@ func (ds *Dataset) Dem(destPath, processingMode string, colorFilename string, sw
 	return &Dataset{majorObject{C.GDALMajorObjectH(dsRet)}}, nil
 }
 
-// TODO: [P] Explanation
+// ViewshedMode is the "cell height calculation mode" for the viewshed process
+//
+// Source: https://github.com/OSGeo/gdal/blob/master/alg/viewshed/viewshed_types.h
 type ViewshedMode int
 
 const (
-	// TODO: [P] Explanation
+	// MDiagonal is the "diagonal mode"
 	MDiagonal ViewshedMode = iota + 1
-	// TODO: [P] Explanation
+	// MEdge is the "edge mode"
 	MEdge
-	// TODO: [P] Explanation
+	// MMax is the "maximum value produced by Diagonal and Edge mode"
 	MMax
-	// TODO: [P] Explanation
+	// MMin is the "minimum value produced by Diagonal and Edge mode"
 	MMin
 )
 
-// TODO: [P] Explanation
+// ViewshedOutputType sets the return type and information represented by the returned data
+//
+// Source: https://gdal.org/en/stable/programs/gdal_viewshed.html
+//
+// NOTE: "Cumulative (ACCUM)" mode not currently supported, as it's not available in the `GDALViewshedGenerate` function
+// (it's only used in the command line invocation of `viewshed`)
 type ViewshedOutputType int
 
 const (
-	// TODO: [P] Explanation
+	// Normal returns a raster of type Byte containing visible locations
 	Normal ViewshedOutputType = iota + 1
-	// TODO: [P] Explanation
+	// MinTargetHeightFromDem return a raster of type Float64 containing the minimum target height for target to be visible from the DEM surface
 	MinTargetHeightFromDem
-	// TODO: [P] Explanation
+	// MinTargetHeightFromGround return a raster of type Float64 containing the minimum target height for target to be visible from ground level
 	MinTargetHeightFromGround
 )
 
-// TODO: [P] Add documentation here
+// Viewshed (binding for GDALViewshedGenerate), creates a viewshed from a raster DEM, these parameters (mostly) map to to parameters for GDALViewshedGenerate
 //
-//	ds.Viewshed(dst, switches, CreationOption("TILED=YES","BLOCKXSIZE=256"), GTiff)
-func Viewshed(targetBand Band, driverName DriverName, targetRasterName string, observerX float64, observerY float64, observerHeight float64, targetHeight float64,
+// for more information see: https://gdal.org/en/stable/api/gdal_alg.html#_CPPv420GDALViewshedGenerate15GDALRasterBandHPKcPKc12CSLConstListddddddddd16GDALViewshedModed16GDALProgressFuncPv22GDALViewshedOutputType12CSLConstList
+//
+// Creations options can be set through options with:
+//
+//	Viewshed(bnd, "mem", "none", ..., CreationOption("TILED=YES","BLOCKXSIZE=256"))
+func Viewshed(targetBand Band, driverName *DriverName, targetRasterName string, observerX float64, observerY float64, observerHeight float64, targetHeight float64,
 	visibleVal float64, invisibleVal float64, outOfRangeVal float64, noDataVal float64, curveCoeff float64, mode ViewshedMode, maxDistance float64,
 	heightMode ViewshedOutputType, opts ...ViewshedOption) (*Dataset, error) {
+
+	// Allow `driverName` to be null and handle it here to match parameter/behaviour of GDALViewshedGenerate
+	defaultDriverName := GTiff
+	if driverName == nil {
+		driverName = &defaultDriverName
+	}
 
 	viewshedOpts := viewshedOpts{}
 	for _, opt := range opts {
@@ -4100,7 +4117,7 @@ func Viewshed(targetBand Band, driverName DriverName, targetRasterName string, o
 
 	copts := sliceToCStringArray(viewshedOpts.creation)
 	defer copts.free()
-	driver := unsafe.Pointer(C.CString(string(driverName)))
+	driver := unsafe.Pointer(C.CString(string(*driverName)))
 	defer C.free(unsafe.Pointer(driver))
 	targetRaster := unsafe.Pointer(C.CString(targetRasterName))
 	defer C.free(unsafe.Pointer(targetRaster))
