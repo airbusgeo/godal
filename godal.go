@@ -4104,8 +4104,10 @@ func Viewshed(targetBand Band, driverName *DriverName, targetRasterName string, 
 	visibleVal float64, invisibleVal float64, outOfRangeVal float64, noDataVal float64, curveCoeff float64, mode ViewshedMode, maxDistance float64,
 	heightMode ViewshedOutputType, opts ...ViewshedOption) (*Dataset, error) {
 
-	// TODO: Should I put a 'warning' in the documentation for `Viewshed` instead of disallowing these two configurations?
-	if !CheckMinVersion(3, 4, 2) {
+	// TODO: Should I put a 'warning' in the documentation for `Viewshed` instead of disallowing the last two configurations?
+	if !CheckMinVersion(3, 1, 0) {
+		return nil, errors.New("failed to run, 'viewshed' not supported on GDAL versions < 3.1.0")
+	} else if !CheckMinVersion(3, 4, 2) {
 		return nil, errors.New("cannot run 'viewshed' with GDAL version <= 3.4.1, as some tests produce invalid results under these conditions")
 	} else if !CheckMinVersion(3, 10, 0) && heightMode == MinTargetHeightFromDem {
 		return nil, errors.New("height mode CANNOT be `MinTargetHeightFromDem` when running a GDAL version < 3.10, as some tests produce invalid results under these conditions")
@@ -4135,8 +4137,6 @@ func Viewshed(targetBand Band, driverName *DriverName, targetRasterName string, 
 		C.double(noDataVal), C.double(curveCoeff), C.uint(mode), C.double(maxDistance), C.uint(heightMode))
 	if err := cgc.close(); err != nil {
 		return nil, err
-	} else if dsRet == nil {
-		return nil, errors.New("failed to run, 'viewshed' not supported on GDAL versions < 3.1.0")
 	}
 
 	return &Dataset{majorObject{C.GDALMajorObjectH(dsRet)}}, nil
