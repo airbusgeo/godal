@@ -4063,7 +4063,7 @@ func (ds *Dataset) Dem(destPath, processingMode string, colorFilename string, sw
 // ViewshedMode is the "cell height calculation mode" for the viewshed process
 //
 // Source: https://github.com/OSGeo/gdal/blob/master/alg/viewshed/viewshed_types.h
-type ViewshedMode int
+type ViewshedMode uint32
 
 const (
 	// MDiagonal is the "diagonal mode"
@@ -4082,7 +4082,7 @@ const (
 //
 // NOTE: "Cumulative (ACCUM)" mode not currently supported, as it's not available in the `GDALViewshedGenerate` function
 // (it's only used in the command line invocation of `viewshed`)
-type ViewshedOutputType int
+type ViewshedOutputType uint32
 
 const (
 	// Normal returns a raster of type Byte containing visible locations
@@ -4132,7 +4132,7 @@ func Viewshed(targetBand Band, driverName *DriverName, targetRasterName string, 
 	cgc := createCGOContext(nil, viewshedOpts.errorHandler)
 	dsRet := C.godalViewshedGenerate(cgc.cPointer(), targetBand.handle(), (*C.char)(driver), (*C.char)(targetRaster), copts.cPointer(), C.double(observerX),
 		C.double(observerY), C.double(observerHeight), C.double(targetHeight), C.double(visibleVal), C.double(invisibleVal), C.double(outOfRangeVal),
-		C.double(noDataVal), C.double(curveCoeff), C.GDALViewshedMode(mode), C.double(maxDistance), C.GDALViewshedOutputType(heightMode))
+		C.double(noDataVal), C.double(curveCoeff), C.uint(mode), C.double(maxDistance), C.uint(heightMode))
 	if err := cgc.close(); err != nil {
 		return nil, err
 	} else if dsRet == nil {

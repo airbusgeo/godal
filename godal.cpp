@@ -1907,12 +1907,12 @@ GDALDatasetH godalDem(cctx *ctx, const char *pszDest, const char *pszProcessing,
 
 GDALDatasetH godalViewshedGenerate(cctx *ctx, GDALRasterBandH bnd, const char *pszDriverName, const char *pszTargetRasterName, const char **papszCreationOptions, double dfObserverX,
     					   double dfObserverY, double dfObserverHeight, double dfTargetHeight, double dfVisibleVal, double dfInvisibleVal, double dfOutOfRangeVal, 
-						   double dfNoDataVal, double dfCurvCoeff, GDALViewshedMode eMode, double dfMaxDistance, GDALViewshedOutputType heightMode) {
+						   double dfNoDataVal, double dfCurvCoeff, GUInt32 eMode, double dfMaxDistance, GUInt32 heightMode) {
 	godalWrap(ctx);
 	GDALDatasetH ret = nullptr;
 #if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 1, 0)
 	ret = GDALViewshedGenerate(bnd, pszDriverName, pszTargetRasterName, papszCreationOptions, dfObserverX, dfObserverY, dfObserverHeight, dfTargetHeight, dfVisibleVal, dfInvisibleVal, dfOutOfRangeVal, 
-	dfNoDataVal, dfCurvCoeff, eMode, dfMaxDistance, nullptr, nullptr, heightMode, nullptr);
+	dfNoDataVal, dfCurvCoeff, GDALViewshedMode(eMode), dfMaxDistance, nullptr, nullptr, GDALViewshedOutputType(heightMode), nullptr);
 	if(ret == nullptr) {
 		forceError(ctx);
 	}
