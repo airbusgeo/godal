@@ -4135,6 +4135,8 @@ func Viewshed(targetBand Band, driverName *DriverName, targetRasterName string, 
 		C.double(noDataVal), C.double(curveCoeff), C.GDALViewshedMode(mode), C.double(maxDistance), C.GDALViewshedOutputType(heightMode))
 	if err := cgc.close(); err != nil {
 		return nil, err
+	} else if dsRet == nil {
+		return nil, errors.New("failed to run, 'viewshed' not supported on GDAL versions < 3.1.0")
 	}
 
 	return &Dataset{majorObject{C.GDALMajorObjectH(dsRet)}}, nil
