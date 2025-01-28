@@ -4442,12 +4442,13 @@ func TestGridInvalidSwitch(t *testing.T) {
 
 // Test Ported from: https://github.com/OSGeo/gdal/blob/6cdae8b8f7d09ecf67e24959e984d2e7bbe3ee62/autotest/cpp/test_viewshed.cpp#L98
 func TestViewshedSimpleHeight(t *testing.T) {
+	ehc := eh()
 	if !CheckMinVersion(3, 1, 0) {
-		_, err := Viewshed(Band{}, nil, "none", 1, 1, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, Normal)
+		_, err := Viewshed(Band{}, nil, "none", 1, 1, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, Normal, ErrLogger(ehc.ErrorHandler))
 		assert.EqualError(t, err, "failed to run, 'viewshed' not supported on GDAL versions < 3.1.0")
 		return
 	} else if !CheckMinVersion(3, 4, 2) {
-		_, err := Viewshed(Band{}, nil, "none", 1, 1, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, Normal)
+		_, err := Viewshed(Band{}, nil, "none", 1, 1, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, Normal, ErrLogger(ehc.ErrorHandler))
 		assert.EqualError(t, err, "cannot run 'viewshed' with GDAL version <= 3.4.1, as some tests produce invalid results under these conditions")
 		return
 	}
@@ -4493,7 +4494,7 @@ func TestViewshedSimpleHeight(t *testing.T) {
 
 	// from cpp scope 1: normal
 	{
-		rds, err := Viewshed(vrtDs.Bands()[0], &driver, "none", 2, 2, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, Normal)
+		rds, err := Viewshed(vrtDs.Bands()[0], &driver, "none", 2, 2, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, Normal, ErrLogger(ehc.ErrorHandler))
 		if err != nil {
 			t.Error(err)
 			return
