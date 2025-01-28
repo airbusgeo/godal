@@ -4572,6 +4572,16 @@ func TestViewshedSimpleHeight(t *testing.T) {
 }
 
 func TestViewshedCreationOptions(t *testing.T) {
+	if !CheckMinVersion(3, 1, 0) {
+		_, err := Viewshed(Band{}, nil, "none", 1, 1, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, Normal)
+		assert.EqualError(t, err, "failed to run, 'viewshed' not supported on GDAL versions < 3.1.0")
+		return
+	} else if !CheckMinVersion(3, 4, 2) {
+		_, err := Viewshed(Band{}, nil, "none", 1, 1, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, Normal)
+		assert.EqualError(t, err, "cannot run 'viewshed' with GDAL version <= 3.4.1, as some tests produce invalid results under these conditions")
+		return
+	}
+
 	var (
 		driver  = GTiff
 		tmpname = tempfile()
