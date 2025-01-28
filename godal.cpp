@@ -1913,10 +1913,10 @@ GDALDatasetH godalViewshedGenerate(cctx *ctx, GDALRasterBandH bnd, const char *p
 #if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 1, 0)
 	ret = GDALViewshedGenerate(bnd, pszDriverName, pszTargetRasterName, papszCreationOptions, dfObserverX, dfObserverY, dfObserverHeight, dfTargetHeight, dfVisibleVal, dfInvisibleVal, dfOutOfRangeVal, 
 	dfNoDataVal, dfCurvCoeff, GDALViewshedMode(eMode), dfMaxDistance, nullptr, nullptr, GDALViewshedOutputType(heightMode), nullptr);
+#endif
 	if(ret == nullptr) {
 		forceError(ctx);
 	}
-#endif
 	godalUnwrap();
 	return ret;
 }
