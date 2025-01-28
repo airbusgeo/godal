@@ -4577,7 +4577,7 @@ func TestViewshedCreationOptions(t *testing.T) {
 		tmpname = tempfile()
 	)
 	defer os.Remove(tmpname)
-	vrtDs, err := Create(driver, tmpname, 1, Int8, 16, 16)
+	vrtDs, err := Create(driver, tmpname, 1, Int8, 20, 20)
 	if err != nil {
 		t.Error(err)
 		return
@@ -4589,7 +4589,12 @@ func TestViewshedCreationOptions(t *testing.T) {
 		return
 	}
 
-	// Invalid
+	// Invalid - with error logger
+	ehc := eh()
+	_, err = Viewshed(vrtDs.Bands()[0], &driver, "none", 2, 2, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, Normal, CreationOption("INVALID_OPT=BAR"), ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+
+	// Invalid - no error logger
 	_, err = Viewshed(vrtDs.Bands()[0], &driver, "none", 2, 2, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, Normal, CreationOption("INVALID_OPT=BAR"))
 	assert.Error(t, err)
 
