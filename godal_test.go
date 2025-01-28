@@ -4577,7 +4577,7 @@ func TestViewshedCreationOptions(t *testing.T) {
 		tmpname = tempfile()
 	)
 	defer os.Remove(tmpname)
-	vrtDs, err := Create(driver, tmpname, 1, Int8, 20, 20)
+	vrtDs, err := Create(driver, tmpname, 1, Int8, 20, 20, CreationOption("TILED=YES", "BLOCKXSIZE=128", "BLOCKYSIZE=128"))
 	if err != nil {
 		t.Error(err)
 		return
@@ -4599,7 +4599,7 @@ func TestViewshedCreationOptions(t *testing.T) {
 	assert.Error(t, err)
 
 	// Valid
-	_, err = Viewshed(vrtDs.Bands()[0], &driver, "none", 2, 2, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, Normal, CreationOption("TILED=YES", "BLOCKXSIZE=16", "BLOCKYSIZE=16"))
+	_, err = Viewshed(vrtDs.Bands()[0], &driver, "none", 2, 2, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, Normal, CreationOption("TILED=YES", "BLOCKXSIZE=128", "BLOCKYSIZE=128"))
 	assert.NoError(t, err)
 }
 
