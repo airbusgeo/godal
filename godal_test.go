@@ -4571,6 +4571,33 @@ func TestViewshedSimpleHeight(t *testing.T) {
 	}
 }
 
+func TestViewshedCreationOptions(t *testing.T) {
+	var (
+		driver  = GTiff
+		tmpname = tempfile()
+	)
+	defer os.Remove(tmpname)
+	vrtDs, err := Create(driver, tmpname, 1, Int8, 16, 16)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	identity := [6]float64{0, 1, 0, 0, 0, 1}
+	err = vrtDs.SetGeoTransform(identity)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	// Invalid
+	_, err = Viewshed(vrtDs.Bands()[0], &driver, "none", 2, 2, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, Normal, CreationOption("INVALID_OPT=BAR"))
+	assert.Error(t, err)
+
+	// Valid
+	_, err = Viewshed(vrtDs.Bands()[0], &driver, "none", 2, 2, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, Normal, CreationOption("TILED=YES", "BLOCKXSIZE=16", "BLOCKYSIZE=16"))
+	assert.NoError(t, err)
+}
+
 func TestNearblackBlack(t *testing.T) {
 	// 1. Create an image, linearly interpolated, from black (on the left) to white (on the right), using `Grid()`
 	var (
