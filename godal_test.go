@@ -4442,15 +4442,6 @@ func TestGridInvalidSwitch(t *testing.T) {
 
 // Test Ported from: https://github.com/OSGeo/gdal/blob/6cdae8b8f7d09ecf67e24959e984d2e7bbe3ee62/autotest/cpp/test_viewshed.cpp#L98
 func TestViewshedSimpleHeight(t *testing.T) {
-	if !CheckMinVersion(3, 1, 0) {
-		_, err := Viewshed(Band{}, nil, "none", 1, 1, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, Normal)
-		assert.EqualError(t, err, "failed to run, 'viewshed' not supported on GDAL versions < 3.1.0")
-		return
-	} else if !CheckMinVersion(3, 4, 2) {
-		_, err := Viewshed(Band{}, nil, "none", 1, 1, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, Normal)
-		assert.EqualError(t, err, "cannot run 'viewshed' with GDAL version <= 3.4.1, as some tests produce invalid results under these conditions")
-		return
-	}
 
 	// setup common to all scopes
 	var (
