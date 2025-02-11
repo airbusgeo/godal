@@ -4100,18 +4100,18 @@ const (
 // Creations options can be set through options with:
 //
 //	Viewshed(bnd, "mem", "none", ..., CreationOption("TILED=YES","BLOCKXSIZE=256"))
+//
+// WARNING: One of the Godal tests for this function is ported from a GDAL test finalised in this commit (tagged for 3.10.2RC1): https://github.com/OSGeo/gdal/commit/33dd00c63155250afce04092c77cb225570efa64
+//
+// Automated testing across different GDAL versions shows that GDALViewshedGenerate FAILS some of these tests on versions of GDAL < 3.10.0 as follows:
+//
+//   - version < 3.1.0: viewshed is not supported and will always throw a "not implemented" error
+//   - 3.1.0 <= version < 3.4.2: all tests fail
+//   - 3.4.2 <= version < 3.10.0: tests where heightMode == MinTargetHeightFromDem fail
+//   - version >= 3.10.0: all tests pass
 func Viewshed(targetBand Band, driverName *DriverName, targetRasterName string, observerX float64, observerY float64, observerHeight float64, targetHeight float64,
 	visibleVal float64, invisibleVal float64, outOfRangeVal float64, noDataVal float64, curveCoeff float64, mode ViewshedMode, maxDistance float64,
 	heightMode ViewshedOutputType, opts ...ViewshedOption) (*Dataset, error) {
-
-	// TODO: Should I put a 'warning' in the documentation for `Viewshed` instead of disallowing the last two configurations?
-	if !CheckMinVersion(3, 1, 0) {
-		return nil, errors.New("failed to run, 'viewshed' not supported on GDAL versions < 3.1.0")
-	} else if !CheckMinVersion(3, 4, 2) {
-		return nil, errors.New("cannot run 'viewshed' with GDAL version <= 3.4.1, as some tests produce invalid results under these conditions")
-	} else if !CheckMinVersion(3, 10, 0) && heightMode == MinTargetHeightFromDem {
-		return nil, errors.New("height mode CANNOT be `MinTargetHeightFromDem` when running a GDAL version < 3.10, as some tests produce invalid results under these conditions")
-	}
 
 	// Allow `driverName` to be null and handle it here to match parameter/behaviour of GDALViewshedGenerate
 	defaultDriverName := GTiff
