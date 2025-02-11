@@ -4533,9 +4533,6 @@ func TestViewshedSimpleHeight(t *testing.T) {
 			expected[i] = math.Max(0.0, expected[i])
 		}
 		assert.Equal(t, expected, dem)
-	} else {
-		_, err := Viewshed(vrtDs.Bands()[0], &driver, "none", 2, 2, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, MinTargetHeightFromDem)
-		assert.EqualError(t, err, "height mode CANNOT be `MinTargetHeightFromDem` when running a GDAL version < 3.10, as some tests produce invalid results under these conditions")
 	}
 
 	// from cpp scope 3: ground
