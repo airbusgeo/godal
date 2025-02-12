@@ -4442,12 +4442,6 @@ func TestGridInvalidSwitch(t *testing.T) {
 
 // Test Ported from: https://github.com/OSGeo/gdal/blob/6cdae8b8f7d09ecf67e24959e984d2e7bbe3ee62/autotest/cpp/test_viewshed.cpp#L98
 func TestViewshedSimpleHeight(t *testing.T) {
-	if !CheckMinVersion(3, 1, 0) {
-		_, err := Band{}.Viewshed("none", 1, 1, 0)
-		assert.EqualError(t, err, "Viewshed not implemented in gdal < 3.1")
-		return
-	}
-
 	// setup common to all scopes
 	var (
 		ehc = eh()
@@ -4582,12 +4576,6 @@ func TestViewshedCreationOptions(t *testing.T) {
 	err = vrtDs.SetGeoTransform(identity)
 	if err != nil {
 		t.Error(err)
-		return
-	}
-
-	if !CheckMinVersion(3, 1, 0) {
-		_, err := vrtDs.Bands()[0].Viewshed("none", 2, 2, 0, CreationOption("TILED=YES", "BLOCKXSIZE=128", "BLOCKYSIZE=128"))
-		assert.EqualError(t, err, "Viewshed not implemented in gdal < 3.1")
 		return
 	}
 
