@@ -4109,32 +4109,30 @@ const (
 //   - 3.1.0 <= version < 3.4.2: all tests fail
 //   - 3.4.2 <= version < 3.10.0: tests where heightMode == MinTargetHeightFromDem fail
 //   - version >= 3.10.0: all tests pass
-func Viewshed(targetBand Band, driverName *DriverName, targetRasterName string, observerX float64, observerY float64, observerHeight float64, targetHeight float64,
-	visibleVal float64, invisibleVal float64, outOfRangeVal float64, noDataVal float64, curveCoeff float64, mode ViewshedMode, maxDistance float64,
-	heightMode ViewshedOutputType, opts ...ViewshedOption) (*Dataset, error) {
-
-	// Allow `driverName` to be null and handle it here to match parameter/behaviour of GDALViewshedGenerate
-	defaultDriverName := GTiff
-	if driverName == nil {
-		driverName = &defaultDriverName
+func (srcBand Band) Viewshed(targetRasterName string, observerX float64, observerY float64, observerHeight float64, opts ...ViewshedOption) (*Dataset, error) {
+	vso := viewshedOpts{
+		driver:     GTiff,
+		visibleVal: 255,
+		noDataVal:  -1,
+		curveCoeff: .85714,
+		cellMode:   MEdge,
+		heightMode: Normal,
 	}
-
-	viewshedOpts := viewshedOpts{}
 	for _, opt := range opts {
-		opt.setViewshedOpt(&viewshedOpts)
+		opt.setViewshedOpt(&vso)
 	}
 
-	copts := sliceToCStringArray(viewshedOpts.creation)
+	copts := sliceToCStringArray(vso.creation)
 	defer copts.free()
-	driver := unsafe.Pointer(C.CString(string(*driverName)))
+	driver := unsafe.Pointer(C.CString(string(vso.driver)))
 	defer C.free(unsafe.Pointer(driver))
 	targetRaster := unsafe.Pointer(C.CString(targetRasterName))
 	defer C.free(unsafe.Pointer(targetRaster))
 
-	cgc := createCGOContext(nil, viewshedOpts.errorHandler)
-	dsRet := C.godalViewshedGenerate(cgc.cPointer(), targetBand.handle(), (*C.char)(driver), (*C.char)(targetRaster), copts.cPointer(), C.double(observerX),
-		C.double(observerY), C.double(observerHeight), C.double(targetHeight), C.double(visibleVal), C.double(invisibleVal), C.double(outOfRangeVal),
-		C.double(noDataVal), C.double(curveCoeff), C.uint(mode), C.double(maxDistance), C.uint(heightMode))
+	cgc := createCGOContext(nil, vso.errorHandler)
+	dsRet := C.godalViewshedGenerate(cgc.cPointer(), srcBand.handle(), (*C.char)(driver), (*C.char)(targetRaster), copts.cPointer(), C.double(observerX),
+		C.double(observerY), C.double(observerHeight), C.double(vso.targetHeight), C.double(vso.visibleVal), C.double(vso.invisibleVal), C.double(vso.outOfRangeVal),
+		C.double(vso.noDataVal), C.double(vso.curveCoeff), C.uint(vso.cellMode), C.double(vso.maxDistance), C.uint(vso.heightMode))
 	if err := cgc.close(); err != nil {
 		return nil, err
 	}

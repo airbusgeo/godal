@@ -4443,15 +4443,15 @@ func TestGridInvalidSwitch(t *testing.T) {
 // Test Ported from: https://github.com/OSGeo/gdal/blob/6cdae8b8f7d09ecf67e24959e984d2e7bbe3ee62/autotest/cpp/test_viewshed.cpp#L98
 func TestViewshedSimpleHeight(t *testing.T) {
 	if !CheckMinVersion(3, 1, 0) {
-		_, err := Viewshed(Band{}, nil, "none", 1, 1, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, Normal)
+		_, err := Band{}.Viewshed("none", 1, 1, 0)
 		assert.EqualError(t, err, "Viewshed not implemented in gdal < 3.1")
 		return
 	}
 
 	// setup common to all scopes
 	var (
-		ehc    = eh()
-		driver = DriverName("MEM")
+		ehc = eh()
+		drv = DriverName("MEM")
 
 		identity = [6]float64{0, 1, 0, 0, 0, 1}
 
@@ -4491,7 +4491,7 @@ func TestViewshedSimpleHeight(t *testing.T) {
 	// from cpp scope 1: normal
 	// NOTE: This test fails in releases older than 3.4.2
 	if CheckMinVersion(3, 4, 2) {
-		rds, err := Viewshed(vrtDs.Bands()[0], &driver, "none", 2, 2, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, Normal, ErrLogger(ehc.ErrorHandler))
+		rds, err := vrtDs.Bands()[0].Viewshed("none", 2, 2, 0, DriverName(drv), CurveCoeff(0), ErrLogger(ehc.ErrorHandler))
 		if err != nil {
 			t.Error(err)
 			return
@@ -4519,7 +4519,7 @@ func TestViewshedSimpleHeight(t *testing.T) {
 	// from cpp scope 2: dem
 	// NOTE: This test fails in releases older than 3.10
 	if CheckMinVersion(3, 10, 0) {
-		rds, err := Viewshed(vrtDs.Bands()[0], &driver, "none", 2, 2, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, MinTargetHeightFromDem)
+		rds, err := vrtDs.Bands()[0].Viewshed("none", 2, 2, 0, DriverName(drv), CurveCoeff(0), HeightMode(MinTargetHeightFromDem))
 		if err != nil {
 			t.Error(err)
 			return
@@ -4544,7 +4544,7 @@ func TestViewshedSimpleHeight(t *testing.T) {
 	// from cpp scope 3: ground
 	// NOTE: This test fails in releases older than 3.4.2
 	if CheckMinVersion(3, 4, 2) {
-		rds, err := Viewshed(vrtDs.Bands()[0], &driver, "none", 2, 2, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, MinTargetHeightFromGround)
+		rds, err := vrtDs.Bands()[0].Viewshed("none", 2, 2, 0, DriverName(drv), CurveCoeff(0), HeightMode(MinTargetHeightFromGround))
 		if err != nil {
 			t.Error(err)
 			return
@@ -4586,22 +4586,22 @@ func TestViewshedCreationOptions(t *testing.T) {
 	}
 
 	if !CheckMinVersion(3, 1, 0) {
-		_, err := Viewshed(vrtDs.Bands()[0], &driver, "none", 2, 2, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, Normal, CreationOption("TILED=YES", "BLOCKXSIZE=128", "BLOCKYSIZE=128"))
+		_, err := vrtDs.Bands()[0].Viewshed("none", 2, 2, 0, CreationOption("TILED=YES", "BLOCKXSIZE=128", "BLOCKYSIZE=128"))
 		assert.EqualError(t, err, "Viewshed not implemented in gdal < 3.1")
 		return
 	}
 
 	// Invalid - with error logger
 	ehc := eh()
-	_, err = Viewshed(vrtDs.Bands()[0], &driver, "none", 2, 2, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, Normal, CreationOption("INVALID_OPT=BAR"), ErrLogger(ehc.ErrorHandler))
+	_, err = vrtDs.Bands()[0].Viewshed("none", 2, 2, 0, CreationOption("INVALID_OPT=BAR"), ErrLogger(ehc.ErrorHandler))
 	assert.Error(t, err)
 
 	// Invalid - no error logger
-	_, err = Viewshed(vrtDs.Bands()[0], &driver, "none", 2, 2, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, Normal, CreationOption("INVALID_OPT=BAR"))
+	_, err = vrtDs.Bands()[0].Viewshed("none", 2, 2, 0, CreationOption("INVALID_OPT=BAR"))
 	assert.Error(t, err)
 
 	// Valid
-	_, err = Viewshed(vrtDs.Bands()[0], &driver, "none", 2, 2, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, Normal, CreationOption("TILED=YES", "BLOCKXSIZE=128", "BLOCKYSIZE=128"))
+	_, err = vrtDs.Bands()[0].Viewshed("none", 2, 2, 0, CreationOption("TILED=YES", "BLOCKXSIZE=128", "BLOCKYSIZE=128"))
 	assert.NoError(t, err)
 }
 
