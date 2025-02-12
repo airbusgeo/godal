@@ -4585,6 +4585,12 @@ func TestViewshedCreationOptions(t *testing.T) {
 		return
 	}
 
+	if !CheckMinVersion(3, 1, 0) {
+		_, err := Viewshed(vrtDs.Bands()[0], &driver, "none", 2, 2, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, Normal, CreationOption("TILED=YES", "BLOCKXSIZE=128", "BLOCKYSIZE=128"))
+		assert.EqualError(t, err, "Viewshed not implemented in gdal < 3.1")
+		return
+	}
+
 	// Invalid - with error logger
 	ehc := eh()
 	_, err = Viewshed(vrtDs.Bands()[0], &driver, "none", 2, 2, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, Normal, CreationOption("INVALID_OPT=BAR"), ErrLogger(ehc.ErrorHandler))
