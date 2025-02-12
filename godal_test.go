@@ -4442,6 +4442,11 @@ func TestGridInvalidSwitch(t *testing.T) {
 
 // Test Ported from: https://github.com/OSGeo/gdal/blob/6cdae8b8f7d09ecf67e24959e984d2e7bbe3ee62/autotest/cpp/test_viewshed.cpp#L98
 func TestViewshedSimpleHeight(t *testing.T) {
+	if !CheckMinVersion(3, 1, 0) {
+		_, err := Viewshed(Band{}, nil, "none", 1, 1, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, Normal)
+		assert.EqualError(t, err, "Viewshed not implemented in gdal < 3.1")
+		return
+	}
 
 	// setup common to all scopes
 	var (
@@ -4484,7 +4489,8 @@ func TestViewshedSimpleHeight(t *testing.T) {
 	}
 
 	// from cpp scope 1: normal
-	{
+	// NOTE: This test fails in releases older than 3.4.2
+	if CheckMinVersion(3, 4, 2) {
 		rds, err := Viewshed(vrtDs.Bands()[0], &driver, "none", 2, 2, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, Normal, ErrLogger(ehc.ErrorHandler))
 		if err != nil {
 			t.Error(err)
@@ -4536,7 +4542,8 @@ func TestViewshedSimpleHeight(t *testing.T) {
 	}
 
 	// from cpp scope 3: ground
-	{
+	// NOTE: This test fails in releases older than 3.4.2
+	if CheckMinVersion(3, 4, 2) {
 		rds, err := Viewshed(vrtDs.Bands()[0], &driver, "none", 2, 2, 0, 0, 255, 0, 0, -1, 0, MEdge, 0, MinTargetHeightFromGround)
 		if err != nil {
 			t.Error(err)
