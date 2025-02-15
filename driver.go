@@ -124,6 +124,10 @@ func (dn DriverName) setRasterizeOpt(to *rasterizeOpts) {
 	to.driver = dn
 }
 
+func (dn DriverName) setViewshedOpt(to *viewshedOpts) {
+	to.driver = dn
+}
+
 type driversOpt struct {
 	drivers []string
 }

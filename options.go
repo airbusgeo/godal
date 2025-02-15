@@ -894,6 +894,7 @@ func CreationOption(opts ...string) interface {
 	DatasetVectorTranslateOption
 	GMLExportOption
 	RasterizeOption
+	ViewshedOption
 } {
 	return creationOpt{opts}
 }
@@ -915,6 +916,9 @@ func (co creationOpt) setGMLExportOpt(gmlo *gmlExportOpts) {
 }
 func (co creationOpt) setRasterizeOpt(o *rasterizeOpts) {
 	o.create = append(o.create, co.creation...)
+}
+func (co creationOpt) setViewshedOpt(dc *viewshedOpts) {
+	dc.creation = append(dc.creation, co.creation...)
 }
 
 type configOpt struct {
@@ -1112,11 +1116,15 @@ type maxDistanceOpt struct {
 func (mdo maxDistanceOpt) setFillnodataOpt(o *fillnodataOpts) {
 	o.maxDistance = int(mdo.d)
 }
+func (mdo maxDistanceOpt) setViewshedOpt(o *viewshedOpts) {
+	o.maxDistance = mdo.d
+}
 
-// MaxDistance is an option that can be passed to Band.FillNoData which sets the maximum number of
-// pixels to search in all directions to find values to interpolate from.
+// MaxDistance is an option that can be passed to Band.FillNoData and Viewshed which sets the maximum number of
+// pixels to search in all directions for FillNoData or from the observer for Viewshed
 func MaxDistance(d float64) interface {
 	FillNoDataOption
+	ViewshedOption
 } {
 	return maxDistanceOpt{d}
 }
@@ -1274,6 +1282,127 @@ type demOpts struct {
 // DemOption is an option that can be passed to Dataset.Dem()
 type DemOption interface {
 	setDemOpt(demOpt *demOpts)
+}
+
+type viewshedOpts struct {
+	creation     []string
+	errorHandler ErrorHandler
+	driver       DriverName
+
+	targetHeight  float64
+	visibleVal    float64
+	invisibleVal  float64
+	outOfRangeVal float64
+	maxDistance   float64
+	curveCoeff    float64
+	noDataVal     float64
+	cellMode      ViewshedMode
+	heightMode    ViewshedOutputType
+}
+
+// ViewshedOption is an option that can be passed to Viewshed()
+type ViewshedOption interface {
+	setViewshedOpt(viewshedOpt *viewshedOpts)
+}
+
+type targetHeightOpt struct {
+	targetHeight float64
+}
+
+// TargetHeight sets the target height above the DEM surface
+func TargetHeight(targetHeight float64) interface {
+	ViewshedOption
+} {
+	return targetHeightOpt{targetHeight}
+}
+func (tho targetHeightOpt) setViewshedOpt(vs *viewshedOpts) {
+	vs.targetHeight = tho.targetHeight
+}
+
+type visibilityValsOpt struct {
+	visibleVal   float64
+	invisibleVal float64
+}
+
+// VisibilityVals sets the raster output value for visible and invisible pixels
+func VisibilityVals(visibleVal, invisibleVal float64) interface {
+	ViewshedOption
+} {
+	return visibilityValsOpt{visibleVal, invisibleVal}
+}
+func (vvo visibilityValsOpt) setViewshedOpt(vs *viewshedOpts) {
+	vs.visibleVal = vvo.visibleVal
+	vs.invisibleVal = vvo.invisibleVal
+}
+
+type outOfRangeValOpt struct {
+	outOfRangeVal float64
+}
+
+// OutOfRangeVal sets the raster output value for pixels outside of max distance
+func OutOfRangeVal(outOfRangeVal float64) interface {
+	ViewshedOption
+} {
+	return outOfRangeValOpt{outOfRangeVal}
+}
+func (oorvo outOfRangeValOpt) setViewshedOpt(vs *viewshedOpts) {
+	vs.outOfRangeVal = oorvo.outOfRangeVal
+}
+
+type curveCoeffOpt struct {
+	curveCoeff float64
+}
+
+// CurveCoeff sets the coefficient for atmospheric refraction
+func CurveCoeff(curveCoeff float64) interface {
+	ViewshedOption
+} {
+	return curveCoeffOpt{curveCoeff}
+}
+func (cco curveCoeffOpt) setViewshedOpt(vs *viewshedOpts) {
+	vs.curveCoeff = cco.curveCoeff
+}
+
+type noDataValOpt struct {
+	noDataVal float64
+}
+
+// NoDataVal sets the raster output value for pixels with no data
+func NoDataVal(noDataVal float64) interface {
+	ViewshedOption
+} {
+	return noDataValOpt{noDataVal}
+}
+func (ndvo noDataValOpt) setViewshedOpt(vs *viewshedOpts) {
+	vs.noDataVal = ndvo.noDataVal
+}
+
+type cellModeOpt struct {
+	cellMode ViewshedMode
+}
+
+// CellMode sets mode of cell height calculation
+func CellMode(cellMode ViewshedMode) interface {
+	ViewshedOption
+} {
+	return cellModeOpt{cellMode}
+}
+func (cmo cellModeOpt) setViewshedOpt(vs *viewshedOpts) {
+	vs.cellMode = cmo.cellMode
+}
+
+type heightModeOpt struct {
+	heightMode ViewshedOutputType
+}
+
+// HeightMode sets the type of the output information
+func HeightMode(heightMode ViewshedOutputType) interface {
+	ViewshedOption
+} {
+	return heightModeOpt{heightMode}
+}
+func (hmo heightModeOpt) setViewshedOpt(vs *viewshedOpts) {
+	vs.heightMode = hmo.heightMode
 }
 
 type setGCPsOpts struct {

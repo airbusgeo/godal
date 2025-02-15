@@ -4440,6 +4440,170 @@ func TestGridInvalidSwitch(t *testing.T) {
 	assert.Error(t, err)
 }
 
+// Test Ported from: https://github.com/OSGeo/gdal/blob/6cdae8b8f7d09ecf67e24959e984d2e7bbe3ee62/autotest/cpp/test_viewshed.cpp#L98
+func TestViewshedSimpleHeight(t *testing.T) {
+	// setup common to all scopes
+	var (
+		ehc = eh()
+		drv = DriverName("MEM")
+
+		identity = [6]float64{0, 1, 0, 0, 0, 1}
+
+		xLen = 5
+		yLen = 5
+		in   = []int8{
+			-1, 0, 1, 0, -1,
+			-1, 2, 0, 4, -1,
+			-1, 1, 0, -1, -1,
+			0, 3, 0, 2, 0,
+			-1, 0, 0, 3, -1,
+		}
+		observable = []float64{
+			4, 2, 0, 4, 8,
+			3, 2, 0, 4, 3,
+			2, 1, 0, -1, -2,
+			4, 3, 0, 2, 1,
+			6, 3, 0, 2, 4,
+		}
+	)
+	vrtDs, err := Create(Memory, "", 1, Int8, xLen, yLen)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer vrtDs.Close()
+	err = vrtDs.SetGeoTransform(identity)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	err = vrtDs.Bands()[0].IO(IOWrite, 0, 0, in, xLen, yLen)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	// from cpp scope 1: normal
+	// NOTE: This test fails in releases older than 3.4.2
+	if CheckMinVersion(3, 4, 2) {
+		rds, err := vrtDs.Bands()[0].Viewshed("none", 2, 2, 0, DriverName(drv), CurveCoeff(0), ErrLogger(ehc.ErrorHandler))
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		defer rds.Close()
+
+		out := make([]int8, xLen*yLen)
+		err = rds.Bands()[0].IO(IORead, 0, 0, out, xLen, yLen)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
+		expected := make([]int8, xLen*yLen)
+		for i := 0; i < len(in); i++ {
+			var v int8 = 0
+			if in[i] >= int8(observable[i]) {
+				v = 127
+			}
+			expected[i] = v
+		}
+		assert.Equal(t, expected, out)
+	}
+
+	// from cpp scope 2: dem
+	// NOTE: This test fails in releases older than 3.10
+	if CheckMinVersion(3, 10, 0) {
+		rds, err := vrtDs.Bands()[0].Viewshed("none", 2, 2, 0, DriverName(drv), CurveCoeff(0), HeightMode(MinTargetHeightFromDem))
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		defer rds.Close()
+
+		dem := make([]float64, xLen*yLen)
+		err = rds.Bands()[0].IO(IORead, 0, 0, dem, xLen, yLen)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
+		expected := make([]float64, xLen*yLen)
+		copy(expected, observable)
+		for i := 0; i < len(expected); i++ {
+			expected[i] = math.Max(0.0, expected[i])
+		}
+		assert.Equal(t, expected, dem)
+	}
+
+	// from cpp scope 3: ground
+	// NOTE: This test fails in releases older than 3.4.2
+	if CheckMinVersion(3, 4, 2) {
+		rds, err := vrtDs.Bands()[0].Viewshed("none", 2, 2, 0, DriverName(drv), CurveCoeff(0), HeightMode(MinTargetHeightFromGround))
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		defer rds.Close()
+
+		ground := make([]float64, xLen*yLen)
+		err = rds.Bands()[0].IO(IORead, 0, 0, ground, xLen, yLen)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
+		expected := make([]float64, xLen*yLen)
+		for i := 0; i < len(expected); i++ {
+			expected[i] = math.Max(0.0, observable[i]-float64(in[i]))
+		}
+		assert.Equal(t, expected, ground)
+	}
+}
+
+func TestViewshedCreationOptions(t *testing.T) {
+
+	var (
+		driver  = GTiff
+		tmpname = tempfile()
+	)
+	defer os.Remove(tmpname)
+	vrtDs, err := Create(driver, tmpname, 1, Int8, 20, 20, CreationOption("TILED=YES", "BLOCKXSIZE=128", "BLOCKYSIZE=128"))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer vrtDs.Close()
+	identity := [6]float64{0, 1, 0, 0, 0, 1}
+	err = vrtDs.SetGeoTransform(identity)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	// Invalid - with error logger
+	ehc := eh()
+	ds, err := vrtDs.Bands()[0].Viewshed("none", 2, 2, 0, CreationOption("INVALID_OPT=BAR"), ErrLogger(ehc.ErrorHandler))
+	if err == nil {
+		ds.Close()
+	}
+	assert.Error(t, err)
+
+	// Invalid - no error logger
+	ds, err = vrtDs.Bands()[0].Viewshed("none", 2, 2, 0, CreationOption("INVALID_OPT=BAR"))
+	if err == nil {
+		ds.Close()
+	}
+	assert.Error(t, err)
+
+	// Valid
+	ds, err = vrtDs.Bands()[0].Viewshed("none", 2, 2, 0, CreationOption("TILED=YES", "BLOCKXSIZE=128", "BLOCKYSIZE=128"))
+	if err == nil {
+		ds.Close()
+	}
+	assert.NoError(t, err)
+}
+
 func TestNearblackBlack(t *testing.T) {
 	// 1. Create an image, linearly interpolated, from black (on the left) to white (on the right), using `Grid()`
 	var (

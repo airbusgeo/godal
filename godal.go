@@ -4060,6 +4060,96 @@ func (ds *Dataset) Dem(destPath, processingMode string, colorFilename string, sw
 	return &Dataset{majorObject{C.GDALMajorObjectH(dsRet)}}, nil
 }
 
+// ViewshedMode is the "cell height calculation mode" for the viewshed process
+//
+// Source: https://github.com/OSGeo/gdal/blob/master/alg/viewshed/viewshed_types.h
+type ViewshedMode uint32
+
+const (
+	// MDiagonal is the "diagonal mode"
+	MDiagonal ViewshedMode = iota + 1
+	// MEdge is the "edge mode"
+	MEdge
+	// MMax is the "maximum value produced by Diagonal and Edge mode"
+	MMax
+	// MMin is the "minimum value produced by Diagonal and Edge mode"
+	MMin
+)
+
+// ViewshedOutputType sets the return type and information represented by the returned data
+//
+// Source: https://gdal.org/en/stable/programs/gdal_viewshed.html
+//
+// NOTE: "Cumulative (ACCUM)" mode not currently supported, as it's not available in the `GDALViewshedGenerate` function
+// (it's only used in the command line invocation of `viewshed`)
+type ViewshedOutputType uint32
+
+const (
+	// Normal returns a raster of type Byte containing visible locations
+	Normal ViewshedOutputType = iota + 1
+	// MinTargetHeightFromDem return a raster of type Float64 containing the minimum target height for target to be visible from the DEM surface
+	MinTargetHeightFromDem
+	// MinTargetHeightFromGround return a raster of type Float64 containing the minimum target height for target to be visible from ground level
+	MinTargetHeightFromGround
+)
+
+// Viewshed (binding for GDALViewshedGenerate), creates a viewshed from a raster DEM, these parameters (mostly) map to parameters for GDALViewshedGenerate
+// for more information see: https://gdal.org/en/stable/api/gdal_alg.html#_CPPv420GDALViewshedGenerate15GDALRasterBandHPKcPKc12CSLConstListddddddddd16GDALViewshedModed16GDALProgressFuncPv22GDALViewshedOutputType12CSLConstList
+//
+// Several Viewshed parameters have default values defined in GDAL, see `Options` in: https://github.com/OSGeo/gdal/blob/master/alg/viewshed/viewshed_types.h
+//
+// to define different values for these parameters, provide the corresponding options:
+//
+//   - DriverName(dn DriverName) sets the GDAL driver
+//   - TargetHeight(h float64) sets the target height above the DEM surface
+//   - VisibilityVals(vv float64, iv float64) sets the raster output value for visible and invisible pixels
+//   - OutOfRangeVal(ov float64) sets the raster output value for pixels outside of max distance
+//   - MaxDistance(d float64) sets the maximum number of pixels to search from the observer
+//   - CurveCoeff(cc float64) sets the coefficient for atmospheric refraction
+//   - NoDataVal(nd float64) sets the raster output value for pixels with no data
+//   - CellMode(cm ViewshedMode) sets mode of cell height calculation
+//   - HeightMode(hm ViewshedOutputType) sets the type of the output information
+//   - CreationOption(opts ...string) options to pass to a driver when creating a dataset
+//
+// WARNING: One of the Godal tests for this function is ported from a GDAL test finalised in this commit (tagged for 3.10.2RC1): https://github.com/OSGeo/gdal/commit/33dd00c63155250afce04092c77cb225570efa64
+//
+// Automated testing across different GDAL versions shows that GDALViewshedGenerate FAILS some of these tests on versions of GDAL < 3.10.0 as follows:
+//
+//   - version < 3.1.0: viewshed is not supported and will always throw a "not implemented" error
+//   - 3.1.0 <= version < 3.4.2: all tests fail
+//   - 3.4.2 <= version < 3.10.0: tests where heightMode == MinTargetHeightFromDem fail
+//   - version >= 3.10.0: all tests pass
+func (srcBand Band) Viewshed(targetRasterName string, observerX float64, observerY float64, observerHeight float64, opts ...ViewshedOption) (*Dataset, error) {
+	vso := viewshedOpts{
+		driver:     GTiff,
+		visibleVal: 255,
+		noDataVal:  -1,
+		curveCoeff: .85714,
+		cellMode:   MEdge,
+		heightMode: Normal,
+	}
+	for _, opt := range opts {
+		opt.setViewshedOpt(&vso)
+	}
+
+	copts := sliceToCStringArray(vso.creation)
+	defer copts.free()
+	driver := unsafe.Pointer(C.CString(string(vso.driver)))
+	defer C.free(unsafe.Pointer(driver))
+	targetRaster := unsafe.Pointer(C.CString(targetRasterName))
+	defer C.free(unsafe.Pointer(targetRaster))
+
+	cgc := createCGOContext(nil, vso.errorHandler)
+	dsRet := C.godalViewshedGenerate(cgc.cPointer(), srcBand.handle(), (*C.char)(driver), (*C.char)(targetRaster), copts.cPointer(), C.double(observerX),
+		C.double(observerY), C.double(observerHeight), C.double(vso.targetHeight), C.double(vso.visibleVal), C.double(vso.invisibleVal), C.double(vso.outOfRangeVal),
+		C.double(vso.noDataVal), C.double(vso.curveCoeff), C.uint(vso.cellMode), C.double(vso.maxDistance), C.uint(vso.heightMode))
+	if err := cgc.close(); err != nil {
+		return nil, err
+	}
+
+	return &Dataset{majorObject{C.GDALMajorObjectH(dsRet)}}, nil
+}
+
 // Nearblack runs the library version of nearblack
 //
 // See the nearblack doc page to determine the valid flags/opts that can be set in switches.
