@@ -4093,13 +4093,23 @@ const (
 	MinTargetHeightFromGround
 )
 
-// Viewshed (binding for GDALViewshedGenerate), creates a viewshed from a raster DEM, these parameters (mostly) map to to parameters for GDALViewshedGenerate
-//
+// Viewshed (binding for GDALViewshedGenerate), creates a viewshed from a raster DEM, these parameters (mostly) map to parameters for GDALViewshedGenerate
 // for more information see: https://gdal.org/en/stable/api/gdal_alg.html#_CPPv420GDALViewshedGenerate15GDALRasterBandHPKcPKc12CSLConstListddddddddd16GDALViewshedModed16GDALProgressFuncPv22GDALViewshedOutputType12CSLConstList
 //
-// Creations options can be set through options with:
+// Several Viewshed parameters have default values defined in GDAL, see `Options` in: https://github.com/OSGeo/gdal/blob/master/alg/viewshed/viewshed_types.h
 //
-//	Viewshed(bnd, "mem", "none", ..., CreationOption("TILED=YES","BLOCKXSIZE=256"))
+// to define different values for these parameters, provide the corresponding options:
+//
+//   - DriverName(dn DriverName) sets the GDAL driver
+//   - TargetHeight(h float64) sets the target height above the DEM surface
+//   - VisibilityVals(vv float64, iv float64) sets the raster output value for visible and invisible pixels
+//   - OutOfRangeVal(ov float64) sets the raster output value for pixels outside of max distance
+//   - MaxDistance(d float64) sets the maximum number of pixels to search from the observer
+//   - CurveCoeff(cc float64) sets the coefficient for atmospheric refraction
+//   - NoDataVal(nd float64) sets the raster output value for pixels with no data
+//   - CellMode(cm ViewshedMode) sets mode of cell height calculation
+//   - HeightMode(hm ViewshedOutputType) sets the type of the output information
+//   - CreationOption(opts ...string) options to pass to a driver when creating a dataset
 //
 // WARNING: One of the Godal tests for this function is ported from a GDAL test finalised in this commit (tagged for 3.10.2RC1): https://github.com/OSGeo/gdal/commit/33dd00c63155250afce04092c77cb225570efa64
 //
