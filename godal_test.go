@@ -4471,6 +4471,7 @@ func TestViewshedSimpleHeight(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	defer vrtDs.Close()
 	err = vrtDs.SetGeoTransform(identity)
 	if err != nil {
 		t.Error(err)
@@ -4572,6 +4573,7 @@ func TestViewshedCreationOptions(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	defer vrtDs.Close()
 	identity := [6]float64{0, 1, 0, 0, 0, 1}
 	err = vrtDs.SetGeoTransform(identity)
 	if err != nil {
@@ -4581,15 +4583,24 @@ func TestViewshedCreationOptions(t *testing.T) {
 
 	// Invalid - with error logger
 	ehc := eh()
-	_, err = vrtDs.Bands()[0].Viewshed("none", 2, 2, 0, CreationOption("INVALID_OPT=BAR"), ErrLogger(ehc.ErrorHandler))
+	ds, err := vrtDs.Bands()[0].Viewshed("none", 2, 2, 0, CreationOption("INVALID_OPT=BAR"), ErrLogger(ehc.ErrorHandler))
+	if err == nil {
+		ds.Close()
+	}
 	assert.Error(t, err)
 
 	// Invalid - no error logger
-	_, err = vrtDs.Bands()[0].Viewshed("none", 2, 2, 0, CreationOption("INVALID_OPT=BAR"))
+	ds, err = vrtDs.Bands()[0].Viewshed("none", 2, 2, 0, CreationOption("INVALID_OPT=BAR"))
+	if err == nil {
+		ds.Close()
+	}
 	assert.Error(t, err)
 
 	// Valid
-	_, err = vrtDs.Bands()[0].Viewshed("none", 2, 2, 0, CreationOption("TILED=YES", "BLOCKXSIZE=128", "BLOCKYSIZE=128"))
+	ds, err = vrtDs.Bands()[0].Viewshed("none", 2, 2, 0, CreationOption("TILED=YES", "BLOCKXSIZE=128", "BLOCKYSIZE=128"))
+	if err == nil {
+		ds.Close()
+	}
 	assert.NoError(t, err)
 }
 
