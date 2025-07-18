@@ -39,7 +39,9 @@ import (
 )
 
 func init() {
-	RegisterInternalDrivers()
+	if err := RegisterInternalDrivers(); err != nil {
+		panic(err)
+	}
 }
 
 type errChecker struct {
@@ -2650,13 +2652,17 @@ func TestExecuteSQL(t *testing.T) {
 }
 
 func TestVectorLayer(t *testing.T) {
-	rds, _ := Create(Memory, "", 3, Byte, 10, 10)
+	tname := "testdata/invraster.tif"
+	defer os.Remove(tname)
+	rds, _ := Create(GTiff, tname, 3, Byte, 10, 10)
 	_, err := rds.CreateLayer("ff", nil, GTPolygon)
 	assert.Error(t, err)
 	ehc := eh()
 	_, err = rds.CreateLayer("ff", nil, GTPolygon, ErrLogger(ehc.ErrorHandler))
-
 	assert.Error(t, err)
+	_ = rds.Close()
+
+	rds, _ = Create(Memory, "", 3, Byte, 10, 10)
 	lyrs := rds.Layers()
 	if len(lyrs) > 0 {
 		t.Error("raster ds has vector layers")
@@ -2716,7 +2722,11 @@ func TestVectorLayer(t *testing.T) {
 	assert.Error(t, err)
 	_ = vds.Close()
 
-	dds, err := ds.VectorTranslate("", []string{"-of", "MEMORY"})
+	memVectorName := "MEMORY"
+	if CheckMinVersion(3, 11, 0) {
+		memVectorName = "MEM"
+	}
+	dds, err := ds.VectorTranslate("", []string{"-of", memVectorName})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2830,7 +2840,11 @@ func TestLayerModifyFeatures(t *testing.T) {
 		err = l.UpdateFeature(ff, ErrLogger(ehc.ErrorHandler))
 		assert.Error(t, err) //read-only, must fail
 	}
-	dsm, _ := ds.VectorTranslate("", []string{"-of", "Memory"})
+	vectorDriverName := "Memory"
+	if CheckMinVersion(3, 11, 0) {
+		vectorDriverName = "MEM"
+	}
+	dsm, _ := ds.VectorTranslate("", []string{"-of", vectorDriverName})
 	defer dsm.Close()
 	l = dsm.Layers()[0]
 
@@ -4997,7 +5011,9 @@ func TestSetGCPsAddZeroGCPs(t *testing.T) {
 }
 
 func TestSetGCPsInvalidDataset(t *testing.T) {
-	vrtDs, err := CreateVector(Memory, "")
+	tname := "testdata/invgcp.geojson"
+	defer os.Remove(tname)
+	vrtDs, err := CreateVector(GeoJSON, tname)
 	if err != nil {
 		t.Error(err)
 		return
@@ -5112,7 +5128,9 @@ func TestSetGCPs2AddZeroGCPs(t *testing.T) {
 }
 
 func TestSetGCPs2InvalidDataset(t *testing.T) {
-	vrtDs, err := CreateVector(Memory, "")
+	tname := "testdata/invgcp2.geojson"
+	defer os.Remove(tname)
+	vrtDs, err := CreateVector(GeoJSON, tname)
 	if err != nil {
 		t.Error(err)
 		return

@@ -1330,29 +1330,19 @@ func RegisterRaster(drivers ...DriverName) error {
 // that can be found in ogrsf_frmts.h
 func RegisterVector(drivers ...DriverName) error {
 	for _, driver := range drivers {
-		switch driver {
-		/* TODO: speedup for OGR drivers
-		case VRT:
-			C.RegisterOGRVRT()
-		case Memory:
-			C.RegisterOGRMEM()
-		case Mitab:
-			C.RegisterOGRTAB()
-		case GeoJSON:
-			C.RegisterOGRGeoJSON()
-		*/
-		default:
-			fnname := fmt.Sprintf("RegisterOGR%s", driver)
-			drv, ok := driverMappings[driver]
-			if ok {
-				fnname = drv.vectorRegister
-			}
-			if fnname == "" {
-				return fmt.Errorf("%s driver does not handle vectors", fnname)
-			}
-			if err := registerDriver(fnname); err != nil {
-				return err
-			}
+		if driver == Memory && CheckMinVersion(3, 11, 0) {
+			continue //OGRMEM was merged into raster driver in https://github.com/OSGeo/gdal/issues/12102
+		}
+		fnname := fmt.Sprintf("RegisterOGR%s", driver)
+		drv, ok := driverMappings[driver]
+		if ok {
+			fnname = drv.vectorRegister
+		}
+		if fnname == "" {
+			return fmt.Errorf("%s driver does not handle vectors", fnname)
+		}
+		if err := registerDriver(fnname); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -1372,10 +1362,16 @@ func registerDriver(fnname string) error {
 //
 // It is equivalent to calling RegisterRaster("VRT","MEM","GTiff") and
 // RegisterVector("MEM","VRT","GeoJSON")
-func RegisterInternalDrivers() {
-	//These are always build in and should never error
-	_ = RegisterRaster(VRT, Memory, GTiff)
-	_ = RegisterVector(VRT, Memory, GeoJSON)
+func RegisterInternalDrivers() error {
+	//These are always build in and should never error.
+	//update for gdal 3.11: never say never
+	if err := RegisterRaster(VRT, Memory, GTiff); err != nil {
+		return err
+	}
+	if err := RegisterVector(VRT, Memory, GeoJSON); err != nil {
+		return err
+	}
+	return nil
 }
 
 // Driver is a gdal format driver
@@ -1602,6 +1598,12 @@ func CheckMinVersion(major, minor, revision int) bool {
 func init() {
 	compiledVersion := LibVersion(C.GDAL_VERSION_NUM)
 	AssertMinVersion(compiledVersion.Major(), compiledVersion.Minor(), 0)
+	if CheckMinVersion(3, 11, 0) {
+		dm := driverMappings[Memory]
+		dm.vectorRegister = ""
+		dm.vectorName = "MEM"
+		driverMappings[Memory] = dm
+	}
 }
 
 //export goErrorHandler

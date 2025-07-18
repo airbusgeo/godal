@@ -33,7 +33,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        gdal: ['release/3.7', 'release/3.8', 'release/3.9', 'release/3.10', 'master' ]
+        gdal: [ 'release/3.8', 'release/3.9', 'release/3.10', 'release/3.11', 'master' ]
     steps:
       - name: optgdal
         run: sudo mkdir /optgdal && sudo chown -R $USER /optgdal
@@ -55,7 +55,7 @@ jobs:
       fail-fast: false
       matrix:
         go: [ '1.22', '1.23' ]
-        gdal: [  'release/3.7', 'release/3.8', 'release/3.9', 'release/3.10', 'master' ]
+        gdal: [  'release/3.8', 'release/3.9', 'release/3.10', 'release/3.11', 'master' ]
     name: Go ${{ matrix.go }} + GDAL ${{ matrix.gdal }} test
     steps:
       - name: APT
@@ -89,7 +89,7 @@ jobs:
         env:
           PKG_CONFIG_PATH: /optgdal/lib/pkgconfig/
       - name: Send coverage
-        if: ${{ matrix.go == '1.23' && matrix.gdal == 'release/3.10' }}
+        if: ${{ matrix.go == '1.23' && matrix.gdal == 'release/3.11' }}
         uses: shogo82148/actions-goveralls@v1
         with:
           path-to-profile: profile.cov
@@ -102,8 +102,8 @@ jobs:
           level: error
           fail_on_error: true
       - name: golangci-lint
-        if: ${{ matrix.go == '1.23' && matrix.gdal == 'release/3.10' }}
-        uses: reviewdog/action-golangci-lint@v2
+        if: ${{ matrix.go == '1.23' && matrix.gdal == 'release/3.11' }}
+        uses: reviewdog/action-golangci-lint@v1
         env:
           PKG_CONFIG_PATH: /optgdal/lib/pkgconfig/
         with:
