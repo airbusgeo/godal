@@ -2000,6 +2000,7 @@ func ThreadSafe() interface {
 } {
 	return threadSafeOpt{}
 }
+
 func (threadSafeOpt) setOpenOpt(oo *openOpts) {
 	oo.flags |= C.GDAL_OF_THREAD_SAFE
 }
