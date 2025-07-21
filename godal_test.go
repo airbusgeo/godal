@@ -1271,6 +1271,10 @@ func TestOpen(t *testing.T) {
 	if err == nil {
 		t.Error("error not raised")
 	}
+	_, err = Open("testdata/test.tif", RasterOnly(), ThreadSafe())
+	if err != nil {
+		t.Fatal(err)
+	}
 	ds, err := Open("testdata/test.tif")
 	if err != nil {
 		t.Fatal(err)

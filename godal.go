@@ -1990,6 +1990,20 @@ func (rasterOnlyOpt) setOpenOpt(oo *openOpts) {
 	oo.flags |= C.GDAL_OF_RASTER
 }
 
+type threadSafeOpt struct{}
+
+// ThreadSafe adds capability to open, or obtain, a thread-safe dataset from any
+// dataset, but only for raster read-only use cases.  Should be used with
+// RasterOnly option. (GDAL>=3.10.0)
+func ThreadSafe() interface {
+	OpenOption
+} {
+	return threadSafeOpt{}
+}
+func (threadSafeOpt) setOpenOpt(oo *openOpts) {
+	oo.flags |= C.GDAL_OF_THREAD_SAFE
+}
+
 // SpatialRef is a wrapper around OGRSpatialReferenceH
 type SpatialRef struct {
 	handle  C.OGRSpatialReferenceH
