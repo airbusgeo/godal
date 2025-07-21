@@ -1995,6 +1995,8 @@ type threadSafeOpt struct{}
 // ThreadSafe adds capability to open, or obtain, a thread-safe dataset from any
 // dataset, but only for raster read-only use cases.  Should be used with
 // RasterOnly option. (GDAL>=3.10.0)
+//
+// If used before supported GDAL version, flag will be a noop.
 func ThreadSafe() interface {
 	OpenOption
 } {
