@@ -1271,15 +1271,7 @@ func TestOpen(t *testing.T) {
 	if err == nil {
 		t.Error("error not raised")
 	}
-	ds, err := Open("testdata/test.tif", RasterOnly(), ThreadSafe())
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = ds.Close()
-	if err != nil {
-		t.Error(err)
-	}
-	ds, err = Open("testdata/test.tif")
+	ds, err := Open("testdata/test.tif")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1300,6 +1292,17 @@ func TestOpen(t *testing.T) {
 	_, err = Open("godal.cpp")
 	if err == nil {
 		t.Error("error not caught")
+	}
+}
+
+func TestOpenThreadsafe(t *testing.T) {
+	ds, err := Open("testdata/test.tif", RasterOnly(), ThreadSafe())
+
+	if CheckMinVersion(3, 10, 0) {
+		require.NoError(t, err)
+		assert.NoError(t, ds.Close())
+	} else {
+		assert.ErrorIs(t, err, ErrUnsupportedThreadSafe)
 	}
 }
 
