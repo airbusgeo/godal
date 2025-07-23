@@ -367,6 +367,7 @@ type openOpts struct {
 //   - Update
 //   - DriverOpenOption
 //   - RasterOnly
+//   - ThreadSafe
 //   - VectorOnly
 type OpenOption interface {
 	setOpenOpt(oo *openOpts) error
