@@ -1958,7 +1958,7 @@ func Update() interface {
 
 func (openUpdateOpt) setOpenOpt(oo *openOpts) error {
 	//unset readonly
-	oo.flags = oo.flags &^ C.GDAL_OF_READONLY //actually a noop as OF_READONLY is 0
+	oo.flags = oo.flags &^ C.GDAL_OF_READONLY //actually a noop as GDAL_OF_READONLY is 0
 	oo.flags |= C.GDAL_OF_UPDATE
 	return nil
 }
