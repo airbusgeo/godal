@@ -290,8 +290,9 @@ func (ec errorCallback) setNewFeatureOpt(o *newFeatureOpts) {
 func (ec errorCallback) setNewGeometryOpt(o *newGeometryOpts) {
 	o.errorHandler = ec.fn
 }
-func (ec errorCallback) setOpenOpt(oo *openOpts) {
+func (ec errorCallback) setOpenOpt(oo *openOpts) error {
 	oo.errorHandler = ec.fn
+	return nil
 }
 func (ec errorCallback) setPolygonizeOpt(o *polygonizeOpts) {
 	o.errorHandler = ec.fn

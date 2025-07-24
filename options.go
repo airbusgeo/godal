@@ -367,9 +367,10 @@ type openOpts struct {
 //   - Update
 //   - DriverOpenOption
 //   - RasterOnly
+//   - ThreadSafe
 //   - VectorOnly
 type OpenOption interface {
-	setOpenOpt(oo *openOpts)
+	setOpenOpt(oo *openOpts) error
 }
 
 type closeOpts struct {
@@ -647,12 +648,14 @@ func SiblingFiles(files ...string) interface {
 } {
 	return siblingFilesOpt{files}
 }
-func (sf siblingFilesOpt) setOpenOpt(oo *openOpts) {
+
+func (sf siblingFilesOpt) setOpenOpt(oo *openOpts) error {
 	if len(sf.files) > 0 {
 		oo.siblingFiles = append(oo.siblingFiles, sf.files...)
 	} else {
 		oo.siblingFiles = nil
 	}
+	return nil
 }
 
 type setDescriptionOpts struct {
@@ -973,8 +976,9 @@ func (co configOpt) setDatasetCreateMaskOpt(dcm *dsCreateMaskOpts) {
 func (co configOpt) setBandCreateMaskOpt(bcm *bandCreateMaskOpts) {
 	bcm.config = append(bcm.config, co.config...)
 }
-func (co configOpt) setOpenOpt(oo *openOpts) {
+func (co configOpt) setOpenOpt(oo *openOpts) error {
 	oo.config = append(oo.config, co.config...)
+	return nil
 }
 func (co configOpt) setRasterizeOpt(oo *rasterizeOpts) {
 	oo.config = append(oo.config, co.config...)

@@ -33,6 +33,11 @@ typedef enum {
 } FutureGDALDataType;
 #endif
 
+#if GDAL_VERSION_NUM < GDAL_COMPUTE_VERSION(3, 10, 0)
+	/* GDAL < 3.10, no thread-safe flag */
+	#define GDAL_OF_THREAD_SAFE 0
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif

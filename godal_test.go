@@ -1295,6 +1295,17 @@ func TestOpen(t *testing.T) {
 	}
 }
 
+func TestOpenThreadsafe(t *testing.T) {
+	ds, err := Open("testdata/test.tif", RasterOnly(), ThreadSafe())
+
+	if CheckMinVersion(3, 10, 0) {
+		require.NoError(t, err)
+		assert.NoError(t, ds.Close())
+	} else {
+		assert.ErrorIs(t, err, ErrUnsupportedThreadSafe)
+	}
+}
+
 func TestOpenUpdate(t *testing.T) {
 	tt := tempfile()
 	defer os.Remove(tt)

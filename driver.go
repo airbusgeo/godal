@@ -138,8 +138,9 @@ func Drivers(drivers ...string) interface {
 } {
 	return driversOpt{drivers}
 }
-func (do driversOpt) setOpenOpt(oo *openOpts) {
+func (do driversOpt) setOpenOpt(oo *openOpts) error {
 	oo.drivers = append(oo.drivers, do.drivers...)
+	return nil
 }
 
 type driverOpenOption struct {
@@ -154,8 +155,9 @@ func DriverOpenOption(keyval ...string) interface {
 } {
 	return driverOpenOption{keyval}
 }
-func (doo driverOpenOption) setOpenOpt(oo *openOpts) {
+func (doo driverOpenOption) setOpenOpt(oo *openOpts) error {
 	oo.options = append(oo.options, doo.oo...)
+	return nil
 }
 func (doo driverOpenOption) setBuildVRTOpt(bvo *buildVRTOpts) {
 	bvo.openOptions = append(bvo.openOptions, doo.oo...)

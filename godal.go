@@ -1519,9 +1519,18 @@ func Open(name string, options ...OpenOption) (*Dataset, error) {
 		flags:        C.GDAL_OF_READONLY | C.GDAL_OF_VERBOSE_ERROR,
 		siblingFiles: []string{filepath.Base(name)},
 	}
+
+	var optErr error
 	for _, opt := range options {
-		opt.setOpenOpt(&oopts)
+		if err := opt.setOpenOpt(&oopts); err != nil {
+			optErr = errors.Join(optErr, err)
+		}
 	}
+
+	if optErr != nil {
+		return nil, fmt.Errorf("error applying options: %w", optErr)
+	}
+
 	csiblings := sliceToCStringArray(oopts.siblingFiles)
 	coopts := sliceToCStringArray(oopts.options)
 	cdrivers := sliceToCStringArray(oopts.drivers)
@@ -1947,10 +1956,11 @@ func Update() interface {
 	return openUpdateOpt{}
 }
 
-func (openUpdateOpt) setOpenOpt(oo *openOpts) {
+func (openUpdateOpt) setOpenOpt(oo *openOpts) error {
 	//unset readonly
-	oo.flags = oo.flags &^ C.GDAL_OF_READONLY //actually a noop as OF_READONLY is 0
+	oo.flags = oo.flags &^ C.GDAL_OF_READONLY //actually a noop as GDAL_OF_READONLY is 0
 	oo.flags |= C.GDAL_OF_UPDATE
+	return nil
 }
 
 type openSharedOpt struct{}
@@ -1962,8 +1972,9 @@ func Shared() interface {
 	return openSharedOpt{}
 }
 
-func (openSharedOpt) setOpenOpt(oo *openOpts) {
+func (openSharedOpt) setOpenOpt(oo *openOpts) error {
 	oo.flags |= C.GDAL_OF_SHARED
+	return nil
 }
 
 type vectorOnlyOpt struct{}
@@ -1974,8 +1985,9 @@ func VectorOnly() interface {
 } {
 	return vectorOnlyOpt{}
 }
-func (vectorOnlyOpt) setOpenOpt(oo *openOpts) {
+func (vectorOnlyOpt) setOpenOpt(oo *openOpts) error {
 	oo.flags |= C.GDAL_OF_VECTOR
+	return nil
 }
 
 type rasterOnlyOpt struct{}
@@ -1986,8 +1998,31 @@ func RasterOnly() interface {
 } {
 	return rasterOnlyOpt{}
 }
-func (rasterOnlyOpt) setOpenOpt(oo *openOpts) {
+func (rasterOnlyOpt) setOpenOpt(oo *openOpts) error {
 	oo.flags |= C.GDAL_OF_RASTER
+	return nil
+}
+
+type threadSafeOpt struct{}
+
+// ThreadSafe adds capability to open, or obtain, a thread-safe dataset from any
+// dataset, but only for raster read-only use cases.  Should be used with
+// RasterOnly option. (GDAL>=3.10.0)
+func ThreadSafe() interface {
+	OpenOption
+} {
+	return threadSafeOpt{}
+}
+
+var ErrUnsupportedThreadSafe = errors.New("thread-safe flag unsupported below gdal version 3.10")
+
+func (threadSafeOpt) setOpenOpt(oo *openOpts) error {
+	if !CheckMinVersion(3, 10, 0) {
+		return ErrUnsupportedThreadSafe
+	}
+
+	oo.flags |= C.GDAL_OF_THREAD_SAFE
+	return nil
 }
 
 // SpatialRef is a wrapper around OGRSpatialReferenceH
