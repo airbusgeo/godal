@@ -1151,11 +1151,14 @@ size_t godalVSIRead(VSILFILE *f, void *buf, int len, char **errmsg) {
 }
 
 void godalRasterHistogram(cctx *ctx, GDALRasterBandH bnd, double *min, double *max, int *buckets,
-						   unsigned long long **values, int bIncludeOutOfRange, int bApproxOK) {
+						   unsigned long long **values, int bIncludeOutOfRange, int bApproxOK, int bForce) {
 	godalWrap(ctx);
 	CPLErr ret = CE_None;
 	if (*buckets == 0) {
-		ret=GDALGetDefaultHistogramEx(bnd,min,max,buckets,values,1,nullptr,nullptr);
+		ret=GDALGetDefaultHistogramEx(bnd,min,max,buckets,values,bForce,nullptr,nullptr);
+		if(ret == CE_Warning && ctx->errMessage == nullptr) {
+			CPLError(CE_Failure, CPLE_AppDefined, "no cached histogram available");
+		}
 	} else {
 		*values = (unsigned long long*) VSIMalloc(*buckets*sizeof(GUIntBig));
 		ret=GDALGetRasterHistogramEx(bnd,*min,*max,*buckets,*values,bIncludeOutOfRange,bApproxOK,nullptr,nullptr);
