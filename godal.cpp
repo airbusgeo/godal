@@ -163,9 +163,13 @@ GDALDatasetH godalOpen(cctx *ctx, const char *name, unsigned int nOpenFlags, con
 }
 
 void godalClose(cctx *ctx, GDALDatasetH ds) {
-	godalWrap(ctx);
-	GDALClose(ds);
-	godalUnwrap();
+	if (ctx != nullptr) {
+		godalWrap(ctx);
+		GDALClose(ds);
+		godalUnwrap();
+	} else {
+		GDALClose(ds);
+	}
 }
 
 typedef void (*fn_def)(void);

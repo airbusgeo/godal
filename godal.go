@@ -956,6 +956,9 @@ func (ds *Dataset) Translate(dstDS string, switches []string, opts ...DatasetTra
 	cgc := createCGOContext(gopts.config, gopts.errorHandler)
 	hndl := C.godalTranslate(cgc.cPointer(), (*C.char)(cname), ds.handle(), cswitches.cPointer())
 	if err := cgc.close(); err != nil {
+		if hndl != nil {
+			C.godalClose(nil, C.GDALDatasetH(hndl))
+		}
 		return nil, err
 	}
 	return &Dataset{majorObject{C.GDALMajorObjectH(hndl)}}, nil
@@ -1028,6 +1031,9 @@ func Warp(dstDS string, sourceDS []*Dataset, switches []string, opts ...DatasetW
 	cgc := createCGOContext(gopts.config, gopts.errorHandler)
 	hndl := C.godalDatasetWarp(cgc.cPointer(), (*C.char)(cname), C.int(len(sourceDS)), (*C.GDALDatasetH)(unsafe.Pointer(&srcDS[0])), cswitches.cPointer())
 	if err := cgc.close(); err != nil {
+		if hndl != nil {
+			C.godalClose(nil, C.GDALDatasetH(hndl))
+		}
 		return nil, err
 	}
 	return &Dataset{majorObject{C.GDALMajorObjectH(hndl)}}, nil
@@ -1456,10 +1462,12 @@ func Create(driver DriverName, name string, nBands int, dtype DataType, width, h
 		createOpts.cPointer())
 
 	if err := cgc.close(); err != nil {
+		if hndl != nil {
+			C.godalClose(nil, C.GDALDatasetH(hndl))
+		}
 		return nil, err
 	}
 	return &Dataset{majorObject{C.GDALMajorObjectH(hndl)}}, nil
-
 }
 
 // CreateVector wraps GDALCreate and uses driver to create a new vector dataset with the given name
@@ -1489,10 +1497,12 @@ func CreateVector(driver DriverName, name string, opts ...DatasetCreateOption) (
 	hndl := C.godalCreate(cgc.cPointer(), drv.handle(), (*C.char)(unsafe.Pointer(cname)),
 		0, 0, 0, C.GDT_Unknown, createOpts.cPointer())
 	if err := cgc.close(); err != nil {
+		if hndl != nil {
+			C.godalClose(nil, C.GDALDatasetH(hndl))
+		}
 		return nil, err
 	}
 	return &Dataset{majorObject{C.GDALMajorObjectH(hndl)}}, nil
-
 }
 
 type majorObject struct {
@@ -1541,11 +1551,12 @@ func Open(name string, options ...OpenOption) (*Dataset, error) {
 	defer C.free(unsafe.Pointer(cname))
 
 	cgc := createCGOContext(oopts.config, oopts.errorHandler)
-
 	retds := C.godalOpen(cgc.cPointer(), cname, C.uint(oopts.flags),
 		cdrivers.cPointer(), coopts.cPointer(), csiblings.cPointer())
-
 	if err := cgc.close(); err != nil {
+		if retds != nil {
+			C.godalClose(nil, C.GDALDatasetH(retds))
+		}
 		return nil, err
 	}
 	return &Dataset{majorObject{C.GDALMajorObjectH(retds)}}, nil
@@ -2344,6 +2355,9 @@ func (ds *Dataset) Rasterize(dstDS string, switches []string, opts ...RasterizeO
 	cgc := createCGOContext(gopts.config, gopts.errorHandler)
 	hndl := C.godalRasterize(cgc.cPointer(), (*C.char)(cname), nil, ds.handle(), cswitches.cPointer())
 	if err := cgc.close(); err != nil {
+		if hndl != nil {
+			C.godalClose(nil, C.GDALDatasetH(hndl))
+		}
 		return nil, err
 	}
 	return &Dataset{majorObject{C.GDALMajorObjectH(hndl)}}, nil
@@ -2545,6 +2559,9 @@ func (ds *Dataset) VectorTranslate(dstDS string, switches []string, opts ...Data
 	cgc := createCGOContext(gopts.config, gopts.errorHandler)
 	hndl := C.godalDatasetVectorTranslate(cgc.cPointer(), (*C.char)(cname), ds.handle(), cswitches.cPointer())
 	if err := cgc.close(); err != nil {
+		if hndl != nil {
+			C.godalClose(nil, C.GDALDatasetH(hndl))
+		}
 		return nil, err
 	}
 	return &Dataset{majorObject{C.GDALMajorObjectH(hndl)}}, nil
@@ -3964,6 +3981,9 @@ func BuildVRT(dstVRTName string, sourceDatasets []string, switches []string, opt
 	hndl := C.godalBuildVRT(cgc.cPointer(), (*C.char)(cname), csources.cPointer(),
 		cswitches.cPointer())
 	if err := cgc.close(); err != nil {
+		if hndl != nil {
+			C.godalClose(nil, C.GDALDatasetH(hndl))
+		}
 		return nil, err
 	}
 	return &Dataset{majorObject{C.GDALMajorObjectH(hndl)}}, nil
@@ -4050,9 +4070,11 @@ func (ds *Dataset) Grid(destPath string, switches []string, opts ...GridOption) 
 
 	dsRet = C.godalGrid(cgc.cPointer(), (*C.char)(dest), ds.handle(), cswitches.cPointer())
 	if err := cgc.close(); err != nil {
+		if dsRet != nil {
+			C.godalClose(nil, C.GDALDatasetH(dsRet))
+		}
 		return nil, err
 	}
-
 	return &Dataset{majorObject{C.GDALMajorObjectH(dsRet)}}, nil
 }
 
@@ -4091,9 +4113,11 @@ func (ds *Dataset) Dem(destPath, processingMode string, colorFilename string, sw
 	cgc := createCGOContext(nil, demOpts.errorHandler)
 	dsRet := C.godalDem(cgc.cPointer(), (*C.char)(dest), (*C.char)(alg), colorFn, ds.handle(), cswitches.cPointer())
 	if err := cgc.close(); err != nil {
+		if dsRet != nil {
+			C.godalClose(nil, C.GDALDatasetH(dsRet))
+		}
 		return nil, err
 	}
-
 	return &Dataset{majorObject{C.GDALMajorObjectH(dsRet)}}, nil
 }
 
@@ -4181,9 +4205,11 @@ func (srcBand Band) Viewshed(targetRasterName string, observerX float64, observe
 		C.double(observerY), C.double(observerHeight), C.double(vso.targetHeight), C.double(vso.visibleVal), C.double(vso.invisibleVal), C.double(vso.outOfRangeVal),
 		C.double(vso.noDataVal), C.double(vso.curveCoeff), C.uint(vso.cellMode), C.double(vso.maxDistance), C.uint(vso.heightMode))
 	if err := cgc.close(); err != nil {
+		if dsRet != nil {
+			C.godalClose(nil, C.GDALDatasetH(dsRet))
+		}
 		return nil, err
 	}
-
 	return &Dataset{majorObject{C.GDALMajorObjectH(dsRet)}}, nil
 }
 
@@ -4214,12 +4240,13 @@ func (ds *Dataset) Nearblack(dstDS string, switches []string, opts ...NearblackO
 	defer C.free(dest)
 
 	cgc := createCGOContext(nil, nearBlackOpts.errorHandler)
-
 	ret := C.godalNearblack(cgc.cPointer(), (*C.char)(dest), nil, ds.handle(), cswitches.cPointer())
 	if err := cgc.close(); err != nil {
+		if ret != nil {
+			C.godalClose(nil, C.GDALDatasetH(ret))
+		}
 		return nil, err
 	}
-
 	return &Dataset{majorObject{C.GDALMajorObjectH(ret)}}, nil
 }
 
