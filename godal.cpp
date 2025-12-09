@@ -1421,7 +1421,12 @@ namespace cpl
         VSIGoFilesystemHandler(size_t bufferSize, size_t cacheSize);
         ~VSIGoFilesystemHandler() override;
 
-		VSIVirtualHandle *Open(const char *pszFilename,
+#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 12, 0)
+    	VSIVirtualHandleUniquePtr
+#else
+		VSIVirtualHandle*
+#endif
+			Open(const char *pszFilename,
 							   const char *pszAccess,
 							   bool bSetError
 #if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 3, 0)
@@ -1695,7 +1700,12 @@ namespace cpl
     }
     VSIGoFilesystemHandler::~VSIGoFilesystemHandler() {}
 
-    VSIVirtualHandle *VSIGoFilesystemHandler::Open(const char *pszFilename,
+#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 12, 0)
+    	VSIVirtualHandleUniquePtr
+#else
+		VSIVirtualHandle*
+#endif
+    VSIGoFilesystemHandler::Open(const char *pszFilename,
                                                    const char *pszAccess,
                                                    bool bSetError
 #if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 3, 0)
@@ -1723,11 +1733,19 @@ namespace cpl
         }
         if (m_buffer == 0)
         {
+#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 12, 0)
+            return VSIVirtualHandleUniquePtr(new VSIGoHandle(pszFilename, s));
+#else
             return new VSIGoHandle(pszFilename, s);
+#endif
         }
         else
         {
+#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 12, 0)
+            return VSIVirtualHandleUniquePtr(VSICreateCachedFile(new VSIGoHandle(pszFilename, s), m_buffer, m_cache));
+#else
             return VSICreateCachedFile(new VSIGoHandle(pszFilename, s), m_buffer, m_cache);
+#endif
         }
     }
 
