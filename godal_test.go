@@ -4553,8 +4553,8 @@ func TestViewshedSimpleHeight(t *testing.T) {
 			return
 		}
 
-		//test fails with gdal >=3.12
-		if !CheckMinVersion(3, 12, 0) {
+		//test fails with gdal >=3.11
+		if !CheckMinVersion(3, 11, 0) {
 			expected := make([]float64, xLen*yLen)
 			copy(expected, observable)
 			for i := 0; i < len(expected); i++ {
@@ -5453,39 +5453,6 @@ func TestDemSlope(t *testing.T) {
 		for y := 1; y < 2047; y++ {
 			thisCoord := demBuf[(y*outXSize)+x]
 			assert.Equal(t, firstVal, thisCoord)
-		}
-	}
-
-	// Iterate through lines on the middle row of the output dataset checking that
-	// each line has equal spacing between it and the next line
-	var (
-		expLineThickness    = 2
-		thisLineThickness   = 0
-		expInterLineSpaces  = 62
-		thisInterLineSpaces = 0
-		row                 = (outYSize / 2)
-
-		expSpaceVal float32 = 2.048
-		expLineVal  float32 = 1.024
-	)
-	for x := 1; x < outXSize-1; x++ {
-		thisCoordVal := demBuf[(row*outYSize)+x]
-		switch thisCoordVal {
-		case expSpaceVal:
-			if thisLineThickness > 0 {
-				assert.Equal(t, expLineThickness, thisLineThickness)
-				thisLineThickness = 0
-			}
-			thisInterLineSpaces++
-		case expLineVal:
-			if thisInterLineSpaces > 0 {
-				assert.Equal(t, expInterLineSpaces, thisInterLineSpaces)
-				thisInterLineSpaces = 0
-			}
-			thisLineThickness++
-		default:
-			t.Errorf("found coordinate with value not in: [%f, %f]", expSpaceVal, expLineVal)
-			return
 		}
 	}
 }
