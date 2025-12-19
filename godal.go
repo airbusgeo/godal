@@ -1371,7 +1371,12 @@ func registerDriver(fnname string) error {
 func RegisterInternalDrivers() error {
 	//These are always build in and should never error.
 	//update for gdal 3.11: never say never
-	if err := RegisterRaster(VRT, Memory, GTiff); err != nil {
+	rasterDrivers := []DriverName{Memory, VRT, GTiff}
+	if CheckMinVersion(3, 12, 0) {
+		//starting from gdal 3.12, VRT needs to be registered after gtiff
+		rasterDrivers = []DriverName{Memory, GTiff, VRT}
+	}
+	if err := RegisterRaster(rasterDrivers...); err != nil {
 		return err
 	}
 	if err := RegisterVector(VRT, Memory, GeoJSON); err != nil {
