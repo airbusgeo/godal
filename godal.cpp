@@ -1812,9 +1812,13 @@ void godalVSIInstallGoHandler(cctx *ctx, const char *pszPrefix, size_t bufferSiz
         godalUnwrap();
         return;
     }
-    VSIFilesystemHandler *poHandler = new cpl::VSIGoFilesystemHandler(bufferSize, cacheSize);
     const std::string sPrefix(pszPrefix);
+#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 13, 0)
+    VSIFileManager::InstallHandler(sPrefix, std::make_shared<cpl::VSIGoFilesystemHandler>(bufferSize, cacheSize));
+#else
+    VSIFilesystemHandler *poHandler = new cpl::VSIGoFilesystemHandler(bufferSize, cacheSize);
     VSIFileManager::InstallHandler(sPrefix, poHandler);
+#endif
     godalUnwrap();
 }
 
