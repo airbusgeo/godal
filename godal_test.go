@@ -2634,12 +2634,15 @@ func TestExecuteSQL(t *testing.T) {
 	err = rs.Close(el)
 	assert.NoError(t, err)
 
-	rs, err = ds.ExecuteSQL("SELECT * FROM test", IndirectSQLiteDialect(), el)
-	assert.NoError(t, err)
-	fc, _ = rs.FeatureCount()
-	assert.Equal(t, 2, fc)
-	err = rs.Close(el)
-	assert.NoError(t, err)
+	if !CheckMinVersion(3, 13, 0) {
+		// FIXME/TODO? GDAL 3.13+ seems to requires binary geometry for INDIRECT_SQLITE; WKT text columns no longer supported
+		rs, err = ds.ExecuteSQL("SELECT * FROM test", IndirectSQLiteDialect(), el)
+		assert.NoError(t, err)
+		fc, _ = rs.FeatureCount()
+		assert.Equal(t, 2, fc)
+		err = rs.Close(el)
+		assert.NoError(t, err)
+	}
 
 	err = rs.Close()
 	assert.NoError(t, err)
