@@ -436,9 +436,15 @@ func TestHistogram(t *testing.T) {
 	bnd := ds.Bands()[0]
 
 	_, err := bnd.Histogram()
-	assert.NoError(t, err)
+	assert.Error(t, err)
+	assert.Equal(t, "no cached histogram available", err.Error())
+
 	ehc := eh()
 	hist, err := bnd.Histogram(ErrLogger(ehc.ErrorHandler))
+	assert.Error(t, err)
+	assert.Equal(t, "no cached histogram available", err.Error())
+
+	hist, err = bnd.Histogram(Force())
 	assert.NoError(t, err)
 
 	ll := hist.Len()

@@ -42,8 +42,9 @@ func (h Histogram) Bucket(i int) Bucket {
 }
 
 type histogramOpts struct {
-	approx         int
-	includeOutside int
+	approx         int //bool
+	force          int //bool
+	includeOutside int //bool
 	min, max       float64
 	buckets        int32
 	errorHandler   ErrorHandler
@@ -55,6 +56,9 @@ type histogramOpts struct {
 //  - Approximate() to allow the algorithm to operate on a subset of the full resolution data
 //  - Intervals(count int, min,max float64) to compute a histogram with count buckets, spanning [min,max].
 //   Each bucket will be (max-min)/count wide. If not provided, the default histogram will be returned.
+//  - Force() to allow gdal to scan the full dataset to extract the histogram if no cached version
+//   is available. This option is not used if also using Intervals(). The default (i.e. without using
+//   Force()) is to return an error if a cached histogram is not available.
 //  - IncludeOutOfRange() to populate the first and last bucket with values under/over the specified min/max
 //   when used in conjuntion with Intervals()
 //  - ErrLogger
@@ -90,6 +94,20 @@ func Approximate() interface {
 	return approximateOkOption{}
 }
 
+type forceOption struct{}
+
+func (aoo forceOption) setHistogramOpt(ho *histogramOpts) {
+	ho.force = 1
+}
+
+// Force allows the histogram algorithm to scan the dataset to collect statistics if a cached
+// histogram is not available (false by default, may cause a long computation if set)
+func Force() interface {
+	HistogramOption
+} {
+	return forceOption{}
+}
+
 type intervalsOption struct {
 	min, max float64
 	buckets  int32
@@ -102,7 +120,9 @@ func (io intervalsOption) setHistogramOpt(ho *histogramOpts) {
 }
 
 // Intervals computes a histogram with count buckets, spanning [min,max].
-// Each bucket will be (max-min)/count wide. If not provided, the default histogram will be returned.
+// Each bucket will be (max-min)/count wide.
+// If provided, this option will force a dataset rescan which may be time consuming.
+// If not provided, the default histogram will be returned
 func Intervals(count int, min, max float64) interface {
 	HistogramOption
 } {
