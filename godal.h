@@ -140,6 +140,16 @@ extern "C" {
 
 	void godalGetColorTable(GDALRasterBandH bnd, GDALPaletteInterp *interp, int *nEntries, short **entries);
 	void godalSetColorTable(cctx *ctx, GDALRasterBandH bnd, GDALPaletteInterp interp, int nEntries, short *entries);
+
+	void godalRATSetTableType(cctx *ctx, GDALRasterAttributeTableH rat, int tableType);
+	void godalRATCreateColumn(cctx *ctx, GDALRasterAttributeTableH rat, const char *name, int type, int usage);
+	void godalRATSetValuesInt(cctx *ctx, GDALRasterAttributeTableH rat, int iField, int nRows, int *values);
+	void godalRATSetValuesDouble(cctx *ctx, GDALRasterAttributeTableH rat, int iField, int nRows, double *values);
+	void godalRATSetValuesString(cctx *ctx, GDALRasterAttributeTableH rat, int iField, int nRows, char **values);
+	void godalSetDefaultRAT(cctx *ctx, GDALRasterBandH bnd, GDALRasterAttributeTableH rat);
+	void godalRATGetValuesInt(cctx *ctx, GDALRasterAttributeTableH rat, int iField, int nRows, int *values);
+	void godalRATGetValuesDouble(cctx *ctx, GDALRasterAttributeTableH rat, int iField, int nRows, double *values);
+	void godalRATGetValuesString(cctx *ctx, GDALRasterAttributeTableH rat, int iField, int nRows, char ***values);
 	void godalRasterHistogram(cctx *ctx, GDALRasterBandH bnd, double *min, double *max, int *buckets,
 						   unsigned long long **values, int bIncludeOutOfRange, int bApproxOK);
 

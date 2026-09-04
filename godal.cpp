@@ -1111,6 +1111,106 @@ void godalSetColorTable(cctx *ctx, GDALRasterBandH bnd, GDALPaletteInterp interp
 	godalUnwrap();
 }
 
+void godalRATSetTableType(cctx *ctx, GDALRasterAttributeTableH rat, int tableType) {
+	godalWrap(ctx);
+	CPLErr ret = GDALRATSetTableType(rat, (GDALRATTableType)tableType);
+	if (ret != 0) {
+		forceCPLError(ctx, ret);
+	}
+	godalUnwrap();
+}
+
+void godalRATCreateColumn(cctx *ctx, GDALRasterAttributeTableH rat, const char *name, int type, int usage) {
+	godalWrap(ctx);
+	CPLErr ret = GDALRATCreateColumn(rat, name, (GDALRATFieldType)type, (GDALRATFieldUsage)usage);
+	if (ret != 0) {
+		forceCPLError(ctx, ret);
+	}
+	godalUnwrap();
+}
+
+void godalRATSetValuesInt(cctx *ctx, GDALRasterAttributeTableH rat, int iField, int nRows, int *values) {
+	godalWrap(ctx);
+	CPLErr ret = GDALRATValuesIOAsInteger(rat, GF_Write, iField, 0, nRows, values);
+	if (ret != 0) {
+		forceCPLError(ctx, ret);
+	}
+	godalUnwrap();
+}
+
+void godalRATSetValuesDouble(cctx *ctx, GDALRasterAttributeTableH rat, int iField, int nRows, double *values) {
+	godalWrap(ctx);
+	CPLErr ret = GDALRATValuesIOAsDouble(rat, GF_Write, iField, 0, nRows, values);
+	if (ret != 0) {
+		forceCPLError(ctx, ret);
+	}
+	godalUnwrap();
+}
+
+void godalRATSetValuesString(cctx *ctx, GDALRasterAttributeTableH rat, int iField, int nRows, char **values) {
+	godalWrap(ctx);
+	CPLErr ret = GDALRATValuesIOAsString(rat, GF_Write, iField, 0, nRows, values);
+	if (ret != 0) {
+		forceCPLError(ctx, ret);
+	}
+	godalUnwrap();
+}
+
+void godalSetDefaultRAT(cctx *ctx, GDALRasterBandH bnd, GDALRasterAttributeTableH rat) {
+	godalWrap(ctx);
+	CPLErr ret = GDALSetDefaultRAT(bnd, rat);
+	if (ret != 0) {
+		forceCPLError(ctx, ret);
+	}
+	godalUnwrap();
+}
+
+void godalRATGetValuesInt(cctx *ctx, GDALRasterAttributeTableH rat, int iField, int nRows, int *values) {
+	godalWrap(ctx);
+	CPLErr ret = GDALRATValuesIOAsInteger(rat, GF_Read, iField, 0, nRows, values);
+	if (ret != 0) {
+		forceCPLError(ctx, ret);
+	}
+	godalUnwrap();
+}
+
+void godalRATGetValuesDouble(cctx *ctx, GDALRasterAttributeTableH rat, int iField, int nRows, double *values) {
+	godalWrap(ctx);
+	CPLErr ret = GDALRATValuesIOAsDouble(rat, GF_Read, iField, 0, nRows, values);
+	if (ret != 0) {
+		forceCPLError(ctx, ret);
+	}
+	godalUnwrap();
+}
+
+// godalRATGetValuesString reads nRows string values from column iField of rat into a
+// freshly malloc'd nRows-length char* array (*values), each entry itself a malloc'd
+// C string. GDALRATValuesIOAsString CPLStrdup's each returned string into a caller
+// supplied array on read, so those are immediately re-copied with plain strdup and
+// CPLFree'd, keeping the ownership/free convention (plain C.free from Go) consistent
+// with the rest of this file's malloc'd outputs (e.g. godalGetColorTable's entries).
+void godalRATGetValuesString(cctx *ctx, GDALRasterAttributeTableH rat, int iField, int nRows, char ***values) {
+	godalWrap(ctx);
+	*values = nullptr;
+	if (nRows > 0) {
+		char **tmp = (char**)malloc(nRows*sizeof(char*));
+		CPLErr ret = GDALRATValuesIOAsString(rat, GF_Read, iField, 0, nRows, tmp);
+		if (ret != 0) {
+			forceCPLError(ctx, ret);
+			free(tmp);
+		} else {
+			char **out = (char**)malloc(nRows*sizeof(char*));
+			for (int i = 0; i < nRows; i++) {
+				out[i] = strdup(tmp[i] ? tmp[i] : "");
+				CPLFree(tmp[i]);
+			}
+			free(tmp);
+			*values = out;
+		}
+	}
+	godalUnwrap();
+}
+
 VSILFILE *godalVSIOpen(cctx *ctx, const char *name) {
 	godalWrap(ctx);
 	VSILFILE *fp = VSIFOpenExL(name,"r",1);
