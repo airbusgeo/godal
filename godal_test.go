@@ -169,6 +169,63 @@ func TestColorTable(t *testing.T) {
 	assert.Len(t, ct3.Entries, 0)
 }
 
+func TestRAT(t *testing.T) {
+	ds, _ := Create(Memory, "", 1, Byte, 10, 10)
+	defer ds.Close()
+	bnd := ds.Bands()[0]
+
+	rat, err := bnd.RAT()
+	assert.NoError(t, err)
+	assert.Len(t, rat.Fields, 0)
+
+	rat = RasterAttributeTable{
+		TableType: RATTableAthematic,
+		Fields: []RATField{
+			{Name: "count", Usage: RFUPixelCount, Type: RATFieldInteger, Values: []int32{10, 20, 30}},
+			{Name: "value", Usage: RFUMinMax, Type: RATFieldReal, Values: []float64{1.5, 2.5, 3.5}},
+			{Name: "class", Usage: RFUName, Type: RATFieldString, Values: []string{"water", "forest", "urban"}},
+		},
+	}
+	err = bnd.SetRAT(rat)
+	assert.NoError(t, err)
+
+	ehc := eh()
+	err = bnd.SetRAT(rat, ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
+	assert.Equal(t, 0, ehc.errs)
+
+	rat2, err := bnd.RAT(ErrLogger(ehc.ErrorHandler))
+	assert.NoError(t, err)
+	assert.Equal(t, 0, ehc.errs)
+	assert.Equal(t, rat, rat2)
+
+	//mismatched Values type for the declared field Type
+	badRat := RasterAttributeTable{
+		Fields: []RATField{
+			{Name: "bad", Type: RATFieldInteger, Values: []string{"nope"}},
+		},
+	}
+	err = bnd.SetRAT(badRat)
+	assert.Error(t, err)
+
+	//mismatched row counts across fields
+	badRat = RasterAttributeTable{
+		Fields: []RATField{
+			{Name: "a", Type: RATFieldInteger, Values: []int32{1, 2, 3}},
+			{Name: "b", Type: RATFieldInteger, Values: []int32{1, 2}},
+		},
+	}
+	err = bnd.SetRAT(badRat)
+	assert.Error(t, err)
+
+	//clear
+	err = bnd.SetRAT(RasterAttributeTable{})
+	assert.NoError(t, err)
+	rat3, err := bnd.RAT()
+	assert.NoError(t, err)
+	assert.Len(t, rat3.Fields, 0)
+}
+
 func TestCreate(t *testing.T) {
 	tmpname := tempfile()
 	defer os.Remove(tmpname)
