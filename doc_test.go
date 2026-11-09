@@ -552,3 +552,63 @@ func ExampleErrorHandler_warnings() {
 	// err if returned will not arise from a gdal warning
 	_ = err
 }
+
+// Example_multiDimensional shows how to navigate and read a multidimensional dataset
+// (e.g. netCDF, Zarr, HDF5 or a multidimensional VRT) through GDAL's multidimensional API
+func Example_multiDimensional() {
+	ds, err := godal.Open("testdata/multidim.vrt", godal.MultiDimRaster())
+	if err != nil {
+		panic(err)
+	}
+	defer ds.Close()
+	root, err := ds.RootGroup()
+	if err != nil {
+		panic(err)
+	}
+	defer root.Close()
+
+	arr, err := root.OpenMDArray("t2m")
+	if err != nil {
+		panic(err)
+	}
+	defer arr.Close()
+	dims, _ := arr.Dimensions()
+	for _, d := range dims {
+		fmt.Printf("dimension %s: size %d, coordinates in %s\n", d.Name, d.Size, d.IndexingVariable)
+	}
+
+	// read the last row of the second time step, and unpack the values
+	vals := make([]float64, dims[2].Size)
+	if err := arr.Read([]int{1, 2, 0}, []int{1, 1, len(vals)}, vals); err != nil {
+		panic(err)
+	}
+	nodata, _ := arr.NoData()
+	scale, offset := arr.ScaleOffset()
+	unpacked := make([]string, len(vals))
+	for i, v := range vals {
+		if v == nodata {
+			unpacked[i] = "nodata"
+			continue
+		}
+		unpacked[i] = fmt.Sprintf("%.2f%s", v*scale+offset, arr.Unit())
+	}
+	fmt.Println(strings.Join(unpacked, " "))
+
+	// expose the first time step as a classic 2D raster, e.g. to use it with Warp()
+	slice, _ := arr.View("[0,...]")
+	defer slice.Close()
+	raster, err := slice.AsClassicDataset(1, 0)
+	if err != nil {
+		panic(err)
+	}
+	defer raster.Close()
+	st := raster.Structure()
+	fmt.Printf("classic raster: %dx%d, %d band(s)\n", st.SizeX, st.SizeY, st.NBands)
+
+	// Output:
+	// dimension time: size 2, coordinates in /time
+	// dimension lat: size 3, coordinates in /lat
+	// dimension lon: size 4, coordinates in /lon
+	// 274.35K 274.36K 274.37K nodata
+	// classic raster: 4x3, 1 band(s)
+}

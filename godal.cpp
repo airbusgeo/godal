@@ -2043,3 +2043,441 @@ void godalGCPListToGeoTransform(cctx *ctx, goGCPList GCPList, int numGCPs, doubl
 
 	godalUnwrap();
 }
+
+/* multidimensional API (RFC 75) */
+
+void godalFreeDimensions(godalDimension *dims, size_t count) {
+	if (dims == nullptr) {
+		return;
+	}
+	for (size_t i = 0; i < count; i++) {
+		CPLFree(dims[i].name);
+		CPLFree(dims[i].type);
+		CPLFree(dims[i].direction);
+		CPLFree(dims[i].indexingVariable);
+	}
+	CPLFree(dims);
+}
+
+void godalFreeAttributes(godalAttribute *attrs, size_t count) {
+	if (attrs == nullptr) {
+		return;
+	}
+	for (size_t i = 0; i < count; i++) {
+		CPLFree(attrs[i].name);
+		CPLFree(attrs[i].dims);
+		CSLDestroy(attrs[i].strings);
+		CPLFree(attrs[i].values);
+	}
+	CPLFree(attrs);
+}
+
+#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3, 1, 0)
+
+static char *godalStrdup(const char *s) {
+	return CPLStrdup(s == nullptr ? "" : s);
+}
+
+static godalDimension *godalCopyDimensions(GDALDimensionH *hdims, size_t count) {
+	godalDimension *dims = (godalDimension *)CPLCalloc(count == 0 ? 1 : count, sizeof(godalDimension));
+	for (size_t i = 0; i < count; i++) {
+		dims[i].name = godalStrdup(GDALDimensionGetName(hdims[i]));
+		dims[i].type = godalStrdup(GDALDimensionGetType(hdims[i]));
+		dims[i].direction = godalStrdup(GDALDimensionGetDirection(hdims[i]));
+		dims[i].size = GDALDimensionGetSize(hdims[i]);
+		GDALMDArrayH idx = GDALDimensionGetIndexingVariable(hdims[i]);
+		if (idx != nullptr) {
+			dims[i].indexingVariable = godalStrdup(GDALMDArrayGetFullName(idx));
+			GDALMDArrayRelease(idx);
+		} else {
+			dims[i].indexingVariable = godalStrdup("");
+		}
+	}
+	return dims;
+}
+
+static godalAttribute *godalCopyAttributes(GDALAttributeH *hattrs, size_t count) {
+	godalAttribute *attrs = (godalAttribute *)CPLCalloc(count == 0 ? 1 : count, sizeof(godalAttribute));
+	for (size_t i = 0; i < count; i++) {
+		GDALAttributeH a = hattrs[i];
+		attrs[i].name = godalStrdup(GDALAttributeGetName(a));
+		size_t ndims = 0;
+		attrs[i].dims = GDALAttributeGetDimensionsSize(a, &ndims);
+		attrs[i].nDims = attrs[i].dims == nullptr ? 0 : ndims;
+		GDALExtendedDataTypeH dt = GDALAttributeGetDataType(a);
+		GDALExtendedDataTypeClass cls = GDALExtendedDataTypeGetClass(dt);
+		attrs[i].dataType = cls == GEDTC_NUMERIC ? GDALExtendedDataTypeGetNumericDataType(dt) : GDT_Unknown;
+		GDALExtendedDataTypeRelease(dt);
+		if (cls == GEDTC_STRING) {
+			attrs[i].isString = 1;
+			attrs[i].strings = GDALAttributeReadAsStringArray(a);
+			attrs[i].nValues = (size_t)CSLCount(attrs[i].strings);
+		} else if (cls == GEDTC_NUMERIC) {
+			size_t n = 0;
+			attrs[i].values = GDALAttributeReadAsDoubleArray(a, &n);
+			attrs[i].nValues = attrs[i].values == nullptr ? 0 : n;
+		}
+		/* compound attributes are reported with no values */
+	}
+	return attrs;
+}
+
+static void godalCreateAttribute(cctx *ctx, GDALAttributeH (*create)(void *, const char *, size_t, const GUInt64 *, GDALExtendedDataTypeH, CSLConstList),
+								 void *obj, const char *name, const char *str, double *values, size_t nValues) {
+	GDALAttributeH attr = nullptr;
+	if (str != nullptr) {
+		GDALExtendedDataTypeH dt = GDALExtendedDataTypeCreateString(0);
+		attr = create(obj, name, 0, nullptr, dt, nullptr);
+		GDALExtendedDataTypeRelease(dt);
+		if (attr != nullptr && !GDALAttributeWriteString(attr, str)) {
+			forceError(ctx);
+		}
+	} else {
+		GDALExtendedDataTypeH dt = GDALExtendedDataTypeCreate(GDT_Float64);
+		GUInt64 dim = nValues;
+		attr = create(obj, name, nValues == 1 ? 0 : 1, nValues == 1 ? nullptr : &dim, dt, nullptr);
+		GDALExtendedDataTypeRelease(dt);
+		if (attr != nullptr && !GDALAttributeWriteDoubleArray(attr, values, nValues)) {
+			forceError(ctx);
+		}
+	}
+	if (attr == nullptr) {
+		forceError(ctx);
+	} else {
+		GDALAttributeRelease(attr);
+	}
+}
+
+static GDALAttributeH godalGroupCreateAttributeCB(void *obj, const char *name, size_t ndims, const GUInt64 *dims, GDALExtendedDataTypeH dt, CSLConstList opts) {
+	return GDALGroupCreateAttribute((GDALGroupH)obj, name, ndims, dims, dt, opts);
+}
+
+static GDALAttributeH godalMDArrayCreateAttributeCB(void *obj, const char *name, size_t ndims, const GUInt64 *dims, GDALExtendedDataTypeH dt, CSLConstList opts) {
+	return GDALMDArrayCreateAttribute((GDALMDArrayH)obj, name, ndims, dims, dt, opts);
+}
+
+GDALDatasetH godalCreateMultiDimensional(cctx *ctx, GDALDriverH drv, const char *name, char **creationOptions) {
+	godalWrap(ctx);
+	GDALDatasetH ret = GDALCreateMultiDimensional(drv, name, nullptr, creationOptions);
+	if (ret == nullptr) {
+		forceError(ctx);
+	}
+	godalUnwrap();
+	return ret;
+}
+
+GDALGroupH godalDatasetGetRootGroup(cctx *ctx, GDALDatasetH ds) {
+	godalWrap(ctx);
+	GDALGroupH ret = GDALDatasetGetRootGroup(ds);
+	if (ret == nullptr && !failed(ctx)) {
+		CPLError(CE_Failure, CPLE_AppDefined, "dataset has no multidimensional root group (was it opened with the MultiDimRaster() option?)");
+	}
+	godalUnwrap();
+	return ret;
+}
+
+void godalGroupRelease(GDALGroupH grp) {
+	GDALGroupRelease(grp);
+}
+
+char *godalGroupGetName(GDALGroupH grp) {
+	return godalStrdup(GDALGroupGetName(grp));
+}
+
+char *godalGroupGetFullName(GDALGroupH grp) {
+	return godalStrdup(GDALGroupGetFullName(grp));
+}
+
+char **godalGroupGetGroupNames(cctx *ctx, GDALGroupH grp) {
+	godalWrap(ctx);
+	char **ret = GDALGroupGetGroupNames(grp, nullptr);
+	godalUnwrap();
+	return ret;
+}
+
+char **godalGroupGetMDArrayNames(cctx *ctx, GDALGroupH grp) {
+	godalWrap(ctx);
+	char **ret = GDALGroupGetMDArrayNames(grp, nullptr);
+	godalUnwrap();
+	return ret;
+}
+
+GDALGroupH godalGroupOpenGroup(cctx *ctx, GDALGroupH grp, const char *name) {
+	godalWrap(ctx);
+	GDALGroupH ret = GDALGroupOpenGroup(grp, name, nullptr);
+	if (ret == nullptr && !failed(ctx)) {
+		CPLError(CE_Failure, CPLE_AppDefined, "group %s not found", name);
+	}
+	godalUnwrap();
+	return ret;
+}
+
+GDALMDArrayH godalGroupOpenMDArray(cctx *ctx, GDALGroupH grp, const char *name) {
+	godalWrap(ctx);
+	GDALMDArrayH ret = GDALGroupOpenMDArray(grp, name, nullptr);
+	if (ret == nullptr && !failed(ctx)) {
+		CPLError(CE_Failure, CPLE_AppDefined, "array %s not found", name);
+	}
+	godalUnwrap();
+	return ret;
+}
+
+GDALGroupH godalGroupCreateGroup(cctx *ctx, GDALGroupH grp, const char *name) {
+	godalWrap(ctx);
+	GDALGroupH ret = GDALGroupCreateGroup(grp, name, nullptr);
+	if (ret == nullptr) {
+		forceError(ctx);
+	}
+	godalUnwrap();
+	return ret;
+}
+
+void godalGroupCreateDimension(cctx *ctx, GDALGroupH grp, const char *name, const char *type, const char *direction, GUInt64 size) {
+	godalWrap(ctx);
+	GDALDimensionH dim = GDALGroupCreateDimension(grp, name, type, direction, size, nullptr);
+	if (dim == nullptr) {
+		forceError(ctx);
+	} else {
+		GDALDimensionRelease(dim);
+	}
+	godalUnwrap();
+}
+
+GDALMDArrayH godalGroupCreateMDArray(cctx *ctx, GDALGroupH grp, const char *name, char **dimNames, GDALDataType dtype, char **options) {
+	godalWrap(ctx);
+	size_t ngdims = 0;
+	GDALDimensionH *gdims = GDALGroupGetDimensions(grp, &ngdims, nullptr);
+	size_t ndims = (size_t)CSLCount(dimNames);
+	GDALDimensionH *dims = (GDALDimensionH *)CPLCalloc(ndims == 0 ? 1 : ndims, sizeof(GDALDimensionH));
+	GDALMDArrayH ret = nullptr;
+	bool ok = true;
+	for (size_t i = 0; i < ndims; i++) {
+		for (size_t j = 0; j < ngdims; j++) {
+			if (EQUAL(GDALDimensionGetName(gdims[j]), dimNames[i])) {
+				dims[i] = gdims[j];
+				break;
+			}
+		}
+		if (dims[i] == nullptr) {
+			CPLError(CE_Failure, CPLE_AppDefined, "dimension %s not found in group", dimNames[i]);
+			ok = false;
+			break;
+		}
+	}
+	if (ok) {
+		GDALExtendedDataTypeH dt = GDALExtendedDataTypeCreate(dtype);
+		ret = GDALGroupCreateMDArray(grp, name, ndims, dims, dt, options);
+		GDALExtendedDataTypeRelease(dt);
+		if (ret == nullptr) {
+			forceError(ctx);
+		}
+	}
+	CPLFree(dims);
+	GDALReleaseDimensions(gdims, ngdims);
+	godalUnwrap();
+	return ret;
+}
+
+godalDimension *godalGroupGetDimensions(cctx *ctx, GDALGroupH grp, size_t *count) {
+	godalWrap(ctx);
+	size_t n = 0;
+	GDALDimensionH *hdims = GDALGroupGetDimensions(grp, &n, nullptr);
+	godalDimension *ret = godalCopyDimensions(hdims, n);
+	GDALReleaseDimensions(hdims, n);
+	*count = n;
+	godalUnwrap();
+	return ret;
+}
+
+godalAttribute *godalGroupGetAttributes(cctx *ctx, GDALGroupH grp, size_t *count) {
+	godalWrap(ctx);
+	size_t n = 0;
+	GDALAttributeH *hattrs = GDALGroupGetAttributes(grp, &n, nullptr);
+	godalAttribute *ret = godalCopyAttributes(hattrs, n);
+	GDALReleaseAttributes(hattrs, n);
+	*count = n;
+	godalUnwrap();
+	return ret;
+}
+
+void godalGroupSetAttribute(cctx *ctx, GDALGroupH grp, const char *name, const char *str, double *values, size_t nValues) {
+	godalWrap(ctx);
+	godalCreateAttribute(ctx, godalGroupCreateAttributeCB, grp, name, str, values, nValues);
+	godalUnwrap();
+}
+
+void godalMDArrayRelease(GDALMDArrayH arr) {
+	GDALMDArrayRelease(arr);
+}
+
+char *godalMDArrayGetName(GDALMDArrayH arr) {
+	return godalStrdup(GDALMDArrayGetName(arr));
+}
+
+char *godalMDArrayGetFullName(GDALMDArrayH arr) {
+	return godalStrdup(GDALMDArrayGetFullName(arr));
+}
+
+GDALDataType godalMDArrayGetDataType(GDALMDArrayH arr, int *isNumeric) {
+	GDALExtendedDataTypeH dt = GDALMDArrayGetDataType(arr);
+	GDALDataType ret = GDT_Unknown;
+	*isNumeric = 0;
+	if (GDALExtendedDataTypeGetClass(dt) == GEDTC_NUMERIC) {
+		*isNumeric = 1;
+		ret = GDALExtendedDataTypeGetNumericDataType(dt);
+	}
+	GDALExtendedDataTypeRelease(dt);
+	return ret;
+}
+
+godalDimension *godalMDArrayGetDimensions(cctx *ctx, GDALMDArrayH arr, size_t *count) {
+	godalWrap(ctx);
+	size_t n = 0;
+	GDALDimensionH *hdims = GDALMDArrayGetDimensions(arr, &n);
+	godalDimension *ret = godalCopyDimensions(hdims, n);
+	GDALReleaseDimensions(hdims, n);
+	*count = n;
+	godalUnwrap();
+	return ret;
+}
+
+godalAttribute *godalMDArrayGetAttributes(cctx *ctx, GDALMDArrayH arr, size_t *count) {
+	godalWrap(ctx);
+	size_t n = 0;
+	GDALAttributeH *hattrs = GDALMDArrayGetAttributes(arr, &n, nullptr);
+	godalAttribute *ret = godalCopyAttributes(hattrs, n);
+	GDALReleaseAttributes(hattrs, n);
+	*count = n;
+	godalUnwrap();
+	return ret;
+}
+
+void godalMDArraySetAttribute(cctx *ctx, GDALMDArrayH arr, const char *name, const char *str, double *values, size_t nValues) {
+	godalWrap(ctx);
+	godalCreateAttribute(ctx, godalMDArrayCreateAttributeCB, arr, name, str, values, nValues);
+	godalUnwrap();
+}
+
+double godalMDArrayGetNoData(GDALMDArrayH arr, int *hasNoData) {
+	return GDALMDArrayGetNoDataValueAsDouble(arr, hasNoData);
+}
+
+void godalMDArraySetNoData(cctx *ctx, GDALMDArrayH arr, double nd) {
+	godalWrap(ctx);
+	if (!GDALMDArraySetNoDataValueAsDouble(arr, nd)) {
+		forceError(ctx);
+	}
+	godalUnwrap();
+}
+
+double godalMDArrayGetScale(GDALMDArrayH arr, int *hasScale) {
+	return GDALMDArrayGetScale(arr, hasScale);
+}
+
+double godalMDArrayGetOffset(GDALMDArrayH arr, int *hasOffset) {
+	return GDALMDArrayGetOffset(arr, hasOffset);
+}
+
+void godalMDArraySetScaleOffset(cctx *ctx, GDALMDArrayH arr, double scale, double offset) {
+	godalWrap(ctx);
+	if (!GDALMDArraySetScale(arr, scale) || !GDALMDArraySetOffset(arr, offset)) {
+		forceError(ctx);
+	}
+	godalUnwrap();
+}
+
+char *godalMDArrayGetUnit(GDALMDArrayH arr) {
+	return godalStrdup(GDALMDArrayGetUnit(arr));
+}
+
+void godalMDArraySetUnit(cctx *ctx, GDALMDArrayH arr, const char *unit) {
+	godalWrap(ctx);
+	if (!GDALMDArraySetUnit(arr, unit)) {
+		forceError(ctx);
+	}
+	godalUnwrap();
+}
+
+OGRSpatialReferenceH godalMDArrayGetSpatialRef(GDALMDArrayH arr) {
+	return GDALMDArrayGetSpatialRef(arr);
+}
+
+void godalMDArrayIO(cctx *ctx, GDALMDArrayH arr, int write, const GUInt64 *start, const size_t *count,
+					const GInt64 *step, GDALDataType bufType, void *buffer, size_t bufferBytes) {
+	godalWrap(ctx);
+	GDALExtendedDataTypeH dt = GDALExtendedDataTypeCreate(bufType);
+	int ok;
+	if (write) {
+		ok = GDALMDArrayWrite(arr, start, count, step, nullptr, dt, buffer, buffer, bufferBytes);
+	} else {
+		ok = GDALMDArrayRead(arr, start, count, step, nullptr, dt, buffer, buffer, bufferBytes);
+	}
+	GDALExtendedDataTypeRelease(dt);
+	if (!ok) {
+		forceError(ctx);
+	}
+	godalUnwrap();
+}
+
+GDALMDArrayH godalMDArrayGetView(cctx *ctx, GDALMDArrayH arr, const char *expr) {
+	godalWrap(ctx);
+	GDALMDArrayH ret = GDALMDArrayGetView(arr, expr);
+	if (ret == nullptr) {
+		forceError(ctx);
+	}
+	godalUnwrap();
+	return ret;
+}
+
+GDALDatasetH godalMDArrayAsClassicDataset(cctx *ctx, GDALMDArrayH arr, size_t xdim, size_t ydim) {
+	godalWrap(ctx);
+	GDALDatasetH ret = GDALMDArrayAsClassicDataset(arr, xdim, ydim);
+	if (ret == nullptr) {
+		forceError(ctx);
+	}
+	godalUnwrap();
+	return ret;
+}
+
+#else /* GDAL < 3.1 */
+
+static void godalMultiDimUnsupported(cctx *ctx) {
+	godalWrap(ctx);
+	CPLError(CE_Failure, CPLE_NotSupported, "multidimensional API requires GDAL >= 3.1");
+	godalUnwrap();
+}
+GDALDatasetH godalCreateMultiDimensional(cctx *ctx, GDALDriverH, const char *, char **) { godalMultiDimUnsupported(ctx); return nullptr; }
+GDALGroupH godalDatasetGetRootGroup(cctx *ctx, GDALDatasetH) { godalMultiDimUnsupported(ctx); return nullptr; }
+void godalGroupRelease(GDALGroupH) {}
+char *godalGroupGetName(GDALGroupH) { return CPLStrdup(""); }
+char *godalGroupGetFullName(GDALGroupH) { return CPLStrdup(""); }
+char **godalGroupGetGroupNames(cctx *ctx, GDALGroupH) { godalMultiDimUnsupported(ctx); return nullptr; }
+char **godalGroupGetMDArrayNames(cctx *ctx, GDALGroupH) { godalMultiDimUnsupported(ctx); return nullptr; }
+GDALGroupH godalGroupOpenGroup(cctx *ctx, GDALGroupH, const char *) { godalMultiDimUnsupported(ctx); return nullptr; }
+GDALMDArrayH godalGroupOpenMDArray(cctx *ctx, GDALGroupH, const char *) { godalMultiDimUnsupported(ctx); return nullptr; }
+GDALGroupH godalGroupCreateGroup(cctx *ctx, GDALGroupH, const char *) { godalMultiDimUnsupported(ctx); return nullptr; }
+void godalGroupCreateDimension(cctx *ctx, GDALGroupH, const char *, const char *, const char *, GUInt64) { godalMultiDimUnsupported(ctx); }
+GDALMDArrayH godalGroupCreateMDArray(cctx *ctx, GDALGroupH, const char *, char **, GDALDataType, char **) { godalMultiDimUnsupported(ctx); return nullptr; }
+godalDimension *godalGroupGetDimensions(cctx *ctx, GDALGroupH, size_t *count) { *count = 0; godalMultiDimUnsupported(ctx); return nullptr; }
+godalAttribute *godalGroupGetAttributes(cctx *ctx, GDALGroupH, size_t *count) { *count = 0; godalMultiDimUnsupported(ctx); return nullptr; }
+void godalGroupSetAttribute(cctx *ctx, GDALGroupH, const char *, const char *, double *, size_t) { godalMultiDimUnsupported(ctx); }
+void godalMDArrayRelease(GDALMDArrayH) {}
+char *godalMDArrayGetName(GDALMDArrayH) { return CPLStrdup(""); }
+char *godalMDArrayGetFullName(GDALMDArrayH) { return CPLStrdup(""); }
+GDALDataType godalMDArrayGetDataType(GDALMDArrayH, int *isNumeric) { *isNumeric = 0; return GDT_Unknown; }
+godalDimension *godalMDArrayGetDimensions(cctx *ctx, GDALMDArrayH, size_t *count) { *count = 0; godalMultiDimUnsupported(ctx); return nullptr; }
+godalAttribute *godalMDArrayGetAttributes(cctx *ctx, GDALMDArrayH, size_t *count) { *count = 0; godalMultiDimUnsupported(ctx); return nullptr; }
+void godalMDArraySetAttribute(cctx *ctx, GDALMDArrayH, const char *, const char *, double *, size_t) { godalMultiDimUnsupported(ctx); }
+double godalMDArrayGetNoData(GDALMDArrayH, int *hasNoData) { *hasNoData = 0; return 0; }
+void godalMDArraySetNoData(cctx *ctx, GDALMDArrayH, double) { godalMultiDimUnsupported(ctx); }
+double godalMDArrayGetScale(GDALMDArrayH, int *hasScale) { *hasScale = 0; return 1; }
+double godalMDArrayGetOffset(GDALMDArrayH, int *hasOffset) { *hasOffset = 0; return 0; }
+void godalMDArraySetScaleOffset(cctx *ctx, GDALMDArrayH, double, double) { godalMultiDimUnsupported(ctx); }
+char *godalMDArrayGetUnit(GDALMDArrayH) { return CPLStrdup(""); }
+void godalMDArraySetUnit(cctx *ctx, GDALMDArrayH, const char *) { godalMultiDimUnsupported(ctx); }
+OGRSpatialReferenceH godalMDArrayGetSpatialRef(GDALMDArrayH) { return nullptr; }
+void godalMDArrayIO(cctx *ctx, GDALMDArrayH, int, const GUInt64 *, const size_t *, const GInt64 *, GDALDataType, void *, size_t) { godalMultiDimUnsupported(ctx); }
+GDALMDArrayH godalMDArrayGetView(cctx *ctx, GDALMDArrayH, const char *) { godalMultiDimUnsupported(ctx); return nullptr; }
+GDALDatasetH godalMDArrayAsClassicDataset(cctx *ctx, GDALMDArrayH, size_t, size_t) { godalMultiDimUnsupported(ctx); return nullptr; }
+
+#endif
