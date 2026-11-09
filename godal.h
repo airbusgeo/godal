@@ -201,6 +201,64 @@ extern "C" {
 	void godalSetGCPs2(cctx *ctx, GDALDatasetH hSrcDS, int numGCPs, goGCPList GCPList, OGRSpatialReferenceH hSRS);
 	GDAL_GCP *goGCPListToGDALGCP(goGCPList GCPList, int numGCPs);
 	void godalGCPListToGeoTransform(cctx *ctx, goGCPList GCPList, int numGCPs, double *gt);
+#if GDAL_VERSION_NUM < GDAL_COMPUTE_VERSION(3, 1, 0)
+	/* multidimensional API is only available starting from GDAL 3.1 */
+	typedef void *GDALGroupH;
+	typedef void *GDALMDArrayH;
+#endif
+	typedef struct {
+		char *name;
+		char *type;
+		char *direction;
+		char *indexingVariable;
+		GUInt64 size;
+	} godalDimension;
+	typedef struct {
+		char *name;
+		int isString;
+		GDALDataType dataType;
+		size_t nDims;
+		GUInt64 *dims;
+		size_t nValues;
+		char **strings;
+		double *values;
+	} godalAttribute;
+	GDALDatasetH godalCreateMultiDimensional(cctx *ctx, GDALDriverH drv, const char *name, char **creationOptions);
+	GDALGroupH godalDatasetGetRootGroup(cctx *ctx, GDALDatasetH ds);
+	void godalGroupRelease(GDALGroupH grp);
+	char *godalGroupGetName(GDALGroupH grp);
+	char *godalGroupGetFullName(GDALGroupH grp);
+	char **godalGroupGetGroupNames(cctx *ctx, GDALGroupH grp);
+	char **godalGroupGetMDArrayNames(cctx *ctx, GDALGroupH grp);
+	GDALGroupH godalGroupOpenGroup(cctx *ctx, GDALGroupH grp, const char *name);
+	GDALMDArrayH godalGroupOpenMDArray(cctx *ctx, GDALGroupH grp, const char *name);
+	GDALGroupH godalGroupCreateGroup(cctx *ctx, GDALGroupH grp, const char *name);
+	void godalGroupCreateDimension(cctx *ctx, GDALGroupH grp, const char *name, const char *type, const char *direction, GUInt64 size);
+	GDALMDArrayH godalGroupCreateMDArray(cctx *ctx, GDALGroupH grp, const char *name, char **dimNames, GDALDataType dtype, char **options);
+	godalDimension *godalGroupGetDimensions(cctx *ctx, GDALGroupH grp, size_t *count);
+	godalAttribute *godalGroupGetAttributes(cctx *ctx, GDALGroupH grp, size_t *count);
+	void godalGroupSetAttribute(cctx *ctx, GDALGroupH grp, const char *name, const char *str, double *values, size_t nValues);
+	void godalMDArrayRelease(GDALMDArrayH arr);
+	char *godalMDArrayGetName(GDALMDArrayH arr);
+	char *godalMDArrayGetFullName(GDALMDArrayH arr);
+	GDALDataType godalMDArrayGetDataType(GDALMDArrayH arr, int *isNumeric);
+	godalDimension *godalMDArrayGetDimensions(cctx *ctx, GDALMDArrayH arr, size_t *count);
+	godalAttribute *godalMDArrayGetAttributes(cctx *ctx, GDALMDArrayH arr, size_t *count);
+	void godalMDArraySetAttribute(cctx *ctx, GDALMDArrayH arr, const char *name, const char *str, double *values, size_t nValues);
+	double godalMDArrayGetNoData(GDALMDArrayH arr, int *hasNoData);
+	void godalMDArraySetNoData(cctx *ctx, GDALMDArrayH arr, double nd);
+	double godalMDArrayGetScale(GDALMDArrayH arr, int *hasScale);
+	double godalMDArrayGetOffset(GDALMDArrayH arr, int *hasOffset);
+	void godalMDArraySetScaleOffset(cctx *ctx, GDALMDArrayH arr, double scale, double offset);
+	char *godalMDArrayGetUnit(GDALMDArrayH arr);
+	void godalMDArraySetUnit(cctx *ctx, GDALMDArrayH arr, const char *unit);
+	OGRSpatialReferenceH godalMDArrayGetSpatialRef(GDALMDArrayH arr);
+	void godalMDArrayIO(cctx *ctx, GDALMDArrayH arr, int write, const GUInt64 *start, const size_t *count,
+						const GInt64 *step, GDALDataType bufType, void *buffer, size_t bufferBytes);
+	GDALMDArrayH godalMDArrayGetView(cctx *ctx, GDALMDArrayH arr, const char *expr);
+	GDALDatasetH godalMDArrayAsClassicDataset(cctx *ctx, GDALMDArrayH arr, size_t xdim, size_t ydim);
+	void godalFreeDimensions(godalDimension *dims, size_t count);
+	void godalFreeAttributes(godalAttribute *attrs, size_t count);
 #ifdef __cplusplus
 }
 #endif

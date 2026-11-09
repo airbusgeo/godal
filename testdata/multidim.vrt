@@ -1,0 +1,51 @@
+<VRTDataset>
+  <Group name="/">
+    <Attribute name="Conventions">
+      <DataType>String</DataType>
+      <Value>CF-1.8</Value>
+    </Attribute>
+    <Dimension name="time" type="TEMPORAL" size="2" indexingVariable="time"/>
+    <Dimension name="lat" type="HORIZONTAL_Y" direction="NORTH" size="3" indexingVariable="lat"/>
+    <Dimension name="lon" type="HORIZONTAL_X" direction="EAST" size="4" indexingVariable="lon"/>
+    <Array name="time">
+      <DataType>Float64</DataType>
+      <DimensionRef ref="time"/>
+      <Unit>hours since 2026-01-01 00:00:00</Unit>
+      <InlineValues>0 6</InlineValues>
+    </Array>
+    <Array name="lat">
+      <DataType>Float64</DataType>
+      <DimensionRef ref="lat"/>
+      <InlineValues>10 11 12</InlineValues>
+    </Array>
+    <Array name="lon">
+      <DataType>Float64</DataType>
+      <DimensionRef ref="lon"/>
+      <InlineValues>20 21 22 23</InlineValues>
+    </Array>
+    <Array name="t2m">
+      <DataType>Int16</DataType>
+      <DimensionRef ref="time"/>
+      <DimensionRef ref="lat"/>
+      <DimensionRef ref="lon"/>
+      <Unit>K</Unit>
+      <SRS dataAxisToSRSAxisMapping="2,1">EPSG:4326</SRS>
+      <NoDataValue>-9999</NoDataValue>
+      <Offset>273.15</Offset>
+      <Scale>0.01</Scale>
+      <Attribute name="long_name">
+        <DataType>String</DataType>
+        <Value>2 metre temperature</Value>
+      </Attribute>
+      <InlineValues>0 1 2 3 10 11 12 13 20 21 22 23 100 101 102 103 110 111 112 113 120 121 122 -9999</InlineValues>
+    </Array>
+    <Group name="surface">
+      <Array name="mask">
+        <DataType>Byte</DataType>
+        <DimensionRef ref="/lat"/>
+        <DimensionRef ref="/lon"/>
+        <ConstantValue>1</ConstantValue>
+      </Array>
+    </Group>
+  </Group>
+</VRTDataset>

@@ -947,6 +947,8 @@ func ConfigOption(cfgs ...string) interface {
 	DatasetIOOption
 	BandIOOption
 	BuildVRTOption
+	MultiDimOption
+	MDArrayIOOption
 	errorAndLoggingOption
 } {
 	return configOpt{cfgs}

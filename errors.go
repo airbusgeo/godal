@@ -163,6 +163,8 @@ func ErrLogger(fn ErrorHandler) interface {
 	CloseResultSetOption
 	RollbackTransactionOption
 	CommitTransactionOption
+	MultiDimOption
+	MDArrayIOOption
 } {
 	return errorCallback{fn}
 }
