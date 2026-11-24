@@ -599,7 +599,7 @@ func (ca cStringArray) cPointer() **C.char {
 func sliceToCStringArray(in []string) cStringArray {
 	if len(in) > 0 {
 		csa := cStringArray{l: len(in) + 1}
-		csa.arr = (**C.char)(C.malloc(C.size_t(csa.l) * C.size_t(unsafe.Sizeof((*C.char)(nil)))))
+		csa.arr = (**C.char)(C.calloc(C.size_t(csa.l), C.size_t(unsafe.Sizeof((*C.char)(nil)))))
 		garr := (*[1 << 30]*C.char)(unsafe.Pointer(csa.arr))[0:csa.l:csa.l]
 		for i := range in {
 			garr[i] = C.CString(in[i])
@@ -4465,7 +4465,7 @@ type cgoContext struct {
 func createCGOContext(configOptions []string, eh ErrorHandler) cgoContext {
 	cgc := cgoContext{
 		opts: sliceToCStringArray(configOptions),
-		cctx: (*C.cctx)(C.malloc(C.size_t(unsafe.Sizeof(C.cctx{})))),
+		cctx: (*C.cctx)(C.calloc(1, C.size_t(unsafe.Sizeof(C.cctx{})))),
 	}
 	cgc.cctx.configOptions = cgc.opts.cPointer()
 	cgc.cctx.failed = 0
