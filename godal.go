@@ -599,7 +599,6 @@ func (ca cStringArray) cPointer() **C.char {
 func sliceToCStringArray(in []string) cStringArray {
 	if len(in) > 0 {
 		csa := cStringArray{l: len(in) + 1}
-		// calloc instead of malloc: see the comment in createCGOContext.
 		csa.arr = (**C.char)(C.calloc(C.size_t(csa.l), C.size_t(unsafe.Sizeof((*C.char)(nil)))))
 		garr := (*[1 << 30]*C.char)(unsafe.Pointer(csa.arr))[0:csa.l:csa.l]
 		for i := range in {
@@ -4464,13 +4463,6 @@ type cgoContext struct {
 }
 
 func createCGOContext(configOptions []string, eh ErrorHandler) cgoContext {
-	// The C memory is allocated with calloc rather than malloc: the pointer fields of cctx (and the
-	// elements of the cStringArray) are written from Go, so the compiler emits write barriers for
-	// these stores. While the GC is marking, a write barrier hands the previous content of the slot
-	// to the GC. With malloc, that content is whatever was left in the recycled C chunk, which may
-	// look like a Go heap pointer (e.g. a one-past-the-end pointer to a Go buffer left there by C
-	// code that previously used the same chunk), and the GC then aborts the process with
-	// "fatal error: found bad pointer in Go heap". Zeroed memory makes all previous values nil.
 	cgc := cgoContext{
 		opts: sliceToCStringArray(configOptions),
 		cctx: (*C.cctx)(C.calloc(1, C.size_t(unsafe.Sizeof(C.cctx{})))),
