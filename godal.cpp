@@ -676,7 +676,7 @@ void godalBandStructure(GDALRasterBandH bnd, int *sx, int *sy, int *bsx, int *bs
 }
 
 void godalBandRasterIO(cctx *ctx, GDALRasterBandH bnd, GDALRWFlag rw, int nDSXOff, int nDSYOff, int nDSXSize, int nDSYSize, void *pBuffer,
-		int nBXSize, int nBYSize, GDALDataType eBDataType, int nPixelSpace, int nLineSpace, GDALRIOResampleAlg alg) {
+		int nBXSize, int nBYSize, GDALDataType eBDataType, GSpacing nPixelSpace, GSpacing nLineSpace, GDALRIOResampleAlg alg) {
 	godalWrap(ctx);
 	GDALRasterIOExtraArg exargs;
 	INIT_RASTERIO_EXTRA_ARG(exargs);
@@ -693,7 +693,7 @@ void godalBandRasterIO(cctx *ctx, GDALRasterBandH bnd, GDALRWFlag rw, int nDSXOf
 
 void godalDatasetRasterIO(cctx *ctx, GDALDatasetH ds, GDALRWFlag rw, int nDSXOff, int nDSYOff, int nDSXSize, int nDSYSize, void *pBuffer,
 		int nBXSize, int nBYSize, GDALDataType eBDataType, int nBandCount, int *panBandCount,
-		int nPixelSpace, int nLineSpace, int nBandSpace, GDALRIOResampleAlg alg) {
+		GSpacing nPixelSpace, GSpacing nLineSpace, GSpacing nBandSpace, GDALRIOResampleAlg alg) {
 	godalWrap(ctx);
 	GDALRasterIOExtraArg exargs;
 	INIT_RASTERIO_EXTRA_ARG(exargs);

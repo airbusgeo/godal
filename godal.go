@@ -341,7 +341,7 @@ func (band Band) IO(rw IOOperation, srcX, srcY int, buffer interface{}, bufWidth
 		C.int(srcX), C.int(srcY), C.int(ro.dsWidth), C.int(ro.dsHeight),
 		cBuf,
 		C.int(bufWidth), C.int(bufHeight), C.GDALDataType(dtype),
-		C.int(pixelSpacing), C.int(lineSpacing), ralg)
+		C.GSpacing(pixelSpacing), C.GSpacing(lineSpacing), ralg)
 	return cgc.close()
 }
 
@@ -1259,7 +1259,7 @@ func (ds *Dataset) IO(rw IOOperation, srcX, srcY int, buffer interface{}, bufWid
 		cBuf,
 		C.int(bufWidth), C.int(bufHeight), C.GDALDataType(dtype),
 		C.int(len(ro.bands)), cIntArray(ro.bands),
-		C.int(pixelSpacing), C.int(lineSpacing), C.int(bandSpacing), ralg)
+		C.GSpacing(pixelSpacing), C.GSpacing(lineSpacing), C.GSpacing(bandSpacing), ralg)
 	return cgc.close()
 }
 
