@@ -439,7 +439,11 @@ func (band Band) Histogram(opts ...HistogramOption) (Histogram, error) {
 		o.setHistogramOpt(&hopt)
 	}
 	var values *C.ulonglong = nil
-	defer C.VSIFree(unsafe.Pointer(values))
+	// The closure reads values on return. A plain defer evaluates its argument
+	// immediately, when values is still nil, and frees nothing.
+	defer func() {
+		C.VSIFree(unsafe.Pointer(values))
+	}()
 
 	cgc := createCGOContext(nil, hopt.errorHandler)
 
