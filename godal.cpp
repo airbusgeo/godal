@@ -174,20 +174,6 @@ void godalClose(cctx *ctx, GDALDatasetH ds) {
 
 typedef void (*fn_def)(void);
 
-int _go_registerDriver(const char *driver, const char *prefix) {
-	char *fnname = (char*)calloc(1,strlen(driver)+strlen(prefix)+1);
-	snprintf(fnname, sizeof(fnname), "%s%s", prefix, driver);
-	void *fcn = dlsym(RTLD_DEFAULT,fnname);
-	free(fnname);
-	if (fcn != nullptr) {
-		fn_def fnptr = (fn_def)fcn;
-		fnptr();
-	} else {
-		return 1;
-	}
-	return 0;
-}
-
 int godalRegisterDriver(const char *fnname) {
 	void *fcn = dlsym(RTLD_DEFAULT,fnname);
 	if (fcn != nullptr) {
