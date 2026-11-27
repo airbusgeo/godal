@@ -49,15 +49,14 @@ func TestSpacedIOBeyond32Bits(t *testing.T) {
 		_ = syscall.Munmap(buf)
 	}()
 
+	err = ds.Bands()[0].Read(0, 0, buf, 2, 2, LineSpacing(spacing))
+	require.NoError(t, err)
+	assert.Equal(t, []byte{1, 1, 0, 0, 0, 0, 0, 0}, buf[:8])
+	assert.Equal(t, []byte{1, 1, 0, 0}, buf[spacing:])
+
+	// This read overwrites all the bytes that the band read wrote.
 	err = ds.Read(0, 0, buf, 2, 2, BandSpacing(spacing), PixelSpacing(1), LineSpacing(2))
 	require.NoError(t, err)
 	assert.Equal(t, []byte{1, 1, 1, 1, 0, 0, 0, 0}, buf[:8])
 	assert.Equal(t, []byte{2, 2, 2, 2}, buf[spacing:])
-
-	clear(buf[:8])
-	clear(buf[spacing:])
-	err = ds.Bands()[1].Read(0, 0, buf, 2, 2, LineSpacing(spacing))
-	require.NoError(t, err)
-	assert.Equal(t, []byte{2, 2, 0, 0, 0, 0, 0, 0}, buf[:8])
-	assert.Equal(t, []byte{2, 2, 0, 0}, buf[spacing:])
 }
