@@ -738,6 +738,282 @@ func (band Band) SetColorTable(ct ColorTable, opts ...SetColorTableOption) error
 	return cgc.close()
 }
 
+// RATFieldType is the data type of a RasterAttributeTable column. It mirrors
+// GDAL's GDALRATFieldType enum value-for-value (including field types godal
+// does not yet support), so that support for additional types can be added
+// later without renumbering already-assigned constants.
+type RATFieldType C.GDALRATFieldType
+
+const (
+	// RATFieldInteger is a 32-bit integer field
+	RATFieldInteger RATFieldType = C.GFT_Integer
+	// RATFieldReal is a floating point (double) field
+	RATFieldReal RATFieldType = C.GFT_Real
+	// RATFieldString is a string field
+	RATFieldString RATFieldType = C.GFT_String
+)
+
+// RATFieldUsage is the semantic usage of a RasterAttributeTable column. It
+// mirrors GDAL's GDALRATFieldUsage enum value-for-value.
+type RATFieldUsage C.GDALRATFieldUsage
+
+const (
+	RFUGeneric    RATFieldUsage = C.GFU_Generic
+	RFUPixelCount RATFieldUsage = C.GFU_PixelCount
+	RFUName       RATFieldUsage = C.GFU_Name
+	RFUMin        RATFieldUsage = C.GFU_Min
+	RFUMax        RATFieldUsage = C.GFU_Max
+	RFUMinMax     RATFieldUsage = C.GFU_MinMax
+	RFURed        RATFieldUsage = C.GFU_Red
+	RFUGreen      RATFieldUsage = C.GFU_Green
+	RFUBlue       RATFieldUsage = C.GFU_Blue
+	RFUAlpha      RATFieldUsage = C.GFU_Alpha
+	RFURedMin     RATFieldUsage = C.GFU_RedMin
+	RFUGreenMin   RATFieldUsage = C.GFU_GreenMin
+	RFUBlueMin    RATFieldUsage = C.GFU_BlueMin
+	RFUAlphaMin   RATFieldUsage = C.GFU_AlphaMin
+	RFURedMax     RATFieldUsage = C.GFU_RedMax
+	RFUGreenMax   RATFieldUsage = C.GFU_GreenMax
+	RFUBlueMax    RATFieldUsage = C.GFU_BlueMax
+	RFUAlphaMax   RATFieldUsage = C.GFU_AlphaMax
+)
+
+// RATField is a single column of a RasterAttributeTable.
+type RATField struct {
+	Name  string
+	Usage RATFieldUsage
+	Type  RATFieldType
+	// Values holds one entry per row. It must be []int32 when Type is
+	// RATFieldInteger, []float64 when Type is RATFieldReal, or []string when
+	// Type is RATFieldString (SetRAT returns an error otherwise). All fields
+	// of a RasterAttributeTable must carry the same number of values.
+	Values interface{}
+}
+
+// RATTableType classifies a RasterAttributeTable as thematic (rows describe
+// discrete named classes, e.g. land-cover categories) or athematic (rows
+// describe non-class data indexed by row/pixel value, e.g. a lookup table).
+// It mirrors GDAL's GDALRATTableType enum value-for-value.
+type RATTableType C.GDALRATTableType
+
+const (
+	// RATTableThematic is GDAL's default: rows describe discrete named classes.
+	RATTableThematic RATTableType = C.GRTT_THEMATIC
+	// RATTableAthematic marks rows as describing non-class, per-value data.
+	RATTableAthematic RATTableType = C.GRTT_ATHEMATIC
+)
+
+// RasterAttributeTable is a band's raster attribute table: a table of
+// per-row typed attributes ("fields"/columns), commonly used to attach a
+// class/value lookup (e.g. a thematic label, or an index->id map) to a
+// raster band.
+type RasterAttributeTable struct {
+	TableType RATTableType
+	Fields    []RATField
+}
+
+// RAT returns the band's raster attribute table. The returned
+// RasterAttributeTable will have 0 Fields if the band has no RAT assigned.
+func (band Band) RAT(opts ...RATOption) (RasterAttributeTable, error) {
+	ropts := &ratOpts{}
+	for _, o := range opts {
+		o.setRATOpt(ropts)
+	}
+	rat := C.GDALGetDefaultRAT(band.handle())
+	if rat == nil {
+		return RasterAttributeTable{}, nil
+	}
+	nFields := int(C.GDALRATGetColumnCount(rat))
+	nRows := int(C.GDALRATGetRowCount(rat))
+	tableType := RATTableType(C.GDALRATGetTableType(rat))
+	fields := make([]RATField, nFields)
+
+	// One cgoContext for the whole read: each godalRATGetValuesXxx call below
+	// shares it instead of allocating its own, and we stop issuing further
+	// calls (but still visit remaining columns for their name/type/usage,
+	// cheap direct calls that can't fail) once cgc.failed() — see cgoContext.failed.
+	cgc := createCGOContext(nil, ropts.errorHandler)
+	for i := 0; i < nFields; i++ {
+		ci := C.int(i)
+		name := C.GoString(C.GDALRATGetNameOfCol(rat, ci))
+		typ := RATFieldType(C.GDALRATGetTypeOfCol(rat, ci))
+		usage := RATFieldUsage(C.GDALRATGetUsageOfCol(rat, ci))
+		var values interface{}
+		if !cgc.failed() {
+			switch typ {
+			case RATFieldInteger:
+				values = readRATIntColumn(cgc, rat, ci, nRows)
+			case RATFieldReal:
+				values = readRATDoubleColumn(cgc, rat, ci, nRows)
+			case RATFieldString:
+				values = readRATStringColumn(cgc, rat, ci, nRows)
+			default:
+				cgc.close()
+				return RasterAttributeTable{}, fmt.Errorf("godal: RAT column %q: unsupported field type %d", name, typ)
+			}
+		}
+		fields[i] = RATField{Name: name, Usage: usage, Type: typ, Values: values}
+	}
+	if err := cgc.close(); err != nil {
+		return RasterAttributeTable{}, err
+	}
+	return RasterAttributeTable{TableType: tableType, Fields: fields}, nil
+}
+
+func readRATIntColumn(cgc cgoContext, rat C.GDALRasterAttributeTableH, iField C.int, nRows int) []int32 {
+	cbuf := make([]C.int, nRows)
+	var cptr *C.int
+	if nRows > 0 {
+		cptr = &cbuf[0]
+	}
+	C.godalRATGetValuesInt(cgc.cPointer(), rat, iField, C.int(nRows), cptr)
+	ret := make([]int32, nRows)
+	for i, v := range cbuf {
+		ret[i] = int32(v)
+	}
+	return ret
+}
+
+func readRATDoubleColumn(cgc cgoContext, rat C.GDALRasterAttributeTableH, iField C.int, nRows int) []float64 {
+	cbuf := make([]C.double, nRows)
+	var cptr *C.double
+	if nRows > 0 {
+		cptr = &cbuf[0]
+	}
+	C.godalRATGetValuesDouble(cgc.cPointer(), rat, iField, C.int(nRows), cptr)
+	ret := make([]float64, nRows)
+	for i, v := range cbuf {
+		ret[i] = float64(v)
+	}
+	return ret
+}
+
+func readRATStringColumn(cgc cgoContext, rat C.GDALRasterAttributeTableH, iField C.int, nRows int) []string {
+	var cstrs **C.char
+	C.godalRATGetValuesString(cgc.cPointer(), rat, iField, C.int(nRows), &cstrs)
+	ret := make([]string, nRows)
+	if cstrs == nil {
+		return ret
+	}
+	cArr := (*[1 << 28]*C.char)(unsafe.Pointer(cstrs))[:nRows:nRows]
+	for i, s := range cArr {
+		ret[i] = C.GoString(s)
+		C.free(unsafe.Pointer(s))
+	}
+	C.free(unsafe.Pointer(cstrs))
+	return ret
+}
+
+// SetRAT sets the band's raster attribute table. Passing a
+// RasterAttributeTable with 0 Fields clears the band's RAT.
+func (band Band) SetRAT(rat RasterAttributeTable, opts ...SetRATOption) error {
+	sopts := &setRATOpts{}
+	for _, o := range opts {
+		o.setSetRATOpt(sopts)
+	}
+
+	if len(rat.Fields) == 0 {
+		cgc := createCGOContext(nil, sopts.errorHandler)
+		C.godalSetDefaultRAT(cgc.cPointer(), band.handle(), nil)
+		return cgc.close()
+	}
+
+	nRows := -1
+	for _, f := range rat.Fields {
+		var flen int
+		switch f.Type {
+		case RATFieldInteger:
+			vals, ok := f.Values.([]int32)
+			if !ok {
+				return fmt.Errorf("godal: RAT field %q has Type RATFieldInteger but Values is %T, expected []int32", f.Name, f.Values)
+			}
+			flen = len(vals)
+		case RATFieldReal:
+			vals, ok := f.Values.([]float64)
+			if !ok {
+				return fmt.Errorf("godal: RAT field %q has Type RATFieldReal but Values is %T, expected []float64", f.Name, f.Values)
+			}
+			flen = len(vals)
+		case RATFieldString:
+			vals, ok := f.Values.([]string)
+			if !ok {
+				return fmt.Errorf("godal: RAT field %q has Type RATFieldString but Values is %T, expected []string", f.Name, f.Values)
+			}
+			flen = len(vals)
+		default:
+			return fmt.Errorf("godal: RAT field %q has unsupported Type %d (only RATFieldInteger, RATFieldReal and RATFieldString are supported)", f.Name, f.Type)
+		}
+		if nRows == -1 {
+			nRows = flen
+		} else if flen != nRows {
+			return fmt.Errorf("godal: RAT field %q has %d values, expected %d (all fields must have the same number of values)", f.Name, flen, nRows)
+		}
+	}
+
+	ratH := C.GDALCreateRasterAttributeTable()
+	if ratH == nil {
+		return errors.New("godal: failed to create raster attribute table")
+	}
+	defer C.GDALDestroyRasterAttributeTable(ratH)
+	C.GDALRATSetRowCount(ratH, C.int(nRows))
+
+	// One cgoContext for the whole write sequence (table type, then each
+	// field's column-create + values-write, then the final attach to band):
+	// each step shares it instead of allocating its own, and cgc.failed()
+	// short-circuits the rest of the sequence as soon as one step fails —
+	// see cgoContext.failed. close() is called exactly once, at the end.
+	cgc := createCGOContext(nil, sopts.errorHandler)
+	C.godalRATSetTableType(cgc.cPointer(), ratH, C.int(rat.TableType))
+
+	for i, f := range rat.Fields {
+		if cgc.failed() {
+			break
+		}
+		cname := C.CString(f.Name)
+		C.godalRATCreateColumn(cgc.cPointer(), ratH, cname, C.int(f.Type), C.int(f.Usage))
+		C.free(unsafe.Pointer(cname))
+		if cgc.failed() {
+			break
+		}
+
+		ci := C.int(i)
+		switch f.Type {
+		case RATFieldInteger:
+			vals := f.Values.([]int32)
+			cbuf := make([]C.int, nRows)
+			for j, v := range vals {
+				cbuf[j] = C.int(v)
+			}
+			var cptr *C.int
+			if nRows > 0 {
+				cptr = &cbuf[0]
+			}
+			C.godalRATSetValuesInt(cgc.cPointer(), ratH, ci, C.int(nRows), cptr)
+		case RATFieldReal:
+			vals := f.Values.([]float64)
+			cbuf := make([]C.double, nRows)
+			for j, v := range vals {
+				cbuf[j] = C.double(v)
+			}
+			var cptr *C.double
+			if nRows > 0 {
+				cptr = &cbuf[0]
+			}
+			C.godalRATSetValuesDouble(cgc.cPointer(), ratH, ci, C.int(nRows), cptr)
+		case RATFieldString:
+			vals := f.Values.([]string)
+			csa := sliceToCStringArray(vals)
+			C.godalRATSetValuesString(cgc.cPointer(), ratH, ci, C.int(nRows), csa.cPointer())
+			csa.free()
+		}
+	}
+
+	if !cgc.failed() {
+		C.godalSetDefaultRAT(cgc.cPointer(), band.handle(), ratH)
+	}
+	return cgc.close()
+}
+
 // Bands returns all dataset bands.
 func (ds *Dataset) Bands() []Band {
 	cbands := C.godalRasterBands(ds.handle())
@@ -4480,6 +4756,15 @@ func createCGOContext(configOptions []string, eh ErrorHandler) cgoContext {
 
 func (cgc cgoContext) cPointer() *C.cctx {
 	return cgc.cctx
+}
+
+// failed reports whether an error has already been recorded on this context
+// by an earlier cgo call, without closing/freeing it — lets a Go function
+// that issues several sequential cgo calls sharing one context stop issuing
+// further ones once an earlier one has failed, then close() exactly once at
+// the end.
+func (cgc cgoContext) failed() bool {
+	return cgc.cctx.errMessage != nil || cgc.cctx.failed != 0
 }
 
 // frees the context and returns any error it may contain

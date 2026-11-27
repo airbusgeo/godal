@@ -106,6 +106,28 @@ type setColorTableOpts struct {
 	errorHandler ErrorHandler
 }
 
+// RATOption is an option that can be passed to Band.RAT()
+//
+// Available RATOptions are:
+//   - ErrLogger
+type RATOption interface {
+	setRATOpt(o *ratOpts)
+}
+type ratOpts struct {
+	errorHandler ErrorHandler
+}
+
+// SetRATOption is an option that can be passed to Band.SetRAT()
+//
+// Available SetRATOptions are:
+//   - ErrLogger
+type SetRATOption interface {
+	setSetRATOpt(o *setRATOpts)
+}
+type setRATOpts struct {
+	errorHandler ErrorHandler
+}
+
 type fillBandOpts struct {
 	errorHandler ErrorHandler
 }

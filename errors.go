@@ -126,8 +126,10 @@ func ErrLogger(fn ErrorHandler) interface {
 	RasterizeGeometryOption
 	RasterizeOption
 	RasterizeIntoOption
+	RATOption
 	SetColorInterpOption
 	SetColorTableOption
+	SetRATOption
 	SetDescriptionOption
 	SetGeometryOption
 	SetFieldValueOption
@@ -311,6 +313,12 @@ func (ec errorCallback) setSetColorInterpOpt(ndo *setColorInterpOpts) {
 }
 func (ec errorCallback) setSetColorTableOpt(ndo *setColorTableOpts) {
 	ndo.errorHandler = ec.fn
+}
+func (ec errorCallback) setRATOpt(o *ratOpts) {
+	o.errorHandler = ec.fn
+}
+func (ec errorCallback) setSetRATOpt(o *setRATOpts) {
+	o.errorHandler = ec.fn
 }
 func (ec errorCallback) setSetGeometryOpt(o *setGeometryOpts) {
 	o.errorHandler = ec.fn
